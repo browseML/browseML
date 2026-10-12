@@ -45,5 +45,4 @@ your own `bankml serve` with receipts) and [Gregory-L/mindXhfgradio](https://hug
   computer's controls — threads, memory (context), prompt cache, answer length, cache clear, unload — on DreamKnob
   knobs, and diagnostics from actual usage; docks in the page or pops out; buttons drag onto a sidebar menu and
   button panels.
-- **This repository** (2026-10-12): browseML on its own, under the browseML organization, private while the UI is
-  consolidated.
+- **This repository** (2026-10-12): browseML on its own, under the browseML organization; public the same day.

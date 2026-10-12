@@ -18,8 +18,8 @@ WebAssembly exports, the browser runtime, the landing page, the tests. Its first
 are mapped, commit by commit, in [HISTORY.md](HISTORY.md). The model itself is here too, byte for byte (Git LFS):
 [`models/`](models/README.md) — Bonsai-1.7B Q1_0 from
 [prism-ml/Bonsai-1.7B-gguf](https://huggingface.co/prism-ml/Bonsai-1.7B-gguf) at its pinned revision, Apache-2.0.
-Created using Bonsai by Prism ML. Private while the UI is consolidated (the ultimate input
-field's pages — bankML UIF, ultimate-clientside — use this runtime and are being brought together).
+Created using Bonsai by Prism ML. The ultimate input field's pages (bankML UIF, ultimate-clientside) use this runtime
+and are being brought together.
 
 ```sh
 git clone --recurse-submodules git@github.com:browseML/browseML.git
