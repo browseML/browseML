@@ -1,0 +1,29 @@
+[package]
+name = "browseml"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.99"
+authors = ["Professor Codephreak", "Gregory L. Magnusson"]
+repository = "https://github.com/cryptoAGI/browseML"
+description = "browseML: bankML in the browser — the same engine, verified and with a receipt, on the visitor's own CPU, compiled to WebAssembly (wasm32-wasip1)"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+# One dependency, the engine itself — bankML, as the git submodule bankml/ pinned to a commit — as the C API is: no
+# external crate. `git submodule update --init` fetches it; BANKML_PATH (tools/build.sh) builds against another checkout.
+[dependencies]
+engine = { package = "bankml", path = "bankml" }
+
+# Its own workspace: bankML's (bankml/Cargo.toml) stays bankML's.
+[workspace]
+exclude = ["bankml"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+opt-level = 3

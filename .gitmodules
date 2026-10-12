@@ -1,0 +1,3 @@
+[submodule "bankml"]
+	path = bankml
+	url = https://github.com/cryptoAGI/bankml
