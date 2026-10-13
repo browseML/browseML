@@ -48,7 +48,12 @@ streams ~0.85 GB/s of weights against ~10 GB/s of memory: it is bound by arithme
 | module | what | checked by |
 |---|---|---|
 | Q1_0 · q8_0 mat-vec | **done**: WGSL, exact FMA, `exact()` against bankML's reference | 832/832 rows bit-exact; controls fail (110/256) |
-| GPU in the forward pass | a GPU worker beside the engine: the engine hands each 1-bit matmul over shared memory and waits (Atomics) | the oracle's 9 answers identical with the GPU on |
+| exact on real AMD | **done** (0.6.6): TwoSum hidden from the driver's simplifier (`hide`); checked on a Radeon Vega 3 through Dawn | `testing/gpu.mjs`: every result, every shape |
+| the fast kernel, many tokens, vendor workgroups | **done** (0.6.6): eight lanes per row, a token dimension, 64 AMD / 32 NVIDIA | the same bits at 32/64/128; 6.5× the simple kernel |
+| bankML's GPU worker on WebGPU | **done in bankML** (`2c8192d`): `compute_webgpu.rs` behind the host's `bankml_gpu_*` imports; the on-card oracle and calibration unchanged; browseML's bridge (`browseml-gpu-host.js`, Atomics + a GPU worker) | through Dawn on the Vega 3: oracle passed, a share calibrated, 12 answers identical on and off |
+| the page | the GPU worker in the browser (`browseml-gpu-worker.js` on `navigator.gpu`), every host given the imports (oracle, slot, thread, the page's worker), the GPU slider choosing it; then pin bankML `2c8192d` | the browser checks, the oracle with the GPU on |
+| prompt reading on the GPU | the worker's begin/finish for many tokens (`mm`): the fast kernel takes a share of each micro-batch's rows — where the GPU should pay most | the oracle, and an A/B of reading speed |
+| discrete AMD and NVIDIA | measure on real cards (writing and reading); the calibration keeps the CPU wherever the card is slower | A/B per card; answers identical |
 | f16 attention, RoPE, norms in WGSL | the rest of the layer, each against its scalar reference | per-kernel exactness + the oracle |
 | subgroups | faster reductions where `subgroups` exists, the same reduction order | the same tests |
 

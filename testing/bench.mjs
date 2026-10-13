@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { Worker, isMainThread, workerData, parentPort } from "node:worker_threads";
 import { wasi as makeWasi } from "../web/browseml-wasi.js";
+import { connectGpu, gpuEnv } from "../web/browseml-gpu-host.js";
 
 const dec = new TextDecoder(), enc = new TextEncoder();
 
@@ -33,7 +34,7 @@ if (!isMainThread) {
   // one thread of the engine's pool: the same module on the same memory, then the pool's loop
   const { module, memory, tid, arg } = workerData;
   const w = makeWasi({ files: {} });
-  const instance = await WebAssembly.instantiate(module, { ...w.imports, env: { memory }, wasi: { "thread-spawn": () => -1 }, browseml: { piece: () => 1, log: () => {} } });
+  const instance = await WebAssembly.instantiate(module, { ...w.imports, env: { memory, ...gpuEnv(null) }, wasi: { "thread-spawn": () => -1 }, browseml: { piece: () => 1, log: () => {} } });
   w.bind(memory);
   instance.exports.wasi_thread_start(tid, arg);
   parentPort.postMessage("exit");
@@ -44,11 +45,23 @@ if (!isMainThread) {
   const module = await WebAssembly.compile(bytes);
   const w = makeWasi({ files: { [name]: new Uint8Array(fs.readFileSync(modelPath)) }, env: { BANKML_CACHE_RAM: "0", BANKML_THREADS: String(threads) }, write: (fd, s) => process.stderr.write(s) });
   let memory, onPiece = () => 1, tid = 0;
-  const imports = { ...w.imports, browseml: { piece: (p, n) => onPiece(dec.decode(new Uint8Array(memory.buffer).slice(p, p + n))), log: () => {} } };
+  // the engine's log: shown with GPU= (or LOGS=1)
+  const imports = { ...w.imports, browseml: { piece: (p, n) => onPiece(dec.decode(new Uint8Array(memory.buffer).slice(p, p + n))),
+    log: (lv, p, n) => { if (process.env.GPU || process.env.LOGS) console.log(`  engine: ${dec.decode(new Uint8Array(memory.buffer).slice(p, p + n))}`); } } };
+  imports.env = gpuEnv(null);
   if (threads > 1) {
     const lim = importedMemory(bytes);
     memory = new WebAssembly.Memory({ initial: lim.initial, maximum: lim.maximum, shared: true });
-    imports.env = { memory };
+    imports.env = { memory, ...gpuEnv(null) };
+    // GPU=<dir with node_modules/webgpu>: the engine's GPU calls served on this machine's GPU through Dawn
+    if (process.env.GPU) {
+      const ctrl = new SharedArrayBuffer(8);
+      const gw = new Worker(new URL("./gpu-worker.mjs", import.meta.url), { workerData: { memory, ctrl, dawn: process.env.GPU } });
+      gw.unref();
+      const ready = await new Promise((ok) => gw.once("message", ok));
+      console.log(`GPU worker: ${ready.adapter.split("\t").slice(0, 3).join(" · ") || "no adapter"}`);
+      imports.env = { memory, ...gpuEnv(ready.adapter ? connectGpu({ port: gw, ctrl, memory, adapter: ready.adapter }) : null) };
+    }
     imports.wasi = { "thread-spawn": (arg) => { const t = ++tid; new Worker(new URL(import.meta.url), { workerData: { module, memory, tid: t, arg } }).unref(); return t; } };
   }
   const instance = await WebAssembly.instantiate(module, imports);
