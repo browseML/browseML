@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.6.6 — in progress — speed, measured to the kernel
+## 0.6.6 — 2026-10-13 — speed, measured to the kernel; WebGPU exact on real AMD
 
 - **Cheaper sign lanes** (bankML `1c3c16c`): the relaxed WebAssembly kernels make each block's 0/1 lanes in three
   operations instead of five. A/B, 4 threads, alternating runs: prompt reading 6.72 → 7.13 tok/s (+6%); writing
@@ -8,6 +8,15 @@
 - **Where a token's time goes**, profiled: the per-token kernel 55%, the prefill tile 21%, attention 6.5%; writing is
   bound by arithmetic, not memory. Recorded in `docs/TODO.md` with the next steps (the GPU in the forward pass, exact
   speculative decoding, attention).
+- **WebGPU exact on a real AMD GPU** (`web/browseml-gpu.js`): Mesa's compiler simplified TwoSum's `(a + b) − a` and
+  lost its error term (WGSL cannot mark operations exact, as SPIR-V's NoContraction does), so the kernels were not
+  exact on AMD under Chrome or Dawn — the EXACT tool would have said so and the GPU would never have joined. Each
+  intermediate now passes through an OR with a zero the compiler only learns at run time. Checked on an AMD Radeon Vega
+  3 through Dawn (`testing/gpu.mjs`): every result bit-exact, both kernels, every shape.
+- **A fast exact kernel** (`Q1_MM_WGSL`): bankML's `q1_0_mat_vec8` in WGSL — eight invocations per row, one per lane of
+  the CPU kernel — with a second dimension for a prompt's tokens and the workgroup size for the vendor (64 AMD, 32
+  NVIDIA; 32/64/128 give the same bits). On the Vega 3: 2048×2048 in 2.3 ms for one token (the simple kernel 15 ms),
+  64 tokens in 18.7 ms (14.4 GMAC/s).
 - **Measured and not kept:** a 2-row tile for writing on WebAssembly, bit-exact but no faster (2.97 → 2.88 tok/s),
   as bankML had found on x86.
 
