@@ -14,6 +14,7 @@ const server = http.createServer((req, res) => {
   const m = /bytes=(\d+)-(\d+)/.exec(req.headers.range || "");
   requests.push(req.url + " " + (req.headers.range || "-"));
   if (req.url === "/missing") { res.writeHead(404); return res.end(); }
+  if (req.url === "/down") { res.writeHead(503); return res.end(); }
   if (!m || req.url === "/norange") { res.writeHead(200, { "Content-Length": SIZE }); return res.end(file); }
   const a = +m[1], b = Math.min(+m[2], SIZE - 1);
   res.writeHead(206, { "Content-Length": b - a + 1, "Content-Range": `bytes ${a}-${b}/${SIZE}` });
@@ -43,6 +44,11 @@ requests = [];
 let err = "";
 try { await download(base + "/missing", SIZE, () => {}, { piece: PIECE, pauseMs: 1 }); } catch (e) { err = String(e.message); }
 check("a 404 stops at once (no retries)", /HTTP 404/.test(err) && requests.length === 1, err);
+
+requests = [];
+const both = await download([base + "/down", base + "/ok"], SIZE, () => {}, { piece: PIECE, pauseMs: 1 });
+check("one source down: the other serves every piece, the file whole", Buffer.compare(Buffer.from(both), file) === 0,
+  `${requests.filter((r) => r.startsWith("/down")).length} asked of the source that is down, ${requests.filter((r) => r.startsWith("/ok")).length} of the other`);
 
 server.close();
 process.exit(failed ? 1 : 0);

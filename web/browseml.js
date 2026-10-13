@@ -10,6 +10,12 @@ export const MODEL = {
   bytes: 248302272,
   url: "https://huggingface.co/prism-ml/Bonsai-1.7B-gguf/resolve/210a9e99f79cb184909d49595906526eb2b3dd9a/Bonsai-1.7B-Q1_0.gguf",
   fork: "browseML/Bonsai-1.7B-Q1_0.gguf.FORK.json",
+  // two verified sources, the same bytes: Hugging Face (the model's home, at its pinned revision) and browseML/models
+  // (a copy at a pinned commit, checked against the source's own hashes). The pin decides whichever answered.
+  sources: [
+    "https://huggingface.co/prism-ml/Bonsai-1.7B-gguf/resolve/210a9e99f79cb184909d49595906526eb2b3dd9a/Bonsai-1.7B-Q1_0.gguf",
+    "https://media.githubusercontent.com/media/browseML/models/95747a39b6373f44cc4ddbc155b61d5c674334a4/bonsai-1.7b-q1_0/Bonsai-1.7B-Q1_0.gguf",
+  ],
 };
 const CACHE = "browseml-models";
 
@@ -41,15 +47,18 @@ const pause = (ms) => new Promise((ok) => setTimeout(ok, ms));
 async function fetchModel(progress, { signal } = {}) {
   const kept = await cached();
   if (kept && kept.byteLength === MODEL.bytes) { progress(kept.byteLength, MODEL.bytes, "cache"); return kept; }
-  const buf = await download(MODEL.url, MODEL.bytes, progress, { signal });
+  const buf = await download(MODEL.sources, MODEL.bytes, progress, { signal });
   // kept for the next visit (put finishes reading the buffer before it is handed to the engine); a private window or
   // a full disk just means downloading again
   try { const c = await caches.open(CACHE); await c.put(MODEL.url, new Response(buf, { headers: { "Content-Type": "application/octet-stream", "Content-Length": String(MODEL.bytes) } })); } catch {}
   return buf.buffer;
 }
 
-/** `total` bytes from `url` in pieces, each retried from the byte where it was cut; progress as fetchModel's. */
+/** `total` bytes from `url` (or a list of sources holding the same bytes) in pieces, each retried from the byte where it
+ *  was cut — on the next source when there is one; progress as fetchModel's. */
 export async function download(url, total, progress, { signal, piece = PIECE, pauseMs = 500 } = {}) {
+  const sources = Array.isArray(url) ? url : [url];
+  let prefer = 0;  // the source that answered last: the next piece asks it first
   const buf = new Uint8Array(total);
   let got = 0;
   const seen = (n) => { got = n; progress(n, total, "download"); };
@@ -59,7 +68,9 @@ export async function download(url, total, progress, { signal, piece = PIECE, pa
       // a retry asks from the exact byte: what arrived of the cut piece is already in buf
       const from = got;
       try {
-        const r = await fetch(url, { headers: { Range: `bytes=${from}-${end}` }, signal });
+        // the source that answered last first; a retry moves to the next one (and back), so one source down is no stop
+        const at = (prefer + tryNo - 1) % sources.length;
+        const r = await fetch(sources[at], { headers: { Range: `bytes=${from}-${end}` }, signal });
         if (r.status === 200 && from === 0) {
           // a server that ignores Range sends the whole file: take it as one stream
           await readInto(r, buf, 0, total, seen);
@@ -69,6 +80,7 @@ export async function download(url, total, progress, { signal, piece = PIECE, pa
         if (r.status !== 206) throw Object.assign(new Error(`the model could not be downloaded: HTTP ${r.status}`), { final: r.status >= 400 && r.status < 500 });
         await readInto(r, buf, from, end + 1, seen);
         if (got !== end + 1) throw new Error(`a piece stopped at ${got} of ${end + 1} bytes`);
+        prefer = at;
         break;
       } catch (e) {
         if ((signal && signal.aborted) || e.final) throw e;  // stopped, or refused (a 4xx is not a cut)

@@ -171,3 +171,19 @@ body { background: radial-gradient(circle at 50% 0%, #1a160f, #0b0f14 60%) fixed
 .cp-fine { margin: 8px 0 0; color: #94a3b8; font-size: 11px; }
 .cp-fine a { color: #94a3b8; }
 .uif-shelves .cs-rack { padding: 10px; }
+/* the panel's content fits whatever width it is given: nothing runs past its edge */
+.uif-shelves.is-open { overflow-x: hidden; }
+.cp, .cp-fold, .cp-fold-body, .cp-tool, .cp-row dd { min-width: 0; }
+.cp-fold-body { overflow-x: hidden; }
+.cp-suite { grid-template-columns: repeat(auto-fill, minmax(min(100%, 124px), 1fr)); }
+.cp-tool-head { flex-wrap: wrap; }
+.cp-limits > * { max-width: 100%; }
+.cp-limits label, .cp-limits span { white-space: normal !important; overflow-wrap: anywhere; }
+.uif-shelves .cs-rack .cs-knobs { grid-template-columns: repeat(auto-fill, minmax(min(100%, 96px), 1fr)); }
+.uif-shelves .cs-buttons > *, .cp-buttons > * { flex: 1 1 auto; }
+.cs-card-link { min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #334155; background: none; color: #e5e7eb; cursor: pointer; font: 600 13px system-ui, sans-serif; }
+.cs-card-link:hover { border-color: var(--btc-orange, #F7931A); }
+.cs-card-local { flex-basis: 100%; font-size: 12px; color: #cbd5e1; overflow-wrap: anywhere; }
+.cs-card-local.is-ok { color: var(--candle-green, #0ECB81); }
+.cs-card-local.is-bad { color: var(--stop-red, #F6465D); }
+.cs-card-local.is-working { color: var(--btc-orange, #F7931A); }

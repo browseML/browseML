@@ -4,8 +4,8 @@
 // way → the download's progress, pause and cancel, then the verification; ready → one diagnostic line (what was
 // verified, threads, context, the memory the engine holds, the last answer's speed). When it becomes ready, the
 // question waiting in the window is asked.
-import { useEffect, useMemo, useState } from 'react';
-import { askPersist, browseCached, browseDiag, browseState, browseWarm, download, onBrowseWarm } from '../bankml/free';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { askPersist, browseCached, browseDiag, browseState, browseWarm, download, onBrowseWarm, overwriteModel, useLocalModel } from '../bankml/free';
 import { DownloadProgress, useBrowseSettings, useDownload } from '../bankml/ui/browse';
 import { browseVerdicts, mb, readCaps } from '../bankml/caps';
 import { summarize } from '../bankml/usage';
@@ -41,6 +41,24 @@ export function BrowseCard({ onReady }: { onReady(): void }) {
     void askPersist();
     if (await download()) onReady();
   };
+  // a model file already on this computer: recognised by its sha256 against the pin, then used without a download
+  const pick = useRef<HTMLInputElement>(null);
+  const [local, setLocal] = useState<{ text: string; tone?: 'ok' | 'bad' | 'working' } | null>(null);
+  const useFile = async (f: File | undefined) => {
+    if (!f) return;
+    setLocal({ text: `checking ${f.name}…`, tone: 'working' });
+    const r = await useLocalModel(f, line => setLocal({ text: line, tone: 'working' }));
+    if (r.ok) { setLocal({ text: `✓ recognised: ${r.name} (sha256 ${r.sha256.slice(0, 12)}…), no download`, tone: 'ok' }); if (r.verified) onReady(); }
+    else setLocal({ text: r.reason, tone: 'bad' });
+  };
+  const overwrite = async () => { setLocal(null); void askPersist(); if (await overwriteModel()) onReady(); };
+  const extra = (
+    <>
+      <input ref={pick} type="file" accept=".gguf,application/octet-stream" hidden onChange={e => void useFile(e.target.files?.[0])} />
+      <button type="button" className="cs-card-link" onClick={() => pick.current?.click()}>Use a model file you already have</button>
+      {local && <span className={`cs-card-local ${local.tone ? `is-${local.tone}` : ''}`}>{local.text}</span>}
+    </>
+  );
   const busy = s.phase === 'downloading' || s.phase === 'paused' || s.phase === 'saving' || s.phase === 'verifying' || s.phase === 'failed';
   const blocked = browseVerdicts(caps, { ctx: settings.ctx }).filter(x => x.level === 'bad');
   return (
@@ -49,6 +67,12 @@ export function BrowseCard({ onReady }: { onReady(): void }) {
         <>
           <span className="cs-card-what is-working">{s.phase === 'verifying' ? 'Checking the model against its sha256 pin…' : 'Loading the model in your browser…'}</span>
           <DownloadProgress s={s} onRetry={go} />
+          {s.phase === 'failed' && (
+            <>
+              <button type="button" className="cs-import" onClick={() => void overwrite()}>Overwrite with a fresh copy</button>
+              {extra}
+            </>
+          )}
         </>
       ) : (
         <>
@@ -61,6 +85,7 @@ export function BrowseCard({ onReady }: { onReady(): void }) {
               : `Bonsai-1.7B, ${mb(248_302_272)} once, pulled in the background from its pinned source, checked against its sha256 pin, kept in this browser.`}
           </span>
           {blocked.map((x, i) => <span key={i} className="cs-card-bad">{x.text}</span>)}
+          {extra}
         </>
       )}
     </div>

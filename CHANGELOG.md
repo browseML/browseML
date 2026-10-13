@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.5.0 — 2026-10-13 — the GPU, exactly; two verified sources; a model you already have
+
+- **bankML's Q1_0 kernel on WebGPU, bit-exact** (`web/browseml-gpu.js`): the dot product in WGSL as `vec_dot_ref`
+  does it, f16 decoded with integer operations, the outer multiply-add as bankML's `fma_exact` (TwoSum and
+  round-to-odd: WGSL's `fma()` may round twice). `exact()` holds it to bankML's own reference (the new export
+  `browseml_q1_dot_ref`). In Brave (SwiftShader): 832/832 rows bit-exact over three shapes; the controls — plain
+  multiply-add and WGSL's `fma()` — 110/256: the test is sharp. `web/gpu-exact.html` runs it in any WebGPU browser;
+  the control panel's **EXACT** tool runs it on the visitor's GPU and the GPU verdict uses it.
+- **Two verified sources:** Hugging Face and [browseML/models](https://github.com/browseML/models) (the model at a
+  pinned commit, checked against Hugging Face's own LFS sha256 and Git blob ids by its `verify.mjs --source`). Each
+  piece is asked of the source that answered last; a retry moves to the other. `testing/download.mjs`: one source
+  down, the other serves the file whole (one request wasted).
+- **A model you already have:** pick a `.gguf` on this computer; recognised by size, then sha256 against the pin
+  (`recognise()`, tested), and used with no download. **Overwrite with a fresh copy** when the kept model cannot be
+  used. (Unit-tested; the in-browser check waits for the operator's browser to be free.)
+- `docs/TODO.md`: sources (IPFS, peer to peer, folders, OPFS), the GPU forward pass, the organisation's repositories.
+
 ## 0.4.0 — 2026-10-13 — the control panel, the prompt cache, the GPU recognised, the software catalogues
 
 - **The prompt cache, across visits.** The engine's slot (the prompt already read) is saved after the first reading

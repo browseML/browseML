@@ -8,7 +8,7 @@ import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import type { UIFContextValue } from '../components/UIFContext';
 import type { ReplyMarks, SendMeta } from '../types';
 import { slackWindow, type Turn, type Verdict } from '../bankml/engine';
-import { askBrowse, browseCached, browseState, download, downloadState, loadBrowse, sessionCleanup, warmBrowse } from '../bankml/free';
+import { askBrowse, browseCached, browseState, download, downloadState, loadBrowse, markKeptBad, sessionCleanup, warmBrowse } from '../bankml/free';
 import { getLimits } from './limits';
 import { deliver, type DeliveryHooks, type Outcome } from '../bankml/deliver';
 
@@ -89,7 +89,14 @@ export function useBrowseML(uif: MutableRefObject<UIFContextValue | null>) {
         if (browseState()) return null;
         // kept in this browser already: started (bankML checks it) without asking anything of the visitor
         if (await browseCached()) {
-          await loadBrowse(progress);
+          try { await loadBrowse(progress); }
+          catch (e) {
+            // the kept copy does not start (refused by bankML's check, or no response): offer to overwrite it
+            const why = String((e as Error).message || e);
+            markKeptBad(`the model kept in this browser could not be used: ${why}`);
+            held.current = { text, outputId };
+            return { note: 'The model kept in this browser could not be used. Overwrite it with a fresh copy, or use a model file you have.', widget: WIDGET };
+          }
           tick(n => n + 1);
           progress('reading browseML\'s prompt once — kept in this browser for next time…');
           await warm();

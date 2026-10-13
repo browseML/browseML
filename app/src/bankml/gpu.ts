@@ -167,11 +167,17 @@ export async function probeGpu(powerPreference: 'low-power' | 'high-performance'
   }
 }
 
+/** What EXACT found: bankML's Q1_0 kernel on this GPU against bankML's reference, row by row (web/browseml-gpu.js). */
+export interface GpuExact { rows: number; n: number; same: number; gpuMs: number; refMs: number; adapter: string }
+
 /** A plain reading of what was found: where this GPU stands for browseML, honestly. */
-export function gpuVerdict(r: GpuReport, p: GpuProbe | null): { level: 'ok' | 'warn' | 'bad'; text: string } {
+export function gpuVerdict(r: GpuReport, p: GpuProbe | null, x: GpuExact | null = null): { level: 'ok' | 'warn' | 'bad'; text: string } {
+  if (x) return x.same === x.rows
+    ? { level: 'ok', text: `bankML's Q1_0 kernel is bit-exact on this GPU: ${x.same} of ${x.rows} rows identical to the engine's reference` }
+    : { level: 'bad', text: `bankML's Q1_0 kernel differs on this GPU: ${x.rows - x.same} of ${x.rows} rows not identical — browseML keeps its work on the CPU` };
   if (!r.webgpu) return { level: 'warn', text: `no WebGPU here (${r.reason}); browseML answers on the CPU` };
   if (r.adapter?.fallback) return { level: 'warn', text: 'WebGPU runs on a software adapter here (no real GPU): browseML answers on the CPU' };
   if (!p) return { level: 'ok', text: 'a WebGPU adapter is here; PROBE measures it (browseML answers on the CPU today)' };
-  if (!p.fma.fused) return { level: 'warn', text: "this GPU's fma is not fused: an exact kernel would need bankML's exact-FMA route (as on the Vega 3)" };
+  if (!p.fma.fused) return { level: 'ok', text: "this GPU's fma is not fused: bankML's kernel uses its own exact FMA (EXACT proves it here)" };
   return { level: 'ok', text: `fma fused (exact) · ${p.gflops.toFixed(0)} GFLOP/s · ${p.bandwidth.toFixed(1)} GB/s: ready for an exact kernel when browseML has one` };
 }

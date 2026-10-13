@@ -17,6 +17,8 @@
 //!   browseml_slot(action, path) -> 0 or an error code; action "save" or "restore": the slot (its tokens and every
 //!     layer's keys and values) to or from a file, as `serve`'s /slots/0?action=save|restore; out = {"tokens", "bytes"}
 //!     or {"error": …}. The page keeps a warm slot (the persona prompt already read) and restores it on the next visit.
+//!   browseml_q1_dot_ref(n, x, x_len, y, y_len) -> the f32 bits of bankML's scalar reference `q1_0::vec_dot_ref` (Q1_0
+//!     weights · q8_0 activations, n values), or 0xFFFF_FFFF when the sizes are wrong: what a GPU kernel is held to
 //!   browseml_out_ptr() / browseml_out_len(), browseml_version() (into out)
 //! Imports (module "browseml"): piece(ptr, len) -> i32 (0 stops the answer), log(level, ptr, len).
 
@@ -218,4 +220,21 @@ pub unsafe extern "C" fn browseml_slot(action_ptr: *const u8, action_len: usize,
             code
         }
     }
+}
+
+/// The reference a GPU kernel is held to: bankML's scalar `q1_0::vec_dot_ref` (the arithmetic every CPU path matches
+/// bit for bit), on `n` values of Q1_0 weights `x` and q8_0 activations `y`. Returns the f32's bits; u32::MAX when the
+/// sizes do not fit (an f32 NaN pattern the reference never returns for finite inputs).
+///
+/// # Safety
+/// The pointers must be valid for their lengths in this module's memory.
+#[no_mangle]
+pub unsafe extern "C" fn browseml_q1_dot_ref(n: usize, x_ptr: *const u8, x_len: usize, y_ptr: *const u8, y_len: usize) -> u32 {
+    use engine::q1_0::{vec_dot_ref, Q1_0_BYTES, Q8_0_BYTES, QK1_0, QK8_0};
+    if n == 0 || n % QK1_0 != 0 || x_len < n / QK1_0 * Q1_0_BYTES || y_len < n / QK8_0 * Q8_0_BYTES {
+        return u32::MAX;
+    }
+    // SAFETY: the caller passes valid pointers for these lengths.
+    let (x, y) = unsafe { (std::slice::from_raw_parts(x_ptr, x_len), std::slice::from_raw_parts(y_ptr, y_len)) };
+    vec_dot_ref(n, x, y).to_bits()
 }

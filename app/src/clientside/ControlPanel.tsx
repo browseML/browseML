@@ -18,7 +18,7 @@ import { browseDiag, browseMaxThreads, browseSettings, browseState, browseWarm, 
 import { mb, readCaps } from '../bankml/caps';
 import { summarize } from '../bankml/usage';
 import { UsagePanel } from './UsagePanel';
-import { gpuVerdict, probeGpu, readGpu, KEY_FEATURES, type GpuProbe, type GpuReport } from '../bankml/gpu';
+import { gpuVerdict, probeGpu, readGpu, KEY_FEATURES, type GpuExact, type GpuProbe, type GpuReport } from '../bankml/gpu';
 import { ClientRack, useTick, useUsage } from './ClientRack';
 import { cpu, memory, ping, sensors, speed, storage, type Sensors } from './tools';
 import { getLimits, onLimits, setLimits, type Limits } from './limits';
@@ -93,9 +93,10 @@ export function ControlPanel({ uif }: { uif: MutableRefObject<UIFContextValue | 
   // ── the suite ────────────────────────────────────────────────────────────────────────────────────────────────
   const [running, setRunning] = useState<string>('');
   const [res, setRes] = useState<Record<string, string>>({});
-  const [p, setP] = useState({ ping: 5, speed: 16, workers: Math.max(1, navigator.hardwareConcurrency || 2), mem: 64, store: 32 });
+  const [p, setP] = useState({ ping: 5, speed: 16, workers: Math.max(1, navigator.hardwareConcurrency || 2), mem: 64, store: 32, rows: 256 });
   const [gpu, setGpu] = useState<GpuReport | null>(null);
   const [probe, setProbe] = useState<GpuProbe | null>(null);
+  const [gx, setGx] = useState<GpuExact | null>(null);
   const [sens, setSens] = useState<Sensors | null>(null);
   useEffect(() => { void readGpu(limits.power).then(setGpu); void sensors().then(setSens); }, [limits.power]);
   const tool = async (id: string, f: () => Promise<string>) => {
@@ -122,9 +123,18 @@ export function ControlPanel({ uif }: { uif: MutableRefObject<UIFContextValue | 
         const r = await probeGpu(limits.power); setProbe(r);
         return `fma ${r.fma.fused ? 'fused (exact)' : 'not fused'}${r.contracted ? ', a·b+c contracted' : ''} · ${r.gflops.toFixed(0)} GFLOP/s · ${r.bandwidth.toFixed(1)} GB/s`;
       } },
+    { id: 'exact', name: 'EXACT', knob: <SteppedKnob size={56} positions={['64', '256', '1024']} value={[64, 256, 1024].indexOf(p.rows)} color={ORANGE} label="ROWS" onChange={i => setP({ ...p, rows: [64, 256, 1024][Math.round(i)] })} />,
+      run: async () => {
+        if (!limits.gpuProbe) throw new Error('the GPU probe is off (limiters)');
+        // bankML's Q1_0 kernel on this GPU, every row's bits against the engine's own reference (web/browseml-gpu.js)
+        const g = await import(/* @vite-ignore */ new URL('browseml-gpu.js', location.href).href);
+        const x = await g.exact({ rows: p.rows, n: 2048, seed: Date.now() & 0xffff, power: limits.power });
+        setGx(x);
+        return `${x.same}/${x.rows} rows bit-exact (n ${x.n}) · GPU ${x.gpuMs.toFixed(0)} ms`;
+      } },
     { id: 'sensors', name: 'SENSORS', run: async () => { const s = await sensors(); setSens(s); return `${s.online ? 'online' : 'offline'}${s.connection?.effectiveType ? ` · ${s.connection.effectiveType}` : ''}${s.battery ? ` · battery ${Math.round(s.battery.level * 100)}%${s.battery.charging ? ' charging' : ''}` : ''}`; } },
   ];
-  const gv = gpuVerdict(gpu ?? { webgpu: false, reason: '…' }, probe);
+  const gv = gpuVerdict(gpu ?? { webgpu: false, reason: '…' }, probe, gx);
   const lastLoad = sum.lastLoad, last = sum.lastAnswer;
 
   return (

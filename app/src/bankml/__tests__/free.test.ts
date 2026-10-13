@@ -22,3 +22,22 @@ describe('browseML settings and download measures', () => {
     expect(rateOf([{ t: 0, got: 0 }, { t: 1000, got: 5e6 }, { t: 2000, got: 10e6 }])).toBe(5e6);
   });
 });
+
+import { recognise } from '../free';
+describe('a model already on this computer', () => {
+  const model = { title: 'Bonsai-1.7B · 1-bit (Q1_0)', bytes: 248_302_272, sha256: '3d7c6c90dd98717a203adb22d5eacd2581850e40aa5327e144b97766cae5f7e3' };
+  it('another size is not this model (no hashing needed)', () => {
+    const r = recognise({ name: 'Bonsai-8B-Q1_0.gguf', size: 1_160_000_000 }, model)!;
+    expect(r.ok).toBe(false);
+    expect(!r.ok && r.reason).toMatch(/not this model/);
+  });
+  it('the right size waits for its sha256', () => {
+    expect(recognise({ name: 'x.gguf', size: model.bytes }, model)).toBeNull();
+  });
+  it('the pinned sha256 is recognised (any case); another is refused', () => {
+    expect(recognise({ name: 'x.gguf', size: model.bytes, sha256: model.sha256.toUpperCase() }, model)).toMatchObject({ ok: true, name: model.title });
+    const bad = recognise({ name: 'x.gguf', size: model.bytes, sha256: '00'.repeat(32) }, model)!;
+    expect(bad.ok).toBe(false);
+    expect(!bad.ok && bad.reason).toMatch(/not the model browseML answers from/);
+  });
+});

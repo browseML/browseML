@@ -5,7 +5,7 @@
 // visitor's settings (threads, context, prompt cache, answer length) are kept in localStorage.
 import type { Turn, Verdict } from './engine';
 import { sha256hex } from './engine';
-import { ctxCapFor } from './caps';
+import { ctxCapFor, mb } from './caps';
 import { recordAnswer, recordLoad, recordWarm } from './usage';
 
 const esm = (url: string): Promise<any> => import(/* @vite-ignore */ url);
@@ -217,7 +217,7 @@ export async function download(): Promise<Browsed | null> {
   setDl({ phase: 'downloading', error: undefined, resumable: false, rate: null, eta: null, total: M.bytes, got: from, retries: 0 });
   // the bytes in hand, exactly (the state's count is updated a few times a second); whether a failure now leaves bytes
   // that a Range request can resume from
-  let got = from, streaming = false, retries = 0;
+  let got = from, streaming = false, retries = 0, prefer = 0;
   const started = performance.now();
   try {
     if (!partial || got === 0) { partial = new Uint8Array(M.bytes); got = 0; }
@@ -244,7 +244,10 @@ export async function download(): Promise<Browsed | null> {
         // a retry asks from the exact byte: what arrived of the cut piece is already in buf
         const start = got;
         try {
-          const r = await fetch(M.url, { signal: abort.signal, headers: { Range: `bytes=${start}-${end}` } });
+          // the verified sources in turn: a retry asks the next one (Hugging Face, then browseML/models); the pin decides
+          const sources: string[] = M.sources?.length ? M.sources : [M.url];
+          const at = (prefer + tryNo - 1) % sources.length;
+          const r = await fetch(sources[at], { signal: abort.signal, headers: { Range: `bytes=${start}-${end}` } });
           if (r.status === 200 && start === 0) {
             // a server that ignores Range sends the whole file: one stream
             await readBody(r, buf, 0, M.bytes, seen);
@@ -258,6 +261,7 @@ export async function download(): Promise<Browsed | null> {
           }
           await readBody(r, buf, start, end + 1, seen);
           if (got !== end + 1) throw new Error(`a piece stopped at ${got} of ${end + 1} bytes`);
+          prefer = at;  // the source that answered: asked first for the next piece
           break;
         } catch (e) {
           if (abort?.signal.aborted || !streaming || tryNo >= PIECE_TRIES) throw e;
@@ -291,6 +295,71 @@ export async function download(): Promise<Browsed | null> {
     abort = null;
   }
 }
+// ── a model already on this computer, and overwriting a kept one ───────────────────────────────────────────────
+export type Recognised =
+  | { ok: true; name: string; sha256: string; verified: Browsed | null }
+  | { ok: false; reason: string; sha256?: string };
+
+/** The rule, pure (so tested): a file is this model only when its size and its sha256 are the pinned ones. */
+export function recognise(file: { name: string; size: number; sha256?: string }, model: { title: string; bytes: number; sha256: string }): Recognised | null {
+  if (file.size !== model.bytes) return { ok: false, reason: `${file.name} is ${mb(file.size)}; ${model.title} is ${mb(model.bytes)}: not this model` };
+  if (file.sha256 === undefined) return null;  // the size fits: its sha256 decides
+  if (file.sha256.toLowerCase() !== model.sha256.toLowerCase()) {
+    return { ok: false, reason: `${file.name}'s sha256 is ${file.sha256.slice(0, 16)}…, the pin is ${model.sha256.slice(0, 16)}…: not the model browseML answers from`, sha256: file.sha256 };
+  }
+  return { ok: true, name: model.title, sha256: file.sha256.toLowerCase(), verified: null };
+}
+
+/** The pin browseML answers from: the model's sha256, from its FORK.json beside the page. */
+async function pinnedSha(): Promise<string> {
+  const b = await mod();
+  const fork = JSON.parse(await (await fetch(new URL(b.MODEL.fork, location.href).href)).text());
+  const f = (fork.files ?? []).find((x: { path?: string }) => x.path === b.MODEL.name);
+  if (!f?.sha256) throw new Error('the model has no pin');
+  return String(f.sha256).toLowerCase();
+}
+
+/**
+ * A model file already on this computer (bankML's, Ollama's, an earlier download): recognised by size, then by its
+ * sha256 against the pin, here in the page. Recognised, it is kept in this browser as if downloaded and bankML
+ * checks it again as it starts (its own sha256); not recognised, nothing of it is kept.
+ */
+export async function useLocalModel(file: File, progress: (line: string) => void = () => {}): Promise<Recognised> {
+  const b = await mod();
+  const want = await pinnedSha();
+  const model = { title: b.MODEL.title, bytes: b.MODEL.bytes, sha256: want };
+  const bySize = recognise({ name: file.name, size: file.size }, model);
+  if (bySize) return bySize;
+  progress(`reading ${file.name}…`);
+  const bytes = await file.arrayBuffer();
+  progress(`checking ${file.name}'s sha256 against the pin…`);
+  const got = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(x => x.toString(16).padStart(2, '0')).join('');
+  const r = recognise({ name: file.name, size: file.size, sha256: got }, model)!;
+  if (!r.ok) return r;
+  progress('recognised: keeping it in this browser, then bankML checks it as it starts…');
+  try {
+    const c = await caches.open(CACHE);
+    await c.put(b.MODEL.url, new Response(bytes, { headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': String(b.MODEL.bytes) } }));
+  } catch (e) { return { ok: false, reason: `recognised, but it could not be kept in this browser: ${String((e as Error).message || e)}`, sha256: got }; }
+  lastDownload = null;
+  return { ok: true, name: b.MODEL.title, sha256: got, verified: await verifyKept() };
+}
+
+/** The kept model could not be started (bankML refused it, or it gave no response): the card offers the overwrite. */
+export function markKeptBad(error: string) { setDl({ phase: 'failed', error, resumable: false, got: 0, rate: null, eta: null }); }
+
+/** Overwrite: the kept model (and its warm slots) removed and a fresh copy pulled from its pinned source, then
+ *  checked by bankML. For a kept model that cannot be used, or when the visitor wants a clean copy. */
+export async function overwriteModel(): Promise<Browsed | null> {
+  const b = await mod();
+  if (b.isReady()) { try { b.unload(); } catch { /* writing an answer: the download still replaces the file */ } }
+  browsed = null; warmedFor = ''; setWarm({ phase: 'cold' });
+  try { for (const n of await caches.keys()) if (n.startsWith('browseml')) await caches.delete(n); } catch { /* off */ }
+  partial = null;
+  setDl({ phase: 'idle', got: 0, verified: undefined, error: undefined, resumable: false });
+  return download();
+}
+
 async function verifyKept(): Promise<Browsed | null> {
   setDl({ phase: 'verifying', got: dl.total, rate: null, eta: null });
   try {

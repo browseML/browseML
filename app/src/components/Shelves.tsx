@@ -32,7 +32,7 @@ export function Shelves({ store, top, title = 'menu' }: { store: ShelvesStore; t
   // the right edge resizes the panel (kept)
   const resize = (e: React.PointerEvent) => {
     e.preventDefault();
-    const x0 = e.clientX, w0 = state.width ?? 300;
+    const x0 = e.clientX, w0 = state.width ?? 340;
     const move = (m: PointerEvent) => store.set(s => ({ ...s, width: Math.max(240, Math.min(720, Math.round(w0 + m.clientX - x0))) }));
     const up = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); };
     document.addEventListener('pointermove', move); document.addEventListener('pointerup', up);
@@ -170,7 +170,7 @@ export function Shelves({ store, top, title = 'menu' }: { store: ShelvesStore; t
         </button>
       )}
       <aside className={`uif-shelves ${open ? 'is-open' : ''} ${peek && !state.shown ? 'is-peek' : ''}`} aria-label={title}
-        style={open ? { ['--uif-shelves-width' as string]: `${state.width ?? 300}px` } : undefined}
+        style={open ? { ['--uif-shelves-width' as string]: `${state.width ?? 340}px` } : undefined}
         onMouseLeave={() => { if (peek && !state.shown) setPeek(false); }}
         data-uif-shelf-fallback={open ? SIDEBAR : undefined}>
         {open && (
