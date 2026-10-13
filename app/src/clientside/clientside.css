@@ -200,3 +200,30 @@ body { background: radial-gradient(circle at 50% 0%, #1a160f, #0b0f14 60%) fixed
 .cp-found li.is-named .cp-found-verdict { color: var(--candle-green, #0ECB81); }
 .cp-found li.is-size .cp-found-verdict { color: var(--btc-orange, #F7931A); }
 .cp-found li > button, .cp-found li > div { grid-column: 1 / -1; }
+
+/* receipts as closed accordions (Receipt.tsx), the ready card likewise */
+.cs-receipt { margin-top: 6px; border: 1px solid #263241; border-radius: 8px; background: rgba(148, 163, 184, .04); font-size: 12px; }
+.cs-receipt > summary { cursor: pointer; padding: 5px 9px; color: #cbd5e1; list-style: none; display: flex; flex-wrap: wrap; gap: 0 4px; }
+.cs-receipt > summary::-webkit-details-marker { display: none; }
+.cs-receipt > summary::before { content: "▸"; color: var(--btc-orange, #F7931A); margin-right: 4px; }
+.cs-receipt[open] > summary::before { content: "▾"; }
+.cs-receipt.is-ok > summary b { color: var(--candle-green, #0ECB81); }
+.cs-receipt.is-bad > summary b { color: var(--stop-red, #F6465D); }
+.cs-receipt-line { margin: 0; padding: 0 9px 6px; color: #94a3b8; overflow-wrap: anywhere; }
+.cs-receipt-rows { margin: 0; padding: 0 9px 6px; display: grid; gap: 2px; }
+.cs-receipt-rows > div { display: grid; grid-template-columns: 9.5em minmax(0, 1fr); gap: 6px; }
+.cs-receipt-rows dt { color: #94a3b8; }
+.cs-receipt-rows dd { margin: 0; font-family: ui-monospace, monospace; color: #e2e8f0; overflow-wrap: anywhere; }
+.cs-receipt-raw { padding: 0 9px 8px; }
+.cs-receipt-raw summary { cursor: pointer; color: #94a3b8; }
+.cs-receipt-raw pre { margin: 6px 0 0; max-height: 220px; overflow: auto; font: 11px/1.4 ui-monospace, monospace; color: #cbd5e1; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cs-receipt-none { margin: 0; padding: 0 9px 8px; color: #fecdd3; }
+details.cs-card.is-ready { display: block; padding: 0; }
+details.cs-card.is-ready > summary { cursor: pointer; padding: 8px 12px; list-style: none; }
+details.cs-card.is-ready > summary::-webkit-details-marker { display: none; }
+details.cs-card.is-ready > summary::before { content: "▸ "; color: var(--candle-green, #0ECB81); }
+details.cs-card.is-ready[open] > summary::before { content: "▾ "; }
+details.cs-card.is-ready > p { margin: 0; padding: 0 12px 10px; color: #a7f3d0; }
+.cp-receipts { display: grid; gap: 8px; }
+.cp-receipt-q { color: #e2e8f0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.uif-msg-system.is-delivery:has(.cs-receipt) { background: none; border: 0; padding: 0; }

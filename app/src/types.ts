@@ -37,6 +37,10 @@ export interface OutputMessage {
   undelivered?: boolean;
   /** A live part of the message the page draws (its key in the provider's `widgets`), under the text. */
   widget?: string;
+  /** The widget draws the whole message (its text stays for .history and copies). */
+  widgetOnly?: boolean;
+  /** What the widget draws from (a receipt, a delivery), kept with the message. */
+  data?: Record<string, unknown>;
 }
 
 export interface OutputField {

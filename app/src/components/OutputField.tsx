@@ -144,7 +144,7 @@ export function OutputView({
           const keep = onRemember && m.role === 'assistant' && !m.pending && !m.undelivered && m.text;
           const msg = (
             <div key={m.id} className={['uif-msg', `uif-msg-${m.role}`, m.kind && `is-${m.kind}`, m.tone && `is-${m.tone}`, m.undelivered && 'is-undelivered'].filter(Boolean).join(' ')}>
-              {m.text}
+              {!(m.widgetOnly && m.widget && widgets?.[m.widget]) && m.text}
               {m.pending && <span className="uif-caret">▍</span>}
               {m.widget && widgets?.[m.widget] && <div className="uif-msg-widget">{widgets[m.widget]({ outputId: field.id, message: m })}</div>}
               {m.media && (

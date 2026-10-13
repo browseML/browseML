@@ -19,6 +19,7 @@ import { mb, readCaps } from '../bankml/caps';
 import { summarize } from '../bankml/usage';
 import { UsagePanel } from './UsagePanel';
 import { Folders } from './Folders';
+import { ReceiptsSection } from './Receipt';
 import { gpuVerdict, probeGpu, readGpu, KEY_FEATURES, type GpuExact, type GpuProbe, type GpuReport } from '../bankml/gpu';
 import { ClientRack, useTick, useUsage } from './ClientRack';
 import { cpu, memory, ping, sensors, speed, storage, type Sensors } from './tools';
@@ -154,6 +155,8 @@ export function ControlPanel({ uif, onModelReady = () => {} }: { uif: MutableRef
         </div>
         {said && <p className={`cp-said ${said.tone ? `is-${said.tone}` : ''}`} role="status">{said.text}</p>}
       </Fold>
+
+      <Fold id="receipts" title="RECEIPTS" open={false}><ReceiptsSection uif={uif} /></Fold>
 
       <Fold id="folders" title="MODELS ON THIS COMPUTER" open={false}><Folders onReady={onModelReady} say={say} /></Fold>
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.1 — 2026-10-13 — receipts in closed accordions, kept in .history and .memory
+
+- **Each answer's receipt is a closed accordion** (`Receipt.tsx`): one line — ✓ receipt, prompt → completion tokens,
+  tok/s — that opens to the delivery in full and the receipt's fields (bankML's version, the model's, the request's and
+  the answer's sha256, the counts) and the receipt as bankML wrote it. The "browseML ready" card folds the same way.
+- **RECEIPTS in the control panel:** the *view receipts* toggle (off: receipts are kept, not shown under answers) and
+  the last 30 receipts kept, each an accordion.
+- **Kept twice:** with each exchange in `.history` (as before), and now as a **delivery record** in `.memory` — the
+  question, the verdict, the receipt, the counts, the model — which `.memory` keeps but never sends to the model, so
+  the prompt (and its warm slot) is unchanged.
+
 ## 0.6.0 — 2026-10-13 — models already on this computer, folder control, persistent access
 
 - **Folders on this computer** (`app/src/bankml/folders.ts`): the visitor grants a folder (read-only, File System

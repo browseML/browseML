@@ -16,6 +16,7 @@ import { deliver, type DeliveryHooks, type Outcome } from '../bankml/deliver';
 /** Said in place of an answer while browseML is not ready; the card under it offers the import. */
 export const NOT_READY = 'Click to load the model in your browser.';
 export const WIDGET = 'browseml';
+export const RECEIPT = 'receipt';
 const WHERE = 'browseML — bankML in this browser (Bonsai-1.7B Q1_0)';
 
 type Held = { text: string; outputId: string };
@@ -68,14 +69,23 @@ export function useBrowseML(uif: MutableRefObject<UIFContextValue | null>) {
       { role: 'assistant' as const, content: h.assistant },
     ]);
 
-  const hooksFor = (outputId: string, markReply: (p: ReplyMarks) => void): DeliveryHooks => {
+  const hooksFor = (outputId: string, markReply: (p: ReplyMarks) => void, question: string, verdict: { v: Verdict | null }): DeliveryHooks => {
     let lineId: string | null = null;
     return {
       line(text, tone, kind) {
         const out = uif.current?.outputs;
         if (!out) return;
-        if (lineId) out.update(outputId, lineId, { text, tone, kind });
-        else if (text) lineId = out.append(outputId, { role: 'system', text, tone, kind });
+        // the delivery: drawn as the receipt's closed accordion (the text stays, for .history and copies)
+        const patch = kind === 'delivery'
+          ? { text, tone, kind, widget: RECEIPT, widgetOnly: true, data: { line: text, ok: !!verdict.v?.ok, receipt: verdict.v?.receipt ?? null, usage: verdict.v?.usage ?? null, at: Date.now() } }
+          : { text, tone, kind };
+        if (lineId) out.update(outputId, lineId, patch);
+        else if (text) lineId = out.append(outputId, { role: 'system', ...patch });
+        // kept in .memory as a delivery record (never sent to the model): the question, the receipt, the counts
+        if (kind === 'delivery' && verdict.v) {
+          void uif.current?.context.keep({ carrier: 'browseML', question, verified: verdict.v.ok, receipt: verdict.v.receipt ?? null,
+            usage: verdict.v.usage ?? null, model: browseState()?.model ?? null, output: outputId }, text);
+        }
       },
       footer(text) { uif.current?.outputs.append(outputId, { role: 'system', kind: 'footer', text }); },
       live: n => setLive(n),
@@ -87,8 +97,10 @@ export function useBrowseML(uif: MutableRefObject<UIFContextValue | null>) {
 
   const onSend = (text: string, meta: SendMeta) => {
     const { outputId, context, annotate, markReply, signal } = meta;
-    const hooks = hooksFor(outputId, markReply);
+    const verdict: { v: Verdict | null } = { v: null };
+    const hooks = hooksFor(outputId, markReply, text, verdict);
     const settle = (done: (v: Verdict) => void) => (v: Verdict) => {
+      verdict.v = v;
       setLast(v);
       // only an answer whose receipt matched is read aloud
       if (!v.ok) markReply({ silent: true });

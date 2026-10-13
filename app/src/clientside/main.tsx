@@ -25,7 +25,8 @@ import {
 } from '../bankml/free';
 import { mb, ramEstimate, readCaps } from '../bankml/caps';
 import { advise, summarize, usageLog } from '../bankml/usage';
-import { useBrowseML, WIDGET } from './useBrowseML';
+import { useBrowseML, RECEIPT, WIDGET } from './useBrowseML';
+import { ReceiptAccordion } from './Receipt';
 import { BrowseCard } from './BrowseCard';
 import { trackKeyboard } from '../core/keyboard';
 import { ControlPanel } from './ControlPanel';
@@ -205,7 +206,7 @@ function Page() {
 
   const phone = window.matchMedia(PHONE).matches;
   const own = a.outcome;
-  const widgets = { [WIDGET]: () => <BrowseCard onReady={() => void A.current.ready()} /> };
+  const widgets = { [WIDGET]: () => <BrowseCard onReady={() => void A.current.ready()} />, [RECEIPT]: ({ message }: { message: { data?: Record<string, unknown> } }) => <ReceiptAccordion data={message.data} /> };
   const mine = a.live !== null ? null
     : !own ? { text: 'receipt —', tone: '' }
     : own.how === 'delivered' ? (own.ok ? { text: '✓ receipt', tone: 'ok' } : { text: '✗ receipt', tone: 'bad' })

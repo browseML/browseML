@@ -29,14 +29,14 @@ export function BrowseCard({ onReady }: { onReady(): void }) {
   if (v) {
     const d = browseDiag(), a = summarize(usage).lastAnswer;
     return (
-      <p className="cs-card is-ready" role="status">
-        <b>✓ browseML ready</b> · {v.model} verified (sha256 {v.sha256.slice(0, 12)}…) · bankML {v.version} ·{' '}
-        {v.threads} thread{v.threads === 1 ? '' : 's'} · context {v.ctx ?? settings.ctx} · holds {mb(d.memoryBytes)}
-        {a ? ` · last answer ${a.genPerSec.toFixed(2)} tok/s` : ''}
-        {w.phase === 'warming' && <span className="cs-card-warm is-working"> · reading its prompt once (kept for next time)…</span>}
-        {w.phase === 'restored' && <span className="cs-card-warm"> · prompt ready: {w.tokens} tokens restored from this browser in {(w.ms / 1000).toFixed(1)} s</span>}
-        {w.phase === 'warmed' && <span className="cs-card-warm"> · prompt read once ({w.tokens} tokens, {(w.ms / 1000).toFixed(0)} s) and kept for next time</span>}
-      </p>
+      <details className="cs-card is-ready" role="status">
+        <summary><b>✓ browseML ready</b>{w.phase === 'warming' ? <span className="cs-card-warm is-working"> · reading its prompt once…</span> : ` · ${v.threads} thread${v.threads === 1 ? '' : 's'} · ${mb(d.memoryBytes)}`}</summary>
+        <p>{v.model} verified (sha256 {v.sha256.slice(0, 12)}…) · bankML {v.version} · {v.threads} thread{v.threads === 1 ? '' : 's'} · context {v.ctx ?? settings.ctx} · holds {mb(d.memoryBytes)}
+          {a ? ` · last answer ${a.genPerSec.toFixed(2)} tok/s` : ''}
+          {w.phase === 'restored' && <span className="cs-card-warm"> · prompt ready: {w.tokens} tokens restored from this browser in {(w.ms / 1000).toFixed(1)} s</span>}
+          {w.phase === 'warmed' && <span className="cs-card-warm"> · prompt read once ({w.tokens} tokens, {(w.ms / 1000).toFixed(0)} s) and kept for next time</span>}
+        </p>
+      </details>
     );
   }
   const go = async () => {
