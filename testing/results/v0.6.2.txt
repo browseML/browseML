@@ -209,3 +209,42 @@ models/Bonsai-1.7B-Q1_0.gguf matches the pin
 release gate v0.6.2: every step passed
 
 
+
+== browser: Brave Browser 152.1.94.117 , headless, a throwaway profile
+ok   the page: title and logo
+ok   the FAQ: eight questions
+ok   no panel at first, T in the field
+ok   T opens the control panel with its sections — TOOLS, RECEIPTS, MODELS ON THIS COMPUTER, HARD DRIVE, DIALS, DIAGNOSTICS, TOOL SUITE, LIMITERS, ADVICE AND RECORDS
+ok   the panel's content fits its width
+ok   tool MEMORY — copy 11.3 GB/s · triad 6.1 GB/s
+ok   tool CPU — 312 Mops/s on one · 394 on 2 (×1.26)
+ok   tool STORAGE — write 68 MB/s · read 216 MB/s
+ok   tool SENSORS — online · battery 100% charging
+ok   tool EXACT — 256/256 rows bit-exact (n 2048) · GPU 273 ms
+ok   EXACT: every row bit-exact on this GPU — 256/256 rows bit-exact (n 2048) · GPU 273 ms
+ok   the folder's models listed with their verdicts — the right size: checked when used | another model (not run in the browser yet)
+ok   the model from the folder: recognised by sha256, used with no download — ✓ Bonsai-1.7B · 1-bit (Q1_0) from my-models/Bonsai-1.7B-Q1_0.gguf — no download
+ok   HARD DRIVE: the browser's storage and the model kept — browser storage 248 MB used of 2147 MB this site may use | room left 1899 MB | kept under pressure no: the browser may remove it when space runs low | the model in this browser 248 MB | a copy on the disk none saved from here
+ok   HARD DRIVE: keep a copy on the disk — the model saved, its sha256 the pin — Bonsai-1.7B-Q1_0.gguf · 248302272 bytes · 3d7c6c90dd98717a…
+ok   HARD DRIVE: the copy recorded
+ok   the receipt under the answer: a closed accordion — ✓ receipt · 472 → 65 tokens · 1.52 tok/s
+ok   the receipt verified (✓)
+ok   opened: the response's sha256 in the receipt
+ok   the receipt kept in .history — 1 exchange(s) with a receipt
+ok   the receipt kept in .memory as a delivery record — 1 delivery record(s)
+ok   the control panel opened with the response window
+ok   the panel's RECEIPTS lists it
+ok   view receipts off: hidden under answers
+ok   visit 2: the page just loads — nothing started before an interaction
+ok   visit 2: the prompt cache restored — prompt cache restored 536 tokens in 0.7 s
+FAIL gpu-exact.html: every shape bit-exact — 256 rows × 2048: 256/256 bit-exact · GPU 131 ms · google · swiftshader | 64 rows × 6144: 64/64 bit-exact · GPU 206 ms · google · swiftshader | 512 rows × 128: 512/512 bit-exact · GPU 217 ms · google · swiftshader
+ok   gpu-exact.html: both controls differ
+ok   fresh visit: the page just loads, no panel before an interaction
+ok   the first interaction pops the control panel out, HARD DRIVE in it
+ok   START, STOP and CLEAR in the panel's TOOLS — ▾
+TOOLS · START · STOP · CLEAR
+ok   the field drops beside the panel, not under it — panel ends at 340px, field starts at 379px
+FAIL the browser checks ran to the end — page.waitForFunction: Timeout 60000ms exceeded.
+
+2 browser check(s) failed
+-- browser checks: FAIL (347s)

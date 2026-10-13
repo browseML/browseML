@@ -227,3 +227,61 @@ details.cs-card.is-ready > p { margin: 0; padding: 0 12px 10px; color: #a7f3d0; 
 .cp-receipts { display: grid; gap: 8px; }
 .cp-receipt-q { color: #e2e8f0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
 .uif-msg-system.is-delivery:has(.cs-receipt) { background: none; border: 0; padding: 0; }
+
+/* the strip: state, writing speed, memory held, the prompt cache — numbers first */
+.cp-strip-state, .cp-strip-num { display: inline-flex; align-items: baseline; gap: 4px; }
+.cp-strip-num b { font-variant-numeric: tabular-nums; text-transform: none; letter-spacing: 0; }
+.cp-strip small { color: #94a3b8; font-size: 10px; }
+.cp-strip-num .cp-spark { align-self: center; }
+
+/* the load, said as it happens (after the PYTHAI/browseML Space) */
+.cp-status { display: grid; gap: 6px; margin-top: 10px; }
+.cp-status .bk-bar { height: 10px; }
+.cp-status-line { margin: 0; font-size: 12px; line-height: 1.45; color: #cbd5e1; overflow-wrap: anywhere; }
+.cp-status-line.is-working { color: var(--btc-orange, #F7931A); }
+.cp-status-line.is-ok { color: var(--candle-green, #0ECB81); }
+.cp-status-line.is-bad { color: var(--stop-red, #F6465D); }
+.cp-env { margin-top: 0; overflow-wrap: anywhere; }
+
+/* CPU · RAM · GPU · CACHE */
+.cp-sliders { display: grid; gap: 14px; }
+.cp-slider { display: grid; gap: 6px; }
+.cp-slider-head { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: #cbd5e1; }
+.cp-slider-head b { color: #f8fafc; letter-spacing: .08em; }
+.cp-slider-head span { font-variant-numeric: tabular-nums; text-align: right; }
+.cp-slider .cp-fine { margin-top: 0; overflow-wrap: anywhere; }
+
+/* the engine log */
+.cp-log-lines { max-height: 220px; overflow: auto; margin: 0; padding: 8px; border-radius: 8px; background: rgba(2, 6, 23, .6);
+  font: 11px/1.45 ui-monospace, monospace; color: #94a3b8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cp-log-lines .is-error { color: var(--stop-red, #F6465D); }
+.cp-log-lines .is-warn { color: var(--btc-orange, #F7931A); }
+.cp-log-lines .is-ok { color: var(--candle-green, #0ECB81); }
+.cp-log-lines .is-step { color: #cbd5e1; }
+.cp-disk code { font-size: 11px; }
+
+/* SAMPLING: Savante's dials */
+.cp-sampling { display: grid; gap: 12px; }
+.cp-dial { display: grid; gap: 4px; }
+.cp-dial input[type=range] { width: 100%; accent-color: var(--btc-orange, #F7931A); }
+.cp-dial input[type=number] { width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid #334155; background: #0b1220; color: #f8fafc; }
+.cp-dial .cp-fine { margin-top: 0; }
+.cp-presets { display: flex; flex-wrap: wrap; gap: 4px; }
+.cp-presets button, .cp-persona-list button { padding: 3px 8px; border-radius: 999px; border: 1px solid #334155; background: transparent; color: #cbd5e1; font-size: 11px; cursor: pointer; }
+.cp-presets button.is-on, .cp-persona-list button.is-on { border-color: var(--btc-orange, #F7931A); color: var(--btc-orange, #F7931A); }
+.cp-more summary { cursor: pointer; color: #94a3b8; font-size: 12px; margin-bottom: 8px; }
+.cp-more[open] { display: grid; gap: 12px; }
+
+/* PERSONA */
+.cp-persona { display: grid; gap: 8px; }
+.cp-persona-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.cp-persona-list button { font-size: 12px; padding: 5px 10px; }
+.cp-persona-edit { display: grid; gap: 8px; }
+.cp-persona-edit label { display: grid; gap: 4px; font-size: 11px; color: #94a3b8; }
+.cp-persona-edit input, .cp-persona-edit textarea { width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 6px; border: 1px solid #334155; background: #0b1220; color: #f8fafc; font: 12px/1.45 inherit; resize: vertical; }
+.cp-fine.is-bad { color: var(--stop-red, #F6465D); }
+
+/* BUILDER */
+.cp-builder { display: grid; gap: 10px; }
+.cp-build-desc { display: grid; gap: 4px; font-size: 11px; color: #94a3b8; }
+.cp-build-desc textarea { width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 6px; border: 1px solid #334155; background: #0b1220; color: #f8fafc; font: 12px/1.45 inherit; resize: vertical; }

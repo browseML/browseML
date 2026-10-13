@@ -1,12 +1,20 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
-import { parseSettings, rateOf, DEFAULT_SETTINGS } from '../free';
+import { parseSettings, rateOf, DEFAULT_SETTINGS, NO_SAMPLING } from '../free';
 
 
 describe('browseML settings and download measures', () => {
   it('keeps only valid values', () => {
     expect(parseSettings({})).toEqual(DEFAULT_SETTINGS);
-    expect(parseSettings({ threads: 4, ctx: 2048, maxTokens: 1024, removeAfterSession: true, cacheRam: 64 })).toEqual({ threads: 4, ctx: 2048, maxTokens: 1024, removeAfterSession: true, cacheRam: 64 });
+    expect(parseSettings({ threads: 4, ctx: 2048, maxTokens: 1024, removeAfterSession: true, cacheRam: 64 })).toEqual({ threads: 4, ctx: 2048, maxTokens: 1024, removeAfterSession: true, cacheRam: 64, sampling: NO_SAMPLING });
+    // any answer length from 1 (the single-token proof) to 2048
+    expect(parseSettings({ maxTokens: 1 }).maxTokens).toBe(1);
+    expect(parseSettings({ maxTokens: 2049 }).maxTokens).toBe(DEFAULT_SETTINGS.maxTokens);
+  });
+  it("keeps sampling within Savante's ranges; anything else is the engine's default", () => {
+    expect(parseSettings({ sampling: { temperature: 0, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.1, seed: 7 } }).sampling)
+      .toEqual({ temperature: 0, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.1, seed: 7 });
+    expect(parseSettings({ sampling: { temperature: 3, top_p: 0, top_k: 1.5, min_p: -1, repeat_penalty: 0.5, seed: 'x' } }).sampling).toEqual(NO_SAMPLING);
     expect(parseSettings({ threads: 0, ctx: 3000, maxTokens: 'x', removeAfterSession: 'yes', cacheRam: 100 })).toEqual(DEFAULT_SETTINGS);
     expect(parseSettings(null)).toEqual(DEFAULT_SETTINGS);
   });

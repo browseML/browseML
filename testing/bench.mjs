@@ -72,6 +72,7 @@ if (!isMainThread) {
     if (c !== 0) { console.log("chat failed:", out()); process.exit(1); }
     const tm = j.timings, ok = r.text === undefined ? null : text === r.text;
     same += ok === true;
+    if (process.env.SHOW) console.log(text);  // SHOW=1: the answer itself
     console.log(`prompt ${tm.prompt_n} tok ${tm.prompt_per_second.toFixed(2)} tok/s · write ${tm.predicted_n} tok ${tm.predicted_per_second.toFixed(2)} tok/s${ok === null ? "" : ok ? " · identical" : " · DIFFERENT"}`);
   }
   if (oraclePath) console.log(`${same} of ${reqs.length} identical to the record`);

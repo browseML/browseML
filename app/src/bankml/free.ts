@@ -24,12 +24,21 @@ export interface BrowseSettings {
   /** The engine's prompt cache, in MiB (serve's --cache-ram; 0 off): memory that lets a repeated prompt prefix skip
    *  its reading. Applied on the next load. */
   cacheRam: number;
+  /** Sampling, as Savante's dials set it (bankML's request fields); null: the engine's default. Applied to the next
+   *  question. */
+  sampling: Sampling;
 }
+export interface Sampling { temperature: number | null; top_p: number | null; top_k: number | null; min_p: number | null; repeat_penalty: number | null; seed: number | null }
+export const NO_SAMPLING: Sampling = { temperature: null, top_p: null, top_k: null, min_p: null, repeat_penalty: null, seed: null };
+/** Each sampling field's range (out of range: the engine's default). */
+export const SAMPLING_RANGE: Record<keyof Sampling, [number, number]> = {
+  temperature: [0, 1.5], top_p: [0.05, 1], top_k: [0, 200], min_p: [0, 0.5], repeat_penalty: [1, 1.5], seed: [0, 2147483647],
+};
 const SETTINGS = 'browseml:settings';
 export const CTX_CHOICES = [1024, 2048, 4096, 8192] as const;
 export const MAXTOK_CHOICES = [128, 256, 384, 512, 1024, 2048] as const;
 export const CACHE_CHOICES = [0, 16, 32, 64, 128, 256] as const;
-export const DEFAULT_SETTINGS: BrowseSettings = { threads: null, ctx: 4096, maxTokens: MAX_TOKENS, removeAfterSession: false, cacheRam: 0 };
+export const DEFAULT_SETTINGS: BrowseSettings = { threads: null, ctx: 4096, maxTokens: MAX_TOKENS, removeAfterSession: false, cacheRam: 0, sampling: NO_SAMPLING };
 /** Settings as stored, each value checked (a stored value out of range falls back to the default). */
 export function parseSettings(raw: unknown, memoryGB: number | null = null): BrowseSettings {
   const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
@@ -40,9 +49,19 @@ export function parseSettings(raw: unknown, memoryGB: number | null = null): Bro
   return {
     threads: t !== null && t >= 1 && t <= 64 ? t : null,
     ctx: (CTX_CHOICES as readonly number[]).includes(int(o.ctx) ?? -1) ? (o.ctx as number) : defCtx,
-    maxTokens: (MAXTOK_CHOICES as readonly number[]).includes(int(o.maxTokens) ?? -1) ? (o.maxTokens as number) : DEFAULT_SETTINGS.maxTokens,
+    // any length from 1 (the single-token proof) to 2048; the knob's stops are MAXTOK_CHOICES
+    maxTokens: (() => { const m = int(o.maxTokens); return m !== null && m >= 1 && m <= 2048 ? m : DEFAULT_SETTINGS.maxTokens; })(),
     removeAfterSession: o.removeAfterSession === true,
     cacheRam: (CACHE_CHOICES as readonly number[]).includes(int(o.cacheRam) ?? -1) ? (o.cacheRam as number) : DEFAULT_SETTINGS.cacheRam,
+    sampling: (() => {
+      const r = (o.sampling && typeof o.sampling === 'object' ? o.sampling : {}) as Record<string, unknown>;
+      const out = { ...NO_SAMPLING };
+      for (const k of Object.keys(SAMPLING_RANGE) as (keyof Sampling)[]) {
+        const v = r[k], [lo, hi] = SAMPLING_RANGE[k];
+        if (typeof v === 'number' && isFinite(v) && v >= lo && v <= hi && ((k !== 'top_k' && k !== 'seed') || Number.isInteger(v))) out[k] = v;
+      }
+      return out;
+    })(),
   };
 }
 function deviceGB(): number | null {
@@ -66,6 +85,22 @@ let browseml: any = null;
 let browsed: Browsed | null = null;
 const mod = async () => (browseml ??= await esm(new URL('browseml.js', location.href).href));
 const CACHE = 'browseml-models';
+const MBs = (n: number) => `${(n / 1e6).toFixed(1)} MB`;
+
+// ── the engine log: bankML's own lines (its log levels) and the page's steps, the last 300, for the control panel ──
+export interface LogLine { at: number; kind: 'error' | 'warn' | 'engine' | 'ok' | 'step'; text: string }
+const logLines: LogLine[] = [];
+const logFns = new Set<() => void>();
+export function engineLog(kind: LogLine['kind'], text: string) {
+  logLines.push({ at: Date.now(), kind, text });
+  if (logLines.length > 300) logLines.shift();
+  logFns.forEach(f => f());
+}
+/** bankML's log callback: level 0 error, 1 warning, else the engine's own line. */
+const fromEngine = (level: number, text: string) => engineLog(level === 0 ? 'error' : level === 1 ? 'warn' : 'engine', text);
+export const engineLogLines = () => logLines;
+export function onEngineLog(f: () => void) { logFns.add(f); return () => { logFns.delete(f); }; }
+export function clearEngineLog() { logLines.length = 0; logFns.forEach(f => f()); }
 
 /** What bankML verified when it loaded in this browser (null: not loaded). */
 export const browseState = () => browsed;
@@ -118,15 +153,19 @@ export async function loadBrowse(progress: (line: string, phase?: string) => voi
   if (b.isReady() && browsed) return browsed;
   const MB = (n: number) => `${(n / 1e6).toFixed(0)} MB`;
   const s = settings;
+  let lastLogged = '';
+  engineLog('step', `starting bankML: ${s.threads ?? 'default'} threads, context ${s.ctx}, cache ${s.cacheRam} MiB`);
   browsed = await b.load((got: number, total: number, phase: string) => {
     lastProgress = { phase, got, total };
+    if (phase !== 'download' && phase !== lastLogged) { lastLogged = phase; engineLog('step', phase === 'cache' ? `the model from this browser (${MB(got)}): no download` : phase === 'verify' ? 'bankML: the guard, then the sha256 of the whole model against its pin' : phase === 'folder' ? `the model from this computer: ${from?.name ?? 'a folder'}` : `${phase}: ${MB(got)} of ${MB(total)}`); }
     if (phase === 'download') progress(`downloading ${b.MODEL.title}: ${MB(got)} of ${MB(total)} (once; it stays in this browser)`, phase);
     else if (phase === 'cache') progress(`the model is in this browser (${MB(got)}): no download`, phase);
     else if (phase === 'verify') progress('checking sha256… (bankML checks the model against its pin)', phase);
     else if (phase === 'retry') progress(`the connection dropped at ${MB(got)}: asking for that piece again`, phase);
     else if (phase === 'folder') progress(`the model from this computer (${from?.name ?? 'a folder'}): no download`, phase);
-  }, () => {}, { threads: s.threads ?? undefined, ctx: s.ctx, cacheRam: s.cacheRam, ...(from ? { bytes: from.bytes, from: 'folder' } : {}) });
+  }, fromEngine, { threads: s.threads ?? undefined, ctx: s.ctx, cacheRam: s.cacheRam, ...(from ? { bytes: from.bytes, from: 'folder' } : {}) });
   browsed = { ...browsed!, cacheRam: s.cacheRam };
+  engineLog('ok', `verified ${browsed.model} · sha256 ${browsed.sha256} · guard ${browsed.guard ?? '?'} · bankML ${browsed.version} · ${browsed.threads} thread(s) · ${browsed.build ?? 'browseml.wasm'} · context ${browsed.ctx}`);
   // an import (download()) put the model in the cache first: the record says it was downloaded
   if (b.loadStats) recordLoad(b.loadStats.source === 'cache' && lastDownload
     ? { ...b.loadStats, source: 'download', fetched: lastDownload.fetched, retries: lastDownload.retries, modelMs: lastDownload.ms + b.loadStats.modelMs, totalMs: lastDownload.ms + b.loadStats.totalMs }
@@ -158,6 +197,10 @@ export interface DownloadState {
   resumable?: boolean;
   /** Pieces asked for again after the connection cut them (each retried on its own, automatically). */
   retries?: number;
+  /** The host the last piece came from (one of the model's verified sources). */
+  source?: string;
+  /** When this download started (performance.now()), for the elapsed time. */
+  started?: number;
   verified?: Browsed;
 }
 let dl: DownloadState = { phase: 'idle', got: 0, total: 248_302_272, rate: null, eta: null };
@@ -221,7 +264,8 @@ export async function download(): Promise<Browsed | null> {
   }
   abort = new AbortController();
   const from = partial && (dl.phase === 'paused' || (dl.phase === 'failed' && dl.resumable)) ? dl.got : 0;
-  setDl({ phase: 'downloading', error: undefined, resumable: false, rate: null, eta: null, total: M.bytes, got: from, retries: 0 });
+  setDl({ phase: 'downloading', error: undefined, resumable: false, rate: null, eta: null, total: M.bytes, got: from, retries: 0, started: performance.now() });
+  engineLog('step', `downloading ${M.title} (${MBs(M.bytes)})${from ? ` from byte ${from}` : ''}: 16 MB pieces from its pinned sources`);
   // the bytes in hand, exactly (the state's count is updated a few times a second); whether a failure now leaves bytes
   // that a Range request can resume from
   let got = from, streaming = false, retries = 0, prefer = 0;
@@ -255,6 +299,7 @@ export async function download(): Promise<Browsed | null> {
           const sources: string[] = M.sources?.length ? M.sources : [M.url];
           const at = (prefer + tryNo - 1) % sources.length;
           const r = await fetch(sources[at], { signal: abort.signal, headers: { Range: `bytes=${start}-${end}` } });
+          { const host = (() => { try { return new URL(sources[at], location.href).host; } catch { return ''; } })(); if (host !== dl.source) setDl({ source: host }); }
           if (r.status === 200 && start === 0) {
             // a server that ignores Range sends the whole file: one stream
             await readBody(r, buf, 0, M.bytes, seen);
@@ -289,6 +334,7 @@ export async function download(): Promise<Browsed | null> {
     }
     partial = null;
     lastDownload = { fetched: M.bytes - from, retries, ms: Math.round(performance.now() - started) };
+    engineLog('ok', `downloaded ${MBs(M.bytes - from)} in ${(lastDownload.ms / 1000).toFixed(1)} s (${((M.bytes - from) / 1e6 / Math.max(0.001, lastDownload.ms / 1000)).toFixed(1)} MB/s)${retries ? `, ${retries} piece(s) asked for again` : ''}${dl.source ? ` · from ${dl.source}` : ''}`);
     return verifyKept();
   } catch (e) {
     // paused or cancelled: pause() and cancel() set the state; a pause resumes from the exact byte
@@ -296,6 +342,7 @@ export async function download(): Promise<Browsed | null> {
     // the connection dropped mid-file (a phone, Wi-Fi that changes): keep the bytes so far, Retry resumes there
     const resumable = streaming && !!partial && got > 0 && got < M.bytes;
     if (!resumable) partial = null;
+    engineLog('error', `download: ${String((e as Error).message || e)}${resumable ? ` (${MBs(got)} kept: Retry resumes there)` : ''}`);
     setDl({ phase: 'failed', error: String((e as Error).message || e), resumable, got: resumable ? got : dl.got, rate: null, eta: null });
     return null;
   } finally {
@@ -441,6 +488,17 @@ export async function clearBrowseCache(): Promise<number> {
   if (!browsed) setDl({ phase: 'idle', got: 0, verified: undefined });
   return freed;
 }
+/** The prompt cache's kept slot removed (the next start reads browseML's prompt again): the bytes freed. */
+export async function clearWarmSlot(): Promise<number> {
+  let n = 0;
+  try {
+    const c = await caches.open('browseml-slots');
+    for (const k of await c.keys()) n += (await (await c.match(k))?.blob())?.size ?? 0;
+    await caches.delete('browseml-slots');
+  } catch { /* off */ }
+  warmedFor = ''; setWarm({ phase: 'cold' });
+  return n;
+}
 /** The model kept in this browser (Cache Storage), to copy to the disk: its file name, size and bytes (null: none). */
 export async function keptModel(): Promise<{ name: string; bytes: number; response: Response } | null> {
   try {
@@ -509,7 +567,9 @@ export async function warmBrowse(composed: string): Promise<WarmState> {
   if (key === warmedFor && warmState.phase !== 'failed') return warmState;
   warmedFor = key;
   setWarm({ phase: 'warming', since: Date.now() });
-  const r = await b.warm(system);
+  engineLog('step', 'the prompt cache: restoring the kept slot, or reading browseML\'s prompt once');
+  const r = await b.warm(system, { log: fromEngine });
+  engineLog(r.how === 'failed' ? 'warn' : 'ok', r.how === 'failed' ? `prompt cache: ${r.error}` : `prompt cache ${r.how}: ${r.tokens} tokens, ${MBs(r.bytes)} in ${(r.ms / 1000).toFixed(1)} s`);
   setWarm(r.how === 'failed' ? { phase: 'failed', error: r.error ?? 'unknown' } : { phase: r.how, tokens: r.tokens, bytes: r.bytes, ms: r.ms });
   if (r.how !== 'failed') recordWarm({ how: r.how, tokens: r.tokens, bytes: r.bytes, ms: r.ms, threads: browsed?.threads ?? 1 });
   return warmState;
@@ -536,8 +596,11 @@ export async function* askBrowse(composed: string, turns: Turn[], message: strin
   const v = browsed!;
   const pieces: string[] = [];
   let wake: (() => void) | null = null, end = false, err: unknown = null, result: any = null;
-  b.chat({ messages: [{ role: 'system', content: systemFor(composed, v) }, ...turns, { role: 'user', content: message }], max_tokens: maxTokens },
-    (p: string) => { pieces.push(p); wake?.(); }, () => {})
+  // sampling: only what the visitor set (the rest is the engine's default)
+  const sampling = Object.fromEntries(Object.entries(settings.sampling).filter(([, x]) => x !== null));
+  engineLog('step', `asking: ${maxTokens} tokens at most${Object.keys(sampling).length ? ` · ${Object.entries(sampling).map(([k, x]) => `${k} ${x}`).join(' · ')}` : ' · the engine\'s sampling defaults'}`);
+  b.chat({ messages: [{ role: 'system', content: systemFor(composed, v) }, ...turns, { role: 'user', content: message }], max_tokens: maxTokens, ...sampling },
+    (p: string) => { pieces.push(p); wake?.(); }, fromEngine)
     .then((r: any) => { result = r; end = true; wake?.(); }, (e: unknown) => { err = e; end = true; wake?.(); });
   let text = '';
   for (;;) {
@@ -555,6 +618,7 @@ export async function* askBrowse(composed: string, turns: Turn[], message: strin
     promptMs: Number(tm.prompt_ms) || 0, genMs: Number(tm.predicted_ms) || 0, memory: Number(b.memoryBytes) || 0,
   });
   const ok = !!receipt && (await sha256hex(text)) === receipt.response_sha256;
+  engineLog(ok ? 'ok' : 'error', `${ok ? 'receipt ✓' : receipt ? 'receipt ✗ (the text does not match its sha256)' : 'no receipt'} · ${u.prompt_tokens ?? '?'} prompt (${tm.cache_n ?? 0} reused) + ${u.completion_tokens ?? '?'} tokens · reading ${Number(tm.prompt_per_second || 0).toFixed(2)}, writing ${Number(tm.predicted_per_second || 0).toFixed(2)} tok/s`);
   done({
     ok, receipt,
     usage: { prompt_tokens: u.prompt_tokens, completion_tokens: u.completion_tokens, cache_n: tm.cache_n, finish: result?.choices?.[0]?.finish_reason },

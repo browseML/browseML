@@ -18,7 +18,6 @@ import { OutputWindow } from '../components/OutputWindow';
 import { isOutputWindow } from '../core/bus';
 import type { Action } from '../core/actions';
 import type { SendMeta } from '../types';
-import { loadPersonaText } from '../bankml/engine';
 import {
   CACHE_CHOICES, CTX_CHOICES, MAXTOK_CHOICES, browseDiag, browseMaxThreads, browseSettings, browseState, clearBrowseCache,
   download, downloadState, loadBrowse, onDownload, setBrowseSettings, unloadBrowse,
@@ -30,6 +29,7 @@ import { ReceiptAccordion } from './Receipt';
 import { BrowseCard } from './BrowseCard';
 import { trackKeyboard } from '../core/keyboard';
 import { ControlPanel } from './ControlPanel';
+import { activePersona, applyPersona } from './Persona';
 import { Faq } from './Faq';
 import { measureTab } from './memory';
 import '../styles/UltimateInputField.css';
@@ -91,7 +91,8 @@ function Page() {
   const onReady = () => {
     const field = uif.current!;
     // browseML's persona first (the prompt it answers from), then, if the model is already here, started and warmed
-    const persona = field.context.personaText.trim() ? Promise.resolve() : loadPersonaText('browseml.persona').then(t => field.context.setPersonaText(t)).catch(() => {});
+    // the persona chosen (browseML's own is read from browseml.persona every visit, so its facts stay current)
+    const persona = activePersona().then(p => applyPersona(field, p)).catch(() => {});
     // the page just loads: browseML starts with the visitor's first interaction (below), not before
     void persona;
   };
@@ -103,7 +104,14 @@ function Page() {
       document.removeEventListener('pointerdown', first, true);
       document.removeEventListener('keydown', first, true);
       // a press on T or in the panel itself is the visitor opening or shelving it: left to them
-      if (!(e.target as Element | null)?.closest?.('.uif-tools-toggle, .uif-shelves')) openPanelOnce();
+      if ((e.target as Element | null)?.closest?.('.uif-tools-toggle, .uif-shelves')) { panelOpened = true; void A.current.preload(); return; }
+      // after the press lands: opening the panel moves the page, and a click must not lose its target
+      if (e.type === 'pointerdown') {
+        let done = false;
+        const go = () => { if (done) return; done = true; window.removeEventListener('click', go); openPanelOnce(); };
+        window.addEventListener('click', go);
+        window.setTimeout(go, 700);
+      } else openPanelOnce();
       void A.current.preload();
     };
     document.addEventListener('pointerdown', first, true);
@@ -291,7 +299,7 @@ function Page() {
           outputPlace="above"
           defaultStrings
           widgets={widgets}
-          placeholder={phone ? 'Ask browseML' : 'Ask browseML — it runs in your browser, with a receipt'}
+          placeholder="browseML knows best"
           initialSize={at.size}
           initialPosition={at.at}
           initialDock={phone ? undefined : 'page'}

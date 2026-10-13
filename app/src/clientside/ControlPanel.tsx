@@ -4,7 +4,13 @@
 // developer-tooling libraries (Blueprint's drawer, collapses and callouts; Tweakpane's monitors; stats.js's strip;
 // uPlot's sparklines), all re-made here:
 //   · the strip    — the engine's state, writing speed and memory held, live, with sparklines
-//   · TOOLS        — START browseML, STOP the answer, CLEAR the active window
+//   · TOOLS        — ON (start browseML) · OFF (stop the answer, free the engine) · CLEAR the active window; the load as it
+//                    happens (download bar, rate, time left, source, verify clock) and this device's environment line
+//   · CPU · RAM · GPU · CACHE — sliders to 100%, each with what is measured now; APPLY restarts the engine
+//   · PERSONA      — who answers: browseML's own, or one made here (name, opening message, prompt); import, export
+//   · BUILDER      — browseML fills a .persona from a description, writes a .prompt, keeps a .memory note
+//   · SAMPLING     — Savante's dials: answer length, temperature, top-p, top-k, min-p, repeat penalty, seed
+//   · ENGINE LOG   — bankML's own lines and the page's steps
 //   · HARD DRIVE   — browser storage, the files kept, a copy of the model on the disk, removing them
 //   · DIALS        — the DreamKnob rack: threads, memory, prompt cache, answer length; the warm stage
 //   · DIAGNOSTICS  — network, CPU, RAM, GPU, as this browser reports and as measured here
@@ -15,12 +21,18 @@
 import { useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
 import { Button, Gauge, IndicatorLamp, SegmentSwitch, SteppedKnob, ToggleSwitch } from 'dreamknob';
 import type { UIFContextValue } from '../components/UIFContext';
-import { browseDiag, browseMaxThreads, browseSettings, browseState, browseWarm, downloadState, onBrowseWarm, setBrowseSettings, stopBrowse } from '../bankml/free';
+import { browseDiag, browseMaxThreads, browseSettings, browseState, browseWarm, downloadState, onBrowseWarm, setBrowseSettings, stopBrowse, unloadBrowse } from '../bankml/free';
 import { mb, readCaps } from '../bankml/caps';
 import { summarize } from '../bankml/usage';
 import { UsagePanel } from './UsagePanel';
 import { Folders } from './Folders';
 import { Disk } from './Disk';
+import { Status } from './Status';
+import { Sliders } from './Sliders';
+import { EngineLog } from './EngineLog';
+import { PersonaSection } from './Persona';
+import { SamplingDials } from './Sampling';
+import { Builder } from './Builder';
 import { ReceiptsSection } from './Receipt';
 import { gpuVerdict, probeGpu, readGpu, KEY_FEATURES, type GpuExact, type GpuProbe, type GpuReport } from '../bankml/gpu';
 import { ClientRack, useTick, useUsage } from './ClientRack';
@@ -85,11 +97,17 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
   const v = browseState(), d = browseDiag(), w = browseWarm(), sum = summarize(usage), dl = downloadState();
   const memHist = useHistory(() => browseDiag().memoryBytes / 1e6);
   const speedHist = useMemo(() => usage.answers.slice(-30).map(a => a.genPerSec), [usage]);
-  const busy = d.loading || w.phase === 'warming';
+  const busy = w.phase === 'warming';
   const starting = d.loading || ['downloading', 'saving', 'verifying'].includes(dl.phase);
 
   // ── tools ────────────────────────────────────────────────────────────────────────────────────────────────────
-  const stop = async () => { const how = await stopBrowse(); say(how === 'idle' ? 'nothing is being written' : how === 'stopped' ? 'stopped: the answer ends here, with its receipt' : 'stopped: the engine was ended; the next question loads it again', how === 'idle' ? undefined : 'ok'); };
+  /** OFF: an answer being written stops (with its receipt), and the engine is turned off — its memory goes back to
+   *  the browser; the model stays here, so ON starts it again in seconds. */
+  const off = async () => {
+    const how = await stopBrowse();
+    if (browseState()) { try { await unloadBrowse(); } catch { /* still writing: stopped above */ } }
+    say(`OFF${how === 'stopped' ? ': the answer stopped there, with its receipt;' : ':'} the engine's memory went back to the browser — the model stays here (ON starts it again)`, 'ok');
+  };
   const clear = () => {
     const f = uif.current, id = f?.outputs.activeId ?? null;
     if (!f || !id) return say('no response window is active');
@@ -141,25 +159,38 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
     { id: 'sensors', name: 'SENSORS', run: async () => { const s = await sensors(); setSens(s); return `${s.online ? 'online' : 'offline'}${s.connection?.effectiveType ? ` · ${s.connection.effectiveType}` : ''}${s.battery ? ` · battery ${Math.round(s.battery.level * 100)}%${s.battery.charging ? ' charging' : ''}` : ''}`; } },
   ];
   const gv = gpuVerdict(gpu ?? { webgpu: false, reason: '…' }, probe, gx);
+  const gpuName = gpu?.adapter ? [gpu.adapter.vendor, gpu.adapter.architecture, gpu.adapter.device].filter(Boolean).join(' · ') || (gpu.webgl?.renderer ?? '') : (gpu?.webgl?.renderer ?? '');
   const lastLoad = sum.lastLoad, last = sum.lastAnswer;
 
   return (
     <div className="cp">
       <div className="cp-strip" aria-label="browseML now">
-        <span className="cp-strip-lamp"><IndicatorLamp on readOnly size={9} color={!v ? '#64748b' : busy ? ORANGE : GREEN} blink={busy} aria-label="engine" /></span>
-        <span><b>{!v ? 'not loaded' : d.loading ? 'loading' : w.phase === 'warming' ? 'warming' : 'ready'}</b></span>
-        <span title="writing speed, last answers"><Spark values={speedHist} color={GREEN} /> {last ? `${last.genPerSec.toFixed(2)} tok/s` : '— tok/s'}</span>
-        <span title="engine memory, last minute"><Spark values={memHist} /> {mb(d.memoryBytes)}</span>
+        <span className="cp-strip-lamp"><IndicatorLamp on readOnly size={9} color={!v && !starting ? '#64748b' : busy || starting ? ORANGE : GREEN} blink={busy || starting} aria-label="engine" /></span>
+        <span className="cp-strip-state"><b>{v ? (w.phase === 'warming' ? 'ON · warming' : 'ON') : starting ? 'STARTING' : 'OFF'}</b>{v && <small>{v.threads} thr · ctx {v.ctx ?? browseSettings().ctx}</small>}</span>
+        <span className="cp-strip-num" title="writing speed, last answers"><Spark values={speedHist} color={GREEN} /><b>{last ? last.genPerSec.toFixed(2) : '—'}</b><small>tok/s{last ? ` · read ${last.promptPerSec.toFixed(1)}` : ''}</small></span>
+        <span className="cp-strip-num" title="engine memory, last minute"><Spark values={memHist} /><b>{mb(d.memoryBytes)}</b><small>held</small></span>
+        <span className="cp-strip-num" title="the prompt cache: the kept prompt, and the RAM cache"><b>{w.phase === 'restored' || w.phase === 'warmed' ? mb(w.bytes) : '—'}</b><small>cache{w.phase === 'restored' || w.phase === 'warmed' ? ` · ${w.tokens} tok` : ''} · {browseSettings().cacheRam} MiB RAM</small></span>
       </div>
 
       <Fold id="tools" title="TOOLS">
         <div className="cp-buttons">
-          <Button onClick={() => void onStart?.(say)} color={GREEN} disabled={!!v || starting}>{v ? 'STARTED' : starting ? 'STARTING…' : 'START'}</Button>
-          <Button onClick={stop} color={RED}>STOP</Button>
+          <Button onClick={() => void onStart?.(say)} color={GREEN} disabled={!!v || starting}>{starting ? 'ON…' : 'ON'}</Button>
+          <Button onClick={() => void off()} color={RED} disabled={!v && !starting}>OFF</Button>
           <Button onClick={clear}>CLEAR</Button>
         </div>
         {said && <p className={`cp-said ${said.tone ? `is-${said.tone}` : ''}`} role="status">{said.text}</p>}
+        <Status usage={usage} gpu={gpuName} />
       </Fold>
+
+      <Fold id="sliders" title="CPU · RAM · GPU · CACHE"><Sliders usage={usage} say={say} gpu={gpuName} /></Fold>
+
+      <Fold id="persona" title="PERSONA" open={false}><PersonaSection uif={uif} say={say} /></Fold>
+
+      <Fold id="builder" title="BUILDER" open={false}><Builder uif={uif} say={say} /></Fold>
+
+      <Fold id="sampling" title="SAMPLING" open={false}><SamplingDials /></Fold>
+
+      <Fold id="log" title="ENGINE LOG" open={false}><EngineLog /></Fold>
 
       <Fold id="receipts" title="RECEIPTS" open={false}><ReceiptsSection uif={uif} /></Fold>
 

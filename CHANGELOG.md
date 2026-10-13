@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.6.3 — 2026-10-13 — the control panel takes charge: ON · OFF · CLEAR, sliders to 100%, the engine log, personas and a builder
+
+- **ON · OFF · CLEAR** at the top of the panel. OFF stops an answer (with its receipt) and frees the engine's memory;
+  the model stays, so ON starts it again in seconds.
+- **The load, said as it happens**, after the PYTHAI/browseML Space: the progress bar, MB of MB, MB/s, time left,
+  elapsed, the source host, pieces asked for again, PAUSE · RESUME · CANCEL; a clock while bankML verifies; "ready in"
+  with the download and open times; errors with what to do. The device's environment line beneath.
+- **The strip:** ON/OFF, threads and context, writing speed (and reading), memory held, and the prompt cache's size.
+- **CPU · RAM · GPU · CACHE**, sliders that go to 100%, each with what is measured now: threads 1–8 (past the cores the
+  browser reports, since Brave reports fewer; that is why the browser was slower than Node), the context against the
+  device's memory, the GPU off · low · high, the prompt cache's size and CLEAR CACHE. APPLY restarts the engine.
+- **ENGINE LOG** in the panel: bankML's own lines and the page's steps (download, verify, prompt cache, each receipt).
+- **PERSONA:** switch between browseML's own and personas made here (name, opening message, prompt); import and
+  export `.persona` files. browseML's own is read from `browseml.persona` every visit, so its facts stay current; it
+  now carries the real links and an opening message.
+- **BUILDER:** `.persona` — browseML fills the name, the opening message and the prompt from a description, on this
+  computer (checked on the engine: the three lines came back, 3.6 tok/s on 4 threads); `.prompt` — browseML writes a
+  system prompt for a task; `.memory` — a note kept for every question.
+- **SAMPLING**, Savante's dials: answer length from 1 (the single-token proof) to 2048, temperature, top-p, and top-k,
+  min-p, repeat penalty, seed — sent only when set (unset is the engine's default).
+- **HARD DRIVE, tighter**, and **SAVE FOR bankML**: the model and its FORK.json, ready for `bankml serve`.
+- **Links in answers are links** (http(s), and bare github.com / huggingface.co addresses; nothing else).
+- The field reads **"browseML knows best"**. The logo is the favicon.
+- Fixed: the first click on the page was lost (the panel opened on the press and moved the page); it opens after it.
+- The browser test (`app/tests/browser.mjs`): ON · OFF · CLEAR, the new sections, SAVE FOR bankML; the gpu-exact check
+  read "256/256" correctly.
+- The engine is unchanged (bankML `0346076`); `browseml.js` lets a visitor ask for up to 8 threads.
+
+Not released on its own: **0.6.2** below (its browser checks found the lost first click).
+
 ## 0.6.2 — 2026-10-13 — the page just loads; the panel opens on the first interaction; HARD DRIVE; a release gate
 
 - **The page just loads.** Nothing starts until the visitor's first interaction (a press or a key anywhere): then the

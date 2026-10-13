@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Linked } from '../core/links';
 import type { OutputField as OutputFieldData } from '../types';
 import { KEYBOARD_HINT, useDragResize } from '../hooks/useDragResize';
 import { useUIF } from './UIFContext';
@@ -144,7 +145,7 @@ export function OutputView({
           const keep = onRemember && m.role === 'assistant' && !m.pending && !m.undelivered && m.text;
           const msg = (
             <div key={m.id} className={['uif-msg', `uif-msg-${m.role}`, m.kind && `is-${m.kind}`, m.tone && `is-${m.tone}`, m.undelivered && 'is-undelivered'].filter(Boolean).join(' ')}>
-              {!(m.widgetOnly && m.widget && widgets?.[m.widget]) && m.text}
+              {!(m.widgetOnly && m.widget && widgets?.[m.widget]) && (m.text ? <Linked text={m.text} /> : m.text)}
               {m.pending && <span className="uif-caret">▍</span>}
               {m.widget && widgets?.[m.widget] && <div className="uif-msg-widget">{widgets[m.widget]({ outputId: field.id, message: m })}</div>}
               {m.media && (

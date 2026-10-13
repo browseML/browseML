@@ -25,9 +25,12 @@ export let memoryBytes = 0;
 
 /** The most threads the engine takes, however many cores the browser reports. */
 export const MAX_THREADS = 8;
-/** Threads for the engine: every core this browser reports (up to MAX_THREADS), when the page is cross-origin
- *  isolated (the Space sends COOP and COEP); otherwise one. Also the most a visitor can choose. */
-export const threads = () => (globalThis.crossOriginIsolated && typeof SharedArrayBuffer !== "undefined" ? Math.max(1, Math.min(MAX_THREADS, navigator.hardwareConcurrency || 1)) : 1);
+/** Threads are possible here at all (cross-origin isolated, SharedArrayBuffer). */
+export const isolated = () => !!(globalThis.crossOriginIsolated && typeof SharedArrayBuffer !== "undefined");
+/** Threads for the engine by default: every core this browser reports (up to MAX_THREADS), when the page is cross-origin
+ *  isolated (COOP and COEP); otherwise one. A visitor may ask for up to MAX_THREADS: some browsers (Brave) report
+ *  fewer cores than the computer has. */
+export const threads = () => (isolated() ? Math.max(1, Math.min(MAX_THREADS, navigator.hardwareConcurrency || 1)) : 1);
 
 /** The model in this browser's cache, or null. */
 async function cached() {
@@ -167,7 +170,7 @@ async function loadOnce(progress, log, { threads: want, ctx = 4096, cacheRam = 0
     worker.onerror = (e) => reject(new Error(e.message || "the engine could not start"));
     // the STOP flag: shared memory where the page is cross-origin isolated (else stop() ends the engine)
     stopFlag = typeof SharedArrayBuffer !== "undefined" && globalThis.crossOriginIsolated ? new Int32Array(new SharedArrayBuffer(4)) : null;
-    worker.postMessage({ type: "open", name: MODEL.name, bytes, fork, threads: Math.max(1, Math.min(threads(), want || threads())), ctx, cacheRam, stop: stopFlag && stopFlag.buffer }, [bytes]);
+    worker.postMessage({ type: "open", name: MODEL.name, bytes, fork, threads: Math.max(1, Math.min(isolated() ? MAX_THREADS : 1, want || threads())), ctx, cacheRam, stop: stopFlag && stopFlag.buffer }, [bytes]);
   });
   loadStats = { ...st, openMs: Math.round(performance.now() - t0) - st.modelMs, totalMs: Math.round(performance.now() - t0), memory: memoryBytes, threads: verified.threads, ctx, cacheRam, build: verified.build };
   ready = verified;

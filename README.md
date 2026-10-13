@@ -69,11 +69,31 @@ The download comes in 16 MB pieces, each resumed from the exact byte a dropped c
 
 ## Try it
 
-| | |
-|---|---|
-| **[PYTHAI/browseML](https://huggingface.co/spaces/PYTHAI/browseML)** | the landing page: ask, watch it download and verify, read the receipt |
-| **[PYTHAI/bankml](https://huggingface.co/spaces/PYTHAI/bankml)** | the full bankML Space, where browseML first appeared on 2026-10-09 |
-| **[PYTHAI/bankML-UIF](https://huggingface.co/spaces/PYTHAI/bankML-UIF)** | bankML behind the ultimate input field |
+<table>
+<tr>
+<td width="33%" valign="top">
+
+**[PYTHAI/browseML](https://huggingface.co/spaces/PYTHAI/browseML)**
+
+Ask, watch it download and verify, read the receipt.
+
+</td>
+<td width="33%" valign="top">
+
+**[PYTHAI/bankml](https://huggingface.co/spaces/PYTHAI/bankml)**
+
+The full bankML Space, where browseML first appeared.
+
+</td>
+<td width="33%" valign="top">
+
+**[PYTHAI/bankML-UIF](https://huggingface.co/spaces/PYTHAI/bankML-UIF)**
+
+bankML behind the ultimate input field.
+
+</td>
+</tr>
+</table>
 
 ## Run it yourself
 
