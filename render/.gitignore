@@ -1,0 +1,3 @@
+target/
+testdata/*.f64
+testdata/*.i64
