@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-//! overlord-dsp: a scratch proof of concept (2026-10-12) of the OVERLORD v4 DSP layers in zero-dependency Rust,
-//! held against mindX's overlord_dsp.py by golden outputs (tools/golden.py writes them from the reference itself).
-//! Not wired into browseML, voaice or the render queue; the design is ../docs/RENDER_RUST.md.
+//! overlord-dsp: the OVERLORD v4 sentence DSP in zero-dependency Rust, held against mindX's overlord_dsp.py by golden
+//! outputs (tools/golden.py writes them from the reference itself) and by the live reference (python/test_ctypes.py).
+//! Iteration 2 (2026-10-12): bit-exact on wasm32 as on x86-64 (xmath), the whole sentence ported, shared layers,
+//! optional diagnostics, exact SIMD, and a C ABI (capi/). Not wired into browseML, voaice, mindX or the render
+//! queue; the design and the adoption gate are ../docs/RENDER_RUST.md.
 pub mod dsp;
 pub mod fft;
+pub mod xmath;
 
 /// Little-endian f64 / i64 files as tools/golden.py writes them.
 pub mod io {

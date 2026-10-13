@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
-# SCRATCH PROOF OF CONCEPT (2026-10-12), not wired into browseML: see ../docs/RENDER_RUST.md.
+# PROOF OF CONCEPT, iteration 2 (2026-10-12); not wired into browseML or mindX: see ../docs/RENDER_RUST.md §4 (the gate).
 [package]
 name = "overlord-dsp"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 publish = false
-description = "OVERLORD v4 DSP layers in zero-dependency Rust, held against overlord_dsp.py (numpy + numba) by golden outputs"
+description = "The OVERLORD v4 sentence DSP in zero-dependency Rust, bit-exact against overlord_dsp.py (numpy + numba) on x86-64 and wasm32"
 license = "MIT OR Apache-2.0"
 
 [lib]
@@ -15,11 +15,17 @@ path = "src/lib.rs"
 name = "overlord-bench"
 path = "src/bin/bench.rs"
 
+[[bin]]
+name = "gen-tables"
+path = "src/bin/gen_tables.rs"
+
 # No crates, as bankML / voaice.rs / streamair: the FFT is in-crate.
 [dependencies]
 
-# Its own workspace root, so browseML's Cargo.toml (which excludes bankml) is not touched.
+# Its own workspace root, so browseML's Cargo.toml (which excludes bankml) is not touched. capi/ is the C ABI
+# (liboverlord_dsp_c.so) as its own package: a cdylib beside the rlib in one package collides with the test build.
 [workspace]
+members = ["capi"]
 
 [profile.release]
 opt-level = 3

@@ -51,8 +51,32 @@ w("octave2.f64", dsp.octave_divider(body, SR, 2, 180.0))
 w("octave4.f64", dsp.octave_divider(body, SR, 4, 140.0))
 w("overtones.f64", dsp.harmonic_overtones(body, SR, (2, 3, 4), (1.0, 0.6, 0.35)))
 
-json.dump({"sr": SR, "n_a": len(a), "n_j": len(j), "n_body": len(body), "win": win, "hop": hop, "tol": tol,
+# 4. The rest of one v4 sentence, as render_overlord.py's loop body runs it (constants as there, 2026-10-12 v4)
+w("pshift7.f64", dsp.pitch_shift(a, SR, -7.0))
+fb = dsp._mel_bank(SR)
+mel = lambda f: 2595 * np.log10(1 + f / 700.0)
+imel = lambda m: 700 * (10 ** (m / 2595.0) - 1)
+w("melbins.i64", np.floor((dsp.NFFT + 1) * imel(np.linspace(mel(60.0), mel(7600.0), 40 + 2)) / SR).astype(np.int64))
+w("logmel_a.f64", fr); w("logmel_j.f64", fo)
+jw = dsp.warp(j, amap, SR)
+lag = dsp.residual_lag_ms(a, jw, SR)
+ex = dsp.exciter(body, SR)
+w("exciter.f64", ex)
+o2, o4 = dsp.octave_divider(body, SR, 2, 180.0), dsp.octave_divider(body, SR, 4, 140.0)
+ov = dsp.harmonic_overtones(body, SR, (2, 3, 4), (1.0, 0.6, 0.35))
+offs = [dsp.offset_samples(body, L, SR) for L in (o2, o4, ov)]
+mix = ex + 0.42 * jw
+mix = mix + 0.44 * o2 + 0.16 * o4 + 0.24 * ov
+fifth = dsp.lowpass(dsp.pitch_shift(a, SR, -7.0), SR, 1500.0)
+w("fifth.f64", fifth)
+mix = mix + 0.20 * fifth
+mix = dsp.low_shelf(mix, SR, 180.0, 5.0)
+w("mix.f64", mix)
+
+import hashlib
+json.dump({"reference_sha256": hashlib.sha256(open(dsp.__file__, "rb").read()).hexdigest(), "residual_lag_ms": lag, "residual_lag_ms_unaligned": dsp.residual_lag_ms(a, j, SR), "offsets": offs, "sr": SR, "n_a": len(a), "n_j": len(j), "n_body": len(body), "win": win, "hop": hop, "tol": tol,
            "cost_shape": list(cost.shape), "dtw_len": int(len(pi)),
-           "numba": dsp.njit.__module__.startswith("numba"), "numpy": np.__version__},
+           "numba": __import__("numba").__version__ if dsp.njit.__module__.startswith("numba") else False,
+           "numpy": np.__version__},
           open(td / "meta.json", "w"), indent=1)
 print(json.load(open(td / "meta.json")))

@@ -1,3 +1,4 @@
 target/
 testdata/*.f64
 testdata/*.i64
+__pycache__/

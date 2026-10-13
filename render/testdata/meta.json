@@ -1,4 +1,12 @@
 {
+ "reference_sha256": "cbff9df0f6934ab93a717733d43a615510d1168b877528517534d55f3be1e00d",
+ "residual_lag_ms": 0.0,
+ "residual_lag_ms_unaligned": 74.90787981859411,
+ "offsets": [
+  27,
+  27,
+  14
+ ],
  "sr": 22050,
  "n_a": 113722,
  "n_j": 133946,
@@ -11,6 +19,6 @@
   605
  ],
  "dtw_len": 653,
- "numba": true,
- "numpy": "2.5.4"
+ "numba": "0.61.2",
+ "numpy": "2.2.6"
 }

@@ -1,7 +1,8 @@
 # RENDER_RUST: the DeltaVerse / rage audio render in Rust
 
-**Status: an exploration and design, plus a scratch proof of concept (`render/`, uncommitted, not wired into
-browseML).** Written 2026-10-12. Every figure below says whether it was **measured** (where, how) or **estimated**
+**Status: an exploration and design, plus a proof-of-concept crate (`render/`, crate `overlord-dsp`; iteration 1
+pushed as 55d9732, iteration 2 in §3.4), not wired into browseML or mindX.** Written 2026-10-12, iteration 2 the
+same day. Every figure below says whether it was **measured** (where, how) or **estimated**
 (from what).
 
 The question was: should the Python render pipeline that voices the rage articles (NEURAL, JAIMLA, OVERLORD, SAVANTE)
@@ -21,8 +22,10 @@ to start.
      article.
 * **The Rust crate is worth building for portability.** One exact implementation of the OVERLORD and SAVANTE signal
   chain, callable from Python on the server (C ABI + ctypes, the way docspeech already calls libsndfile) and from a
-  browser worker as wasm32. The proof of concept shows it can be held **bit-exact** to the Python reference where no
-  FFT is involved, natively and in wasm, and to **≥ 280 dB SNR** where an FFT is involved.
+  browser worker as wasm32. Iteration 2 ports the **whole per-sentence DSP** and holds it **bit-exact** to the
+  Python reference wherever no FFT is involved (including the alignment chain: DTW path, `align_map`, WSOLA), on
+  x86-64 **and** wasm32, and to **≥ 280 dB SNR** where an FFT is involved; on a 6-sentence corpus the sentence mix,
+  quantised to int16, differs from the reference in **0** samples.
 
 ---
 
@@ -190,7 +193,7 @@ one it reproduces.
 | R1 | one piper process per voice per article (no per-sentence spawns), pinned and niced like docspeech | Python | **estimated** −5…15% of OVERLORD wall (spawn cost not measured on prod) | no (same model, params, text) |
 | R1b | compute `fundamental`/`envelope`/`gate` once; sample the diagnostics | Python | DSP −~40%, **≈ −3% of OVERLORD** | no (exact refactor) |
 | R2 | **build OVERLORD from the NEURAL and JAIMLA PCM** the queue already renders for the same article (alignment per block or per split sentence, banded DTW) | Python | OVERLORD's marginal cost from ~3.66× NEURAL to **~0.2–0.3×** (DSP + encode only) | **yes**: v4's pace ×1.10 and noise 0.45/0.55 would come from DSP (WSOLA stretch) or be dropped. **Operator decision.** |
-| R3 | **`overlord-dsp` Rust crate**: the v4 chain (and SAVANTE's EQ + soft knee) exact against the Python reference; a C ABI called from Python via ctypes, and wasm32 for a browser worker | Rust | **server: ~1× as ported** (measured, §3.3); 2–4× DSP after the exact SIMD work (estimated), so ≈ −5% of OVERLORD wall. **Browser: makes the DSP shippable at all.** | no |
+| R3 | **`overlord-dsp` Rust crate**: the v4 chain (and SAVANTE's EQ + soft knee) exact against the Python reference; a C ABI called from Python via ctypes, and wasm32 for a browser worker | Rust | **server, measured (iteration 2, §3.4.3): 0.48–0.60× the reference's DSP CPU like for like, 0.36–0.50× with diagnostics sampled**, so ≈ −4…5% of OVERLORD's render. **Browser: makes the DSP shippable at all.** | no |
 | R4 | browser SAVANTE: kristin VITS in a worker (RTen first, a hand port later) on server-provided phoneme IDs → R3's EQ → WebCodecs Opus or libopus-wasm → streamair Ogg | Rust + JS | renders move to the listener's CPU for the **open** voice only | no |
 | R5 | a hand-ported VITS (bankML discipline) | Rust | the only route to beating ORT on the server; unknown until measured | no |
 
@@ -227,8 +230,10 @@ taken from `voaice/piper-voices.json` entries whose licence is public domain / C
      **Measured: 281–303 dB.**
 3. **The argmax lesson (found by the PoC).** WSOLA picks each segment by an argmax over correlations, and an argmax is
    discontinuous. On wasm32, Rust's libm `cos` moved **14 of 704** window values by one ulp. That was enough to flip
-   segment choices, after which every later choice diverged: **`pitch_shift` fell to −1.3 dB SNR** (a different but
-   valid WSOLA path). Fed the reference's own window bits, wasm32 WSOLA is **bit-exact again (0 differ)**. So:
+   segment choices, after which every later choice diverged. Fed the reference's own window bits, wasm32 WSOLA is
+   **bit-exact again (0 differ)**. *Correction (iteration 2):* iteration 1's **`pitch_shift` −1.3 dB on wasm32 had
+   a second cause** — `i * (n - 1)` for the WSOLA position grid was computed in `usize`, which is 32 bits on wasm32;
+   at ~1.4e10 per sentence it wrapped. numpy computes it in int64; the crate now uses u64. So:
    * every transcendental that reaches a decision (the window; the pitch ratio `2^(s/12)`) must come from one
      target-independent source: a table generated once from the reference, or an in-crate correctly-rounded `cos` /
      `pow` (CORE-MATH style) used on every target;
@@ -237,7 +242,7 @@ taken from `voaice/piper-voices.json` entries whose licence is public domain / C
    samples. The Opus bytes are identical when the same libopus build and the same resampler are used; otherwise compare
    decoded PCM. VITS: see the noise trap in §2.1.
 
-### 3.3 Measured: the proof of concept
+### 3.3 Measured: the proof of concept (iteration 1)
 
 `render/` (crate `overlord-dsp` 0.0.1, zero dependencies, Rust 1.99, its own workspace root so browseML's `Cargo.toml`
 is untouched). It ports:
@@ -278,14 +283,138 @@ equal on the WSOLA stages, behind on the FFT-heavy overtones (this FFT against p
 a better real FFT and mixed-radix in place of Bluestein) are **estimates of 2–4× on the DSP**. By Amdahl's law that is
 ≈ −5% of OVERLORD's server wall time.
 
-### 3.4 Where it lives
+### 3.4 Iteration 2 (2026-10-12): exact on wasm, the whole sentence, faster at the same bits, a C ABI
+
+Same crate (`render/`, now 0.0.2, still zero dependencies), same local box (Ryzen 3 3200U, glibc 2.35), heavily
+loaded throughout (load average 5–10 from other work). Goldens regenerated with **production's versions: numpy
+2.2.6 + numba 0.61.2** (a scratch venv), from `overlord_dsp.py` at mindX 015b35843 (its sha256 is now recorded in
+`testdata/meta.json`). The exactness results were also re-run against numpy 2.5.4 + numba 0.68: identical.
+
+#### 3.4.1 Exact on wasm32 (goal 1)
+
+**Measured: glibc's `cos` is not correctly rounded.** Over every argument `np.hanning(M)` evaluates for
+2 ≤ M ≤ 4096 (8,390,655 values, both signs), a double-double correctly rounded cos differs from glibc's in
+**11,882 (0.142%)**; correctly rounded `2^(s/12)` differs from glibc's `pow(2, s/12)` at **117 of 96,001**
+semitone values (s = i/1000, |s| ≤ 48). So "a correctly rounded in-crate cos" alone would *not* reproduce numpy
+(at M = 704 it happens to: 0 differ; at 1024 it would miss 4 values, at 1410 two). Porting glibc's own double
+`cos` (the IBM Accurate Mathematical Library, as browseML did for `sinf`/`cosf` from ARM's MIT/Apache code) is not
+available here: that code is **LGPL-2.1**. What the crate does instead (`src/xmath.rs`):
+
+* `cr_cos` / `cr_sin` / `cr_exp2`: double-double evaluation (~2^-100), Dekker products, IEEE `+ − × ÷` only (no
+  FMA, no libm), so **every target computes the same bits**.
+* `src/glibc_tables.rs`: **measured data, not code** — the one-ulp corrections where glibc differs from the
+  correctly rounded value (5,941 hanning entries keyed by (M, n ≥ 0), 117 semitone entries; 69 KB of source),
+  generated on the reference machine by `cargo run --release --bin gen-tables`. Never more than one ulp.
+* `hann_cos(M, n)` and `semitone_ratio(s)` = correctly rounded ± the table: **proven equal to glibc exhaustively**
+  over the domain (`tests/xmath.rs`: all 8,390,655 hanning arguments in ~3 s, `--ignored`; the renderer's window
+  lengths 7, 9, 512, 704, 768, 1024, 1410, 1536 and the semitone grid on every run). Outside the domain (no
+  renderer window is longer than 1536) they fall back to the platform's libm and say so.
+* The mel filterbank's integer bin edges come from `log10`/`pow` too: every pre-floor value is at least 7.6e-3 from
+  an integer at 8–48 kHz (tested), so no last-bit difference can move one.
+
+Fixed besides: the u64 position grid (§3.2 point 3). **Result: every E0 test passes on wasm32**, under `+simd128`,
+without SIMD, and under `+simd128,+relaxed-simd` (Node 24 WASI, browseML's `testing/wasi-run.mjs`).
+
+The FFT stages (E1) still call the platform's `tanh`, `atan2`, `hypot`, `cos` (twiddles, `cos(nθ)`): their last bits
+**differ between x86-64 and wasm32** (both ≥ 280 dB against the reference, and the zero-crossing events are
+identical on both). Making those target-independent too would need double-double versions of per-sample functions
+(~70 ms per sentence for `atan2` + `cos(nθ)` alone); not done, not needed for the bars.
+
+#### 3.4.2 The whole sentence
+
+Ported in iteration 2: `exciter`, `low_shelf`, `logmel` (+ the mel bank), `cosine_cost`, `align_map`,
+`residual_lag_ms`, `offset_samples`, numpy's `interp` and pairwise sum, and `sentence()` = render_overlord.py v4's
+loop body (`dsp::Params` carries its constants). Results on the golden sentence, native and wasm32 alike
+(`tests/sentence.rs`):
+
+| stage | bar | result |
+|---|---|---|
+| pitch_shift −1, −7; warp | E0 | 0 bits differ |
+| DTW path on the **crate's own** log-mel cost (513 × 605) | E0-events | identical (653 steps) |
+| `align_map` from that path (np.convolve smoothing reproduced without FMA) | E0 | **0 bits differ** |
+| `warp(j, own align_map)` | E0 | 0 bits differ |
+| residual_lag_ms (aligned 0.0; unaligned 74.90787981859411 ms) | E0-events | identical bits |
+| offset_samples ×3 | E0-events | identical ([27, 27, 14]) |
+| logmel, exciter, layers, fifth | E1 | 289–320 dB |
+| **sentence mix** | E1 | **301.1 dB**; as int16 (peak-normalised, before the document finish): **0 of 113,722 samples differ** |
+
+**Corpus (live reference, not stored goldens):** `python/corpus.py check` runs six sentences (28.26 s; public-domain
+en_GB-cori-high at two paces standing in for the two voices, plus the golden pair) through `overlord_dsp.py` and
+through the C ABI: on every sentence the E0 stages differ in **0** bits, lag and offsets are identical, the mix is
+**301.1–302.6 dB** and its int16 differs in **0** samples. That is a small corpus of one voice, not the gate's three
+articles.
+
+#### 3.4.3 Faster at the same bits (goal 2)
+
+Every change below is held to "same bits as the reference-shaped path": `tests/fast_exact.rs` compares the fast FFT
+against iteration 1's loop (kept as `Plan::run_scalar`) for every power of two to 2^18, the lane-parallel WSOLA
+against iteration 1's loop (24 edge cases), and Bluestein against an in-test copy of iteration 1's; a hash of every
+iteration-1 stage's output was compared between a build of 55d9732 and this one: **identical natively, and on wasm32
+for every E1 stage under both SIMD settings** (the E0 stages changed on wasm32 only by becoming exact).
+
+* **Shared work:** `layers()` computes fundamental / envelope / gate once for octave, double and overtones (the
+  reference: 3×); `sentence()` computes the body's log-mel frames once for `align_map` and `residual_lag_ms`, and the
+  body's 60 Hz envelope and its spectrum once for the three `offset_samples`.
+* **Diagnostics:** `Diagnostics::{Every (default = the reference), Sampled(n), Off}` for `residual_lag_ms` and
+  `offset_samples` ×3. The mix is bit-identical under all three (tested).
+* **WSOLA, lane-parallel:** each SIMD lane is one candidate offset, so every correlation sum keeps the reference's
+  order (no TwoSum check is needed because no sum is split; mul and add stay separate). ~4–5× on WSOLA.
+* **FFT, same butterflies:** plans cached (iteration 1 rebuilt one, ~n `cos`+`sin`, per filter); per-stage twiddle
+  tables; AVX (2 butterflies per register, `addsub`) and simd128 (1 per register, an exact sign flip) computing
+  `C::mul`'s exact operations; cache blocking (2^14 points) with stage pairs fused into one memory pass; a **tiled
+  bit-reversal** (iteration 1's point-by-point swap took ~8 of ~10 ms of a 2^18-point transform); no integer `%`
+  in the real-FFT post-pass; Bluestein's chirp computed once per angle (for even n, w[n−k] = w[k]) and its buffers
+  reused. A 2^18 complex FFT is **3.8–4.6×** faster than iteration 1's (interleaved minima), 2^16 ~2.6×.
+* The log-mel cost matrix runs columns in lanes (each sum still sequential over the 40 bands).
+
+**Measured speed** (5 interleaved rounds on the 6-sentence corpus, then 3 on the golden
+sentence; everything `nice -n 10 taskset -c 2`; load average 3–10 during the runs). Python and native Rust in
+**thread CPU time** (the gate's unit; time preempted on the loaded box is not counted); wasm32 under Node 24 has no
+CPU clock, so it is **wall time** and penalised by the load. Ratios are taken within the same round.
+
+| corpus, 28.26 s of audio | s per audio-s, 5 rounds | vs the reference, same round |
+|---|--:|--:|
+| Python reference (numpy 2.2.6 + numba 0.61.2) | 0.140–0.167 | 1 |
+| Rust via ctypes, diagnostics every sentence (like for like) | 0.076–0.094 | **0.48–0.60×, median 0.55×** |
+| Rust via ctypes, diagnostics 1 in 8 | 0.056–0.078 | 0.36–0.50×, median 0.40× |
+| Rust via ctypes, diagnostics off | 0.054–0.063 | 0.34–0.40×, median 0.38× |
+| Rust native binary (same as ctypes: the call costs nothing measurable) | 0.076–0.090 / 0.059–0.068 / 0.056–0.067 | — |
+| Rust wasm32 + simd128, wall, diagnostics every / 1 in 8 | 0.098–0.100 / 0.070–0.076 (one outlier round 0.45 / 0.26) | 0.58–0.71× / 0.42–0.54× |
+
+Golden sentence (5.16 s), per stage, medians of the 3 rounds' medians (ms; Rust native CPU / Python CPU):
+pitch_shift −1 **14–21 / 61–70**, warp **13–15 / 54–79**, fifth **25–31 / 77–96** (WSOLA ≈ 0.2–0.3×);
+octave f/2, f/4 21–24 / 29–38; overtones 100–107 / 146–156; exciter 16–20 / 22–25; offset_samples ×3 123–131 /
+147–152; low_shelf 7–8 / 8.5–9.4; and **align_map 36–43 / 37–40, residual_lag_ms 28–32 / 31–33 — parity** (numpy's
+BLAS matmul and pocketfft are already fast there). Whole sentence: Rust default 368–373 ms vs Python 719–734 ms
+(**0.50–0.51×**); diagnostics 1 in 8: 257–263 ms (0.35–0.36×). wasm32: 410–452 ms wall (default), 305–330 (off).
+
+**What this measures.** The WSOLA stages are where Rust wins big; the FFT stages are 0.7–1.0× because the in-crate
+radix-2 FFT, kept bit-for-bit to iteration 1's butterflies, is still slower per point than pocketfft. Like for like,
+the crate sits **just above** the gate's 0.5× locally (median 0.55×); with the manifest diagnostics sampled it sits
+below. **Not measured on production.** By Amdahl, the whole-render effect is small: the DSP is ~8% of OVERLORD's CPU
+(§1.2), so even 0.4× of it saves ≈ 5% of OVERLORD's render.
+
+
+#### 3.4.4 The C ABI (goal 3)
+
+`render/capi` (package `overlord-dsp-capi`, a cdylib of its own: a cdylib beside the rlib in one package collides
+with the test build) exports `odsp_version`, `odsp_params_default`, `odsp_pitch_shift`, `odsp_warp`,
+`odsp_align_map`, `odsp_layers`, `odsp_sentence`; `render/python/overlord_dsp_rs.py` is the ctypes shim (numpy in,
+numpy out, names as in `overlord_dsp.py`). `python/test_ctypes.py` runs the **live** Python reference and the shim on
+the golden input: pitch_shift −1/−7, align_map, warp **0 bits differ**; layers 288.6–302.3 dB; sentence mix
+301.1 dB, lag and offsets identical, int16 0 samples differ. Standalone: not wired into the renderer or anything
+under mindX.
+
+### 3.5 Where it lives
 
 * **Its own crate, opt-in, outside browseML's runtime.** It sits at `browseML/render/` only as a scratch location. The
   proposed long-term home is the **voaice.rs family** (`cryptoAGI/voaicers`), beside `streamair`, which already owns
   Ogg/Opus and depends on `voaice`. The render chain is "text → sound → .opus", streamair's stated purpose.
-* **Server.** Build it as a `cdylib` with a small `extern "C"` surface (f64 pointer + length in, out-buffer). Python
-  calls it through ctypes over numpy arrays, the same pattern as `utils/docspeech/ogg.py`'s libsndfile. No PyO3, so the
-  crate stays dependency-free. `overlord_dsp.py` stays the reference and the fallback.
+* **Server.** Built (iteration 2) as `render/capi` → `liboverlord_dsp_c.so`, a small `extern "C"` surface (f64
+  pointer + length in, caller-owned out-buffer, status codes; every precondition checked because the build aborts on
+  panic). Python calls it through `render/python/overlord_dsp_rs.py` (ctypes over numpy arrays, the
+  `utils/docspeech/ogg.py` libsndfile pattern). No PyO3, so the crate stays dependency-free. `overlord_dsp.py` stays
+  the reference and the fallback; **nothing in mindX loads the shim.**
 * **Browser.** Build the same crate as `wasm32-wasip1` (single thread is enough: the DSP is ~10× realtime per core)
   using browseML's existing WASI shim pattern. It loads only on an explicit opt-in in **its own worker**. **Nothing is
   wired into browseML's runtime, pages or worker** until §4 passes.
@@ -336,10 +465,26 @@ proposed. That change would be opt-in: a setting, off by default.
 
 ---
 
+### 4.3 Where the gate stands (after iteration 2)
+
+| bar | status | evidence |
+|---|---|---|
+| A · exactness per stage, x86-64 | **pass** (ported stages) | E0 0 bits, events identical, E1 ≥ 280 dB; golden + 6-sentence corpus |
+| A · exactness per stage, wasm32 (+simd128, none, +relaxed-simd) | **pass** (ported stages) | the same 17 tests; xmath proven against glibc natively |
+| A · end to end, int16 | **partial** | sentence mix → int16: 0 samples differ on all 6 sentences. `finish_document` (hall, compressor, int16) is not ported, so the document's int16 is untested |
+| A · decoded Opus / bytes | **not started** | no encoder in the crate |
+| A · speed ≤ 0.5× CPU per audio-s, production host | **not measured on production.** Locally: like for like **0.48–0.60× (median 0.55×) — fails**; with diagnostics sampled 1 in 8, 0.36–0.50× (median 0.40×) — passes if the operator accepts sampled diagnostics (§5 q10); wasm32 0.58–0.71× (wall) | §3.4.3 |
+| A · reproducibility | **partial** | goldens from the reference with its sha256 recorded, test log in this file; the fixed corpus of 3 rage articles is not built (local corpus: 6 sentences of one open voice) |
+| B · no interruption (browser, server) | **untested** (specified in §4.2) | not measured |
+
+**Verdict: Gate A is not passed and Gate B is untested, so browseML does not adopt it.** The crate is exact on
+every target that would ship; what remains is speed on production like-for-like, the document finish, and the
+corpus.
+
 ## 5. Open questions
 
-1. **Is numba installed in production's `.mindx_env`?** Inferred yes from the timings, not verified (I did not touch
-   the VPS).
+1. ~~Is numba installed in production's `.mindx_env`?~~ The operator states numba 0.61.2 / numpy 2.2.6; the
+   iteration-2 goldens use exactly those versions.
 2. **What is the missing ~35% of OVERLORD's cost?** R0's instrumentation answers it. Does the 2.063 s/word median still
    contain v3 renders?
 3. **R2 (reuse NEURAL/JAIMLA PCM for OVERLORD)** is the biggest available saving and a change to the voice. Operator
@@ -353,8 +498,49 @@ proposed. That change would be opt-in: a setting, off by default.
    both. A Rust path needs one named reference.
 8. **A browser "OVERLORD-open"** from public-domain voices (bryce/john/norman + kristin/cori) is technically possible.
    It needs a name and an operator decision. It is not OVERLORD.
+9. **Production's glibc.** `src/glibc_tables.rs` was measured on glibc 2.35 (this box). If the VPS runs a different
+   glibc, run `cargo test --release --test xmath -- --include-ignored` there (seconds); if it fails, regenerate the
+   table there (`gen-tables`) — the table must describe the glibc the reference actually runs on.
+10. **Is like-for-like the right speed bar?** The diagnostics (`residual_lag_ms`, `offset_samples` ×3) are manifest
+   figures. With them sampled 1 in 8 the crate is at or under 0.5×; computing them every sentence it is not. Whether
+   the gate compares the reference's DSP or the DSP the render needs is an operator call.
 
-## Appendix: reproducing the PoC numbers
+## 6. Next steps (after iteration 2)
+
+1. **Measure on production** (read-only, no wiring): copy the crate's release build and the corpus there, run
+   `python/corpus.py bench` and `overlord-bench --corpus` inside the speak slice; and the `xmath` test against its glibc.
+2. **Port `finish_document`** (hall overlap-add, hop compressor, int16) and test the document's int16 end to end
+   (≤ 1 LSB in ≤ 0.1% of samples).
+3. **Build the gate's corpus** (3 rage articles + the golden sentence) as the fixed input of every figure.
+4. **Speed, if like-for-like is the bar:** the FFT stages are now the cost (Bluestein for the analytic signal is
+   about a third of a sentence). Any faster FFT that changes the butterfly order changes E1 bits (still ≥ 100 dB);
+   that is a choice to make explicitly, re-validated against the SNR bars and the events, not slipped in.
+5. **Gate B:** browseML tok/s alone vs with a concurrent wasm render in a Node worker thread, then in browsers.
+6. Then, and only then, R0–R2 (Python) and R4 (browser SAVANTE) as §3.1 orders them.
+
+## Appendix: reproducing the numbers (iteration 2)
+
+```sh
+cd browseML/render
+# goldens, from the Python reference (numpy 2.2.6 + numba 0.61.2 as production; two s16le 22050 Hz takes of one
+# sentence, open voice). MINDX_RENDER_DIR defaults to ~/mindX/mindx_backend_service/deltaverse/render
+python tools/golden.py body.raw other.raw
+cargo test --release                                   # native: 19 tests (+1 exhaustive: -- --include-ignored)
+cargo build --release --workspace                      # also capi/ -> target/release/liboverlord_dsp_c.so
+python python/test_ctypes.py                           # the C ABI against the live reference
+python python/corpus.py prepare CORPUS bodies/ others/ # piper --output_dir WAVs, open voices only
+python python/corpus.py check CORPUS                   # every sentence, stage by stage
+python python/corpus.py bench CORPUS 5 3               # reference vs ctypes, interleaved, thread CPU time
+nice -n 10 taskset -c 2 target/release/overlord-bench testdata 7
+nice -n 10 taskset -c 2 target/release/overlord-bench --corpus CORPUS 3
+# wasm32 (Node 24's WASI, browseML's runner); also without +simd128 and with +simd128,+relaxed-simd
+CARGO_TARGET_WASM32_WASIP1_RUNNER="node --no-warnings ../testing/wasi-run.mjs" RUSTFLAGS="-C target-feature=+simd128" \
+  cargo test --release --target wasm32-wasip1 -- --test-threads=1
+# the glibc table (on the reference machine only)
+cargo run --release --bin gen-tables > src/glibc_tables.rs && cargo test --release --test xmath -- --include-ignored
+```
+
+## Appendix: reproducing the iteration-1 numbers
 
 ```sh
 cd browseML/render
