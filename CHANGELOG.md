@@ -13,6 +13,9 @@
   CPU slider shows it (free, reported, the claim), with AUTO and RE-MEASURE; a count you choose wins. Robust to a
   busy moment: every count from 1 to 8 measured twice (about 2.6 s, once a visit), the fewest workers reaching 90% of
   the best total taken, and measured again when that is under half of what the browser reports.
+- **The control panel comes out with every new response window**, whatever opened it (a question, the FAQ, the
+  windows menu, a reply), on a desktop.
+- **Closed, the panel keeps a tab on the left edge** (hover peeks, a press opens it): no input field needed.
 - Fixed: switching persona now reads and keeps the new persona's prompt (it used the context from before the switch).
   Found by the browser checks.
 - **Prompts kept per persona:** each prompt (a persona, a `.prompt`, a context size) keeps its own read slot, up to a

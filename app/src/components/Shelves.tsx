@@ -16,7 +16,9 @@ import type { Action } from '../core/actions';
 
 const SLOP = 5;
 
-export function Shelves({ store, top, title = 'menu' }: { store: ShelvesStore; top?: ReactNode; title?: string }) {
+/** `tab`: 'shelved' shows the edge tab only after the panel was shelved; 'always' whenever it is closed, so it opens
+ *  with no input field on screen. */
+export function Shelves({ store, top, title = 'menu', tab = 'shelved' }: { store: ShelvesStore; top?: ReactNode; title?: string; tab?: 'shelved' | 'always' }) {
   const uif = useUIF();
   const { registry } = uif;
   useRegistryVersion(registry);
@@ -162,7 +164,7 @@ export function Shelves({ store, top, title = 'menu' }: { store: ShelvesStore; t
 
   return (
     <>
-      {!open && state.shelved && (
+      {!open && (state.shelved || tab === 'always') && (
         // the shelf: hover peeks the panel open, a press (or touch) pins it open
         <button type="button" className="uif-shelves-tab" aria-label={`Open the ${title}`} title={`${title}: hover to look, press to open`}
           onMouseEnter={() => setPeek(true)} onClick={() => setOpen(true)}>

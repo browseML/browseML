@@ -185,6 +185,7 @@ try {
   // ── no model: a question goes straight to loading it ─────────────────────────────────────────────────────────
   await page.goto(`${BASE}/app.html`, { waitUntil: "networkidle" });
   check("fresh visit: the page just loads, no panel before an interaction", (await page.locator(".uif-shelves.is-open").count()) === 0);
+  check("fresh visit: the closed panel's tab is there", await page.locator(".uif-shelves-tab").isVisible());
   await page.locator(".cs-faq-q").first().click();
   await wait(1500);
   const side = await page.evaluate(() => {
@@ -198,6 +199,11 @@ try {
   await page.waitForFunction(() => /Loading the model in your browser/.test(document.querySelector(".uif-output")?.textContent || ""), null, { timeout: 60000 });
   await wait(4000);
   check("the response window does not ask: no Import button", (await page.locator(".uif-output .cs-import").count()) === 0);
+  // closed, the panel keeps a tab on the left edge: it opens it with no input field involved
+  await page.locator(".uif-shelves-switch").click(); await wait(400);
+  const tabShown = await page.locator(".uif-shelves-tab").isVisible();
+  await page.locator(".uif-shelves-tab").click(); await wait(400);
+  check("closed, the panel's edge tab opens it (no input field needed)", tabShown && (await page.locator(".uif-shelves.is-open").count()) === 1);
   check("no model: asking starts loading it", /MB of \d+ MB/.test(await page.locator(".uif-output").first().innerText()));
   await ctx.close();
 } catch (e) {

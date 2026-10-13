@@ -61,10 +61,22 @@ const shelves = createShelves(`${KEY}:shelves`);
 // each visit starts with the page alone: the panel (kept open last time or not) comes out with the first interaction
 if (shelves.get().shown) shelves.set(s => ({ ...s, shown: false }));
 
+/** The control panel comes out with every new response window — whatever opened it (a question, the FAQ, the windows
+ *  menu, a reply) — on a desktop; on a phone it would cover the answer (the edge tab and T open it there). */
+const openWithWindow = () => {
+  panelOpened = true;
+  if (window.innerWidth > 640 && !shelves.get().shown) shelves.set(s => ({ ...s, shown: true, shelved: false }));
+};
+
 function Bridge({ into, onReady }: { into: { current: UIFContextValue | null }; onReady(): void }) {
   const uif = useUIF();
   const first = !into.current;
   into.current = uif;
+  const windows = uif.outputs.list().length, seen = useRef(windows);
+  useEffect(() => {
+    if (windows > seen.current) openWithWindow();
+    seen.current = windows;
+  }, [windows]);
   useEffect(() => {
     if (first) onReady();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -104,7 +116,7 @@ function Page() {
       document.removeEventListener('pointerdown', first, true);
       document.removeEventListener('keydown', first, true);
       // a press on T or in the panel itself is the visitor opening or shelving it: left to them
-      if ((e.target as Element | null)?.closest?.('.uif-tools-toggle, .uif-shelves')) { panelOpened = true; void measureCores().then(() => A.current.preload()); return; }
+      if ((e.target as Element | null)?.closest?.('.uif-tools-toggle, .uif-shelves, .uif-shelves-tab')) { panelOpened = true; void measureCores().then(() => A.current.preload()); return; }
       // after the press lands: opening the panel moves the page, and a click must not lose its target
       if (e.type === 'pointerdown') {
         let done = false;
@@ -163,9 +175,8 @@ function Page() {
   const onSend = (text: string, meta: SendMeta) => {
     const f = uif.current;
     const fresh = (f?.outputs.list().find(w => w.id === meta.outputId)?.messages.filter(m => m.role !== 'system').length ?? 0) <= 1;
-    panelOpened = true;
     // the control panel opens with the response window (on a phone, T opens it); the field drops beside it
-    if (fresh && window.innerWidth > 640 && !shelves.get().shown) shelves.set(s => ({ ...s, shown: true, shelved: false }));
+    if (fresh) openWithWindow(); else panelOpened = true;
     const hub = f?.hubLayout(), h = hub?.get();
     if (hub && h && h.docked === 'page') {
       const side = panelSide();
@@ -323,7 +334,7 @@ function Page() {
           right={mine ? <span className={'cs-pill ' + (mine.tone ? `is-${mine.tone}` : '')}>{mine.text}</span> : <span className="cs-pill is-working">streaming · {a.live}</span>}
         >
           <Bridge into={uif} onReady={onReady} />
-          <Shelves store={shelves} title="control panel" top={<ControlPanel uif={uif} onModelReady={() => void A.current.ready()} onStart={start} />} />
+          <Shelves store={shelves} title="control panel" tab="always" top={<ControlPanel uif={uif} onModelReady={() => void A.current.ready()} onStart={start} />} />
         </UltimateBar>
       </div>
       <Faq uif={uif} />
