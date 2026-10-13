@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.4 — 2026-10-13 — out of the input field; the panel arranged by you; tok/s you can read
+
+- **Out of the input field:** a new response window grows out of the field, and so does the control panel when it
+  opens (none of it when the system asks for reduced motion).
+- **Reply fields only when chosen:** response windows have no input of their own; the input field asks. A window's
+  **⋯** menu adds a reply field to it, or to every window (also in the field's responses menu).
+- **NOW**, the panel's top as a section: tiles for the engine (ON/OFF, threads, context), writing and reading tok/s,
+  memory held and its peak, the prompt cache's size and tokens, the last prompt's reading time; a **speed chart** (each
+  answer's writing speed as a bar, its reading speed as a line, the average dashed, the scale and last values
+  labelled, every bar's numbers on hover); the engine's memory over the last minute with now / min / max.
+- **Every section arranged by you:** drag a section by its grip ⠿ (mouse, pen or finger; ↑ ↓ on the grip), hide it
+  with –, bring it back with SHOW, RESET LAYOUT. Kept in this browser.
+- Browser test: the reply field opt-in, the speed chart, dragging a section to the top, hiding and showing it.
+
 ## 0.6.3 — 2026-10-13 — the control panel takes charge: ON · OFF · CLEAR, sliders to 100%, the engine log, personas and a builder
 
 - **ON · OFF · CLEAR** at the top of the panel. OFF stops an answer (with its receipt) and frees the engine's memory;

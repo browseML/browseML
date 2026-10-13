@@ -33,6 +33,8 @@ import { EngineLog } from './EngineLog';
 import { PersonaSection } from './Persona';
 import { SamplingDials } from './Sampling';
 import { Builder } from './Builder';
+import { Arrange, useArrange } from './Arrange';
+import { SpeedChart, Trace } from './Charts';
 import { ReceiptsSection } from './Receipt';
 import { gpuVerdict, probeGpu, readGpu, KEY_FEATURES, type GpuExact, type GpuProbe, type GpuReport } from '../bankml/gpu';
 import { ClientRack, useTick, useUsage } from './ClientRack';
@@ -40,30 +42,27 @@ import { cpu, memory, ping, sensors, speed, storage, type Sensors } from './tool
 import { getLimits, onLimits, setLimits, type Limits } from './limits';
 
 const GREEN = '#0ECB81', ORANGE = '#F7931A', RED = '#F6465D';
+const TITLES: Record<string, string> = { now: 'NOW', tools: 'TOOLS', sliders: 'CPU · RAM · GPU · CACHE', persona: 'PERSONA', builder: 'BUILDER', sampling: 'SAMPLING', log: 'ENGINE LOG',
+  receipts: 'RECEIPTS', folders: 'MODELS ON THIS COMPUTER', disk: 'HARD DRIVE', dials: 'DIALS', diag: 'DIAGNOSTICS', suite: 'TOOL SUITE', limits: 'LIMITERS', advice: 'ADVICE AND RECORDS' };
 
 /** A folding section that remembers whether it was open. */
 function Fold({ id, title, children, open = true, right }: { id: string; title: string; children: ReactNode; open?: boolean; right?: ReactNode }) {
   const key = `browseml:cp:${id}`;
   const [o, setO] = useState(() => { try { const v = localStorage.getItem(key); return v === null ? open : v === '1'; } catch { return open; } });
+  const arrange = useArrange();
   return (
     <section className={`cp-fold ${o ? 'is-open' : ''}`}>
       <header>
+        {arrange && <span className="cp-grip" role="button" tabIndex={0} aria-label={`move ${title} (drag, or ↑ ↓)`} title="drag to move · ↑ ↓" {...arrange.grip(id)}>⠿</span>}
         <button type="button" className="cp-fold-head" aria-expanded={o} onClick={() => { setO(!o); try { localStorage.setItem(key, o ? '0' : '1'); } catch { /* off */ } }}>
           <span className="cp-caret" aria-hidden="true">{o ? '▾' : '▸'}</span>{title}
         </button>
         {right}
+        {arrange && <button type="button" className="cp-hide" aria-label={`hide ${title}`} title="hide (SHOW at the bottom brings it back)" onClick={() => arrange.hide(id)}>–</button>}
       </header>
       {o && <div className="cp-fold-body">{children}</div>}
     </section>
   );
-}
-
-/** A tiny line of the last values (uPlot's idea, in SVG). */
-function Spark({ values, color = ORANGE, w = 96, h = 22 }: { values: number[]; color?: string; w?: number; h?: number }) {
-  if (values.length < 2) return <svg width={w} height={h} className="cp-spark" aria-hidden="true" />;
-  const max = Math.max(...values, 1e-9), min = Math.min(...values, 0);
-  const pts = values.map((v, i) => `${(i / (values.length - 1)) * w},${h - 2 - ((v - min) / (max - min || 1)) * (h - 4)}`).join(' ');
-  return <svg width={w} height={h} className="cp-spark" aria-hidden="true"><polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" /></svg>;
 }
 
 /** The last `n` samples of `read()`, once a second. */
@@ -96,7 +95,6 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
   useEffect(() => onBrowseWarm(() => rewarm(n => n + 1)), []);
   const v = browseState(), d = browseDiag(), w = browseWarm(), sum = summarize(usage), dl = downloadState();
   const memHist = useHistory(() => browseDiag().memoryBytes / 1e6);
-  const speedHist = useMemo(() => usage.answers.slice(-30).map(a => a.genPerSec), [usage]);
   const busy = w.phase === 'warming';
   const starting = d.loading || ['downloading', 'saving', 'verifying'].includes(dl.phase);
 
@@ -164,13 +162,23 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
 
   return (
     <div className="cp">
-      <div className="cp-strip" aria-label="browseML now">
-        <span className="cp-strip-lamp"><IndicatorLamp on readOnly size={9} color={!v && !starting ? '#64748b' : busy || starting ? ORANGE : GREEN} blink={busy || starting} aria-label="engine" /></span>
-        <span className="cp-strip-state"><b>{v ? (w.phase === 'warming' ? 'ON · warming' : 'ON') : starting ? 'STARTING' : 'OFF'}</b>{v && <small>{v.threads} thr · ctx {v.ctx ?? browseSettings().ctx}</small>}</span>
-        <span className="cp-strip-num" title="writing speed, last answers"><Spark values={speedHist} color={GREEN} /><b>{last ? last.genPerSec.toFixed(2) : '—'}</b><small>tok/s{last ? ` · read ${last.promptPerSec.toFixed(1)}` : ''}</small></span>
-        <span className="cp-strip-num" title="engine memory, last minute"><Spark values={memHist} /><b>{mb(d.memoryBytes)}</b><small>held</small></span>
-        <span className="cp-strip-num" title="the prompt cache: the kept prompt, and the RAM cache"><b>{w.phase === 'restored' || w.phase === 'warmed' ? mb(w.bytes) : '—'}</b><small>cache{w.phase === 'restored' || w.phase === 'warmed' ? ` · ${w.tokens} tok` : ''} · {browseSettings().cacheRam} MiB RAM</small></span>
-      </div>
+      <Arrange titles={TITLES}>
+      <Fold id="now" title="NOW">
+        <div className="cp-tiles" aria-label="browseML now">
+          <div className="cp-tile">
+            <IndicatorLamp on readOnly size={9} color={!v && !starting ? '#64748b' : busy || starting ? ORANGE : GREEN} blink={busy || starting} aria-label="engine" />
+            <b>{v ? (w.phase === 'warming' ? 'ON · warming' : 'ON') : starting ? 'STARTING' : 'OFF'}</b>
+            <small>{v ? `${v.threads} threads · ctx ${v.ctx ?? browseSettings().ctx}` : 'engine'}</small>
+          </div>
+          <div className="cp-tile"><b className="is-green">{last ? last.genPerSec.toFixed(2) : '—'}</b><small>tok/s writing</small></div>
+          <div className="cp-tile"><b className="is-orange">{last ? last.promptPerSec.toFixed(2) : '—'}</b><small>tok/s reading</small></div>
+          <div className="cp-tile"><b>{mb(d.memoryBytes)}</b><small>held · peak {mb(sum.peakMemory)}</small></div>
+          <div className="cp-tile"><b>{w.phase === 'restored' || w.phase === 'warmed' ? mb(w.bytes) : '—'}</b><small>prompt cache{w.phase === 'restored' || w.phase === 'warmed' ? ` · ${w.tokens} tok` : ''} · {browseSettings().cacheRam} MiB RAM</small></div>
+          <div className="cp-tile"><b>{last ? `${(last.promptMs / 1000).toFixed(1)} s` : '—'}</b><small>last prompt read{last?.cached ? ` · ${last.cached} reused` : ''}</small></div>
+        </div>
+        <SpeedChart answers={usage.answers} />
+        <Trace values={memHist} label="held by the engine, the last minute" unit="MB" />
+      </Fold>
 
       <Fold id="tools" title="TOOLS">
         <div className="cp-buttons">
@@ -264,6 +272,7 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
       </Fold>
 
       <Fold id="advice" title="ADVICE AND RECORDS" open={false}><UsagePanel usage={usage} /></Fold>
+      </Arrange>
     </div>
   );
 }

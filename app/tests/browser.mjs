@@ -50,7 +50,7 @@ try {
   check("no panel at first, T in the field", (await page.locator(".uif-shelves.is-open").count()) === 0 && (await page.locator(".uif-tools-toggle").innerText()) === "T");
   await page.locator(".uif-tools-toggle").click(); await wait(400);
   const folds = (await page.locator(".cp-fold-head").allInnerTexts()).map((t) => t.replace(/[▾▸]/g, "").trim());
-  check("T opens the control panel with its sections", ["TOOLS", "CPU · RAM · GPU · CACHE", "ENGINE LOG", "RECEIPTS", "MODELS ON THIS COMPUTER", "HARD DRIVE", "DIALS", "DIAGNOSTICS", "TOOL SUITE", "LIMITERS"].every((f) => folds.includes(f)), folds.join(", "));
+  check("T opens the control panel with its sections", ["NOW", "TOOLS", "CPU · RAM · GPU · CACHE", "ENGINE LOG", "RECEIPTS", "MODELS ON THIS COMPUTER", "HARD DRIVE", "DIALS", "DIAGNOSTICS", "TOOL SUITE", "LIMITERS"].every((f) => folds.includes(f)), folds.join(", "));
   const pw = await page.evaluate(() => { const a = document.querySelector(".uif-shelves.is-open"); return a.scrollWidth <= a.clientWidth; });
   check("the panel's content fits its width", pw);
   for (const t of ["MEMORY", "CPU", "STORAGE", "SENSORS", "EXACT"]) {
@@ -114,8 +114,28 @@ try {
   }));
   check("the receipt kept in .history", stored.history.length >= 1, `${stored.history.length} exchange(s) with a receipt`);
   check("the receipt kept in .memory as a delivery record", stored.memory.length >= 1, `${stored.memory.length} delivery record(s)`);
+  // the response window: no reply field unless chosen in its ⋯ menu
+  const win = page.locator(".uif-output").first();
+  check("a response window has no reply field unless chosen", (await win.locator(".uif-output-reply").count()) === 0);
+  await win.getByTitle("This window's settings").click();
+  await win.getByText("a reply field in this window").click(); await wait(300);
+  check("its ⋯ menu adds one to that window", (await win.locator(".uif-output-reply").count()) === 1);
+  await win.getByText("a reply field in this window").click(); await win.getByTitle("This window's settings").click(); await wait(200);
   check("the control panel opened with the response window", (await page.locator(".uif-shelves.is-open").count()) === 1);
   if (!(await page.locator(".uif-shelves.is-open").count())) { await page.locator(".uif-tools-toggle").click(); await wait(300); }
+  check("NOW: the answer in the speed chart", (await page.locator(".cp-chart svg rect").count()) >= 1, (await page.locator(".cp-chart figcaption").innerText().catch(() => "")).replace(/\s+/g, " "));
+  // arranging: HARD DRIVE dragged by its grip to the top, then hidden, shown, and the layout reset
+  const order = () => page.locator(".cp-arrange > [data-arrange]").evaluateAll((els) => els.map((e) => e.getAttribute("data-arrange")));
+  const grip = await page.locator('[data-arrange="disk"] .cp-grip').boundingBox(), top = await page.locator(".cp-arrange > [data-arrange]").first().boundingBox();
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2); await page.mouse.down();
+  await page.mouse.move(grip.x + 4, top.y + 6, { steps: 12 }); await page.mouse.up(); await wait(300);
+  check("a panel section dragged by its grip to the top", (await order())[0] === "disk", (await order()).slice(0, 3).join(" · "));
+  await page.locator('[data-arrange="disk"] .cp-hide').click(); await wait(200);
+  const hidden = !(await order()).includes("disk");
+  await page.getByRole("button", { name: "SHOW HARD DRIVE" }).click(); await wait(200);
+  check("a section hidden with –, brought back with SHOW", hidden && (await order()).includes("disk"));
+  await page.getByRole("button", { name: "RESET LAYOUT" }).click(); await wait(200);
+  check("RESET LAYOUT puts NOW first again", (await order())[0] === "now");
   await page.locator(".cp-fold-head", { hasText: "RECEIPTS" }).click(); await wait(2500);
   check("the panel's RECEIPTS lists it", (await page.locator(".cp-receipts details.cs-receipt").count()) >= 1);
   await page.locator(".cp-receipts").getByText("view receipts under answers").click(); await wait(400);

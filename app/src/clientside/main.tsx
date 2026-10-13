@@ -120,8 +120,16 @@ function Page() {
   }, []);
 
   // the panel opening: a free field and the windows on its side move clear of it
+  const wasShown = useRef(!!shelves.get().shown);
   useEffect(() => shelves.subscribe(() => {
-    if (!shelves.get().shown || window.innerWidth <= 640) return;
+    // opening: the panel emerges from the input field (its centre, as a point on the panel)
+    const shown = !!shelves.get().shown;
+    if (shown && !wasShown.current) {
+      const h = uif.current?.hubRef.current?.getBoundingClientRect();
+      if (h) document.documentElement.style.setProperty('--uif-panel-origin', `${Math.round(h.left + h.width / 2)}px ${Math.round(h.top + h.height / 2)}px`);
+    }
+    wasShown.current = shown;
+    if (!shown || window.innerWidth <= 640) return;
     requestAnimationFrame(() => {
       const f = uif.current, side = panelSide();
       if (!f || !side) return;

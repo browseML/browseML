@@ -285,3 +285,48 @@ details.cs-card.is-ready > p { margin: 0; padding: 0 12px 10px; color: #a7f3d0; 
 .cp-builder { display: grid; gap: 10px; }
 .cp-build-desc { display: grid; gap: 4px; font-size: 11px; color: #94a3b8; }
 .cp-build-desc textarea { width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 6px; border: 1px solid #334155; background: #0b1220; color: #f8fafc; font: 12px/1.45 inherit; resize: vertical; }
+
+/* emerging from the input field: a new response window, and the control panel */
+.uif-output.is-emerge-wait { opacity: 0; }
+.uif-output.is-emerging { animation: uif-emerge .3s cubic-bezier(.2, .8, .2, 1); transform-origin: var(--uif-emerge-origin, 50% 100%); }
+@keyframes uif-emerge { from { opacity: 0; transform: scale(.12); } to { opacity: 1; transform: none; } }
+.uif-shelves.is-open { animation: uif-panel-emerge .32s cubic-bezier(.2, .8, .2, 1); transform-origin: var(--uif-panel-origin, 0 100%); }
+@keyframes uif-panel-emerge { from { opacity: 0; transform: scale(.08); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .uif-output.is-emerging, .uif-shelves.is-open { animation: none; } .uif-output.is-emerge-wait { opacity: 1; } }
+
+/* a window's ⋯ menu */
+.uif-output-menu { position: absolute; right: 8px; top: 40px; z-index: 5; display: grid; gap: 6px; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid #334155; background: rgba(13, 17, 23, .96); box-shadow: 0 8px 24px rgba(0, 0, 0, .4); font-size: 12px; color: #cbd5e1; max-width: 260px; }
+.uif-output-menu .uif-menu-check { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.uif-output-menu .uif-menu-foot { margin: 0; color: #94a3b8; font-size: 11px; }
+
+/* NOW: tiles, the speed chart, the memory trace */
+.cp-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 6px; }
+.cp-tile { display: grid; gap: 2px; align-content: start; padding: 8px; border-radius: 8px; background: rgba(148, 163, 184, .06); border: 1px solid rgba(148, 163, 184, .12); min-width: 0; }
+.cp-tile b { color: #f8fafc; font-size: 16px; font-variant-numeric: tabular-nums; line-height: 1.1; overflow-wrap: anywhere; }
+.cp-tile b.is-green { color: var(--candle-green, #0ECB81); }
+.cp-tile b.is-orange { color: var(--btc-orange, #F7931A); }
+.cp-tile small { color: #94a3b8; font-size: 10px; line-height: 1.3; }
+.cp-tile:first-child { grid-template-columns: auto 1fr; align-items: center; column-gap: 6px; }
+.cp-tile:first-child small { grid-column: 1 / -1; }
+.cp-chart, .cp-trace { margin: 10px 0 0; }
+.cp-chart svg { display: block; width: 100%; height: 92px; }
+.cp-trace svg { display: block; width: 100%; height: 40px; }
+.cp-chart figcaption, .cp-trace figcaption { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11px; color: #94a3b8; font-variant-numeric: tabular-nums; }
+.cp-trace figcaption b { color: #f8fafc; }
+.cp-trace figcaption span { margin-left: auto; }
+.cp-chart.is-empty { padding: 14px; border-radius: 8px; border: 1px dashed #334155; color: #94a3b8; font-size: 12px; text-align: center; }
+
+/* arranging the panel: the grip, hide, the drop line, SHOW */
+.cp-fold header { display: flex; align-items: center; gap: 4px; }
+.cp-fold header .cp-fold-head { flex: 1; min-width: 0; }
+.cp-grip { cursor: grab; touch-action: none; user-select: none; padding: 6px 4px; color: #64748b; font-size: 14px; line-height: 1; border-radius: 6px; }
+.cp-grip:hover, .cp-grip:focus-visible { color: var(--btc-orange, #F7931A); outline: none; background: rgba(247, 147, 26, .08); }
+.cp-hide { border: 0; background: transparent; color: #64748b; cursor: pointer; font-size: 16px; padding: 4px 8px; border-radius: 6px; }
+.cp-hide:hover { color: var(--stop-red, #F6465D); }
+.cp-arranged { position: relative; transition: opacity .15s; }
+.cp-arranged.is-dragging { opacity: .45; }
+.cp-arranged.is-drop-before::before, .cp-drop-end { content: ''; display: block; height: 3px; margin: -2px 0 2px; border-radius: 3px; background: var(--btc-orange, #F7931A); }
+.cp-arrange-foot { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.cp-arrange-foot button { padding: 4px 10px; border-radius: 999px; border: 1px solid #334155; background: transparent; color: #94a3b8; font-size: 11px; cursor: pointer; }
+.cp-arrange-foot button:hover { border-color: var(--btc-orange, #F7931A); color: var(--btc-orange, #F7931A); }

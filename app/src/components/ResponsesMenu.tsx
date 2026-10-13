@@ -64,6 +64,9 @@ export function ResponsesMenu() {
           <label className="uif-menu-row uif-menu-check" title="Off: the details are still kept in .memory and in the T-mode log (last)">
             <input type="checkbox" checked={s.details} onChange={e => set({ details: e.target.checked })} /> show delivery details under answers
           </label>
+          <label className="uif-menu-row uif-menu-check" title="Off: ask from the input field. A window's ⋯ menu turns one on for that window.">
+            <input type="checkbox" checked={s.replyField} onChange={e => set({ replyField: e.target.checked })} /> a reply field in every window
+          </label>
           <div className="uif-menu-foot">double-click a window's header: fill the screen / shrink back · Esc shrinks · T mode: close all, tile, cascade, max</div>
         </div>
       )}

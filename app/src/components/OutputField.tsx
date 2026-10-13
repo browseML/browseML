@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Linked } from '../core/links';
+import { responseSettings, setWindowReply, windowReply } from '../core/responseSettings';
 import type { OutputField as OutputFieldData } from '../types';
 import { KEYBOARD_HINT, useDragResize } from '../hooks/useDragResize';
 import { useUIF } from './UIFContext';
@@ -51,6 +52,11 @@ export function OutputView({
   const listRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [reply, setReply] = useState('');
+  // the reply field: only when chosen (this window's ⋯ menu, or the setting for every window)
+  const [, rerender] = useState(0);
+  useEffect(() => responseSettings.subscribe(() => rerender(n => n + 1)), []);
+  const [menu, setMenu] = useState(false);
+  const replyOn = windowReply(field.id);
   const busy = field.messages.some(m => m.pending);
 
   const finishRename = (title: string | null) => {
@@ -135,9 +141,17 @@ export function OutputView({
             <button type="button" title={field.maximized ? 'Shrink back (or double-click the header, or Esc)' : 'Fill the screen (or double-click the header)'}
               aria-pressed={!!field.maximized} onClick={onMaximize}>{field.maximized ? '⤡' : '⤢'}</button>
           )}
+          <button type="button" title="This window's settings" aria-haspopup="menu" aria-expanded={menu} className={menu ? 'is-on' : ''} onClick={() => setMenu(m => !m)}>⋯</button>
           <button type="button" title="Close" onClick={onClose}>✕</button>
         </span>
       </div>
+      {menu && (
+        <div className="uif-output-menu" role="menu" onPointerDown={e => e.stopPropagation()} onKeyDown={e => e.key === 'Escape' && setMenu(false)}>
+          <label className="uif-menu-check"><input type="checkbox" checked={replyOn} onChange={e => setWindowReply(field.id, e.target.checked)} /> a reply field in this window</label>
+          <label className="uif-menu-check"><input type="checkbox" checked={responseSettings.get().replyField} onChange={e => responseSettings.set({ replyField: e.target.checked })} /> a reply field in every new window</label>
+          <p className="uif-menu-foot">Off: ask from the input field; its answers go to the active window.</p>
+        </div>
+      )}
       <div className="uif-output-body" ref={listRef}>
         {field.messages.length === 0 && <div className="uif-output-empty">No messages yet.</div>}
         {field.messages.map(m => {
@@ -185,7 +199,7 @@ export function OutputView({
           );
         })}
       </div>
-      {onSubmit && (
+      {onSubmit && replyOn && (
         <form className="uif-output-reply" onSubmit={submit}>
           <input
             value={reply}
@@ -205,7 +219,7 @@ export function OutputView({
 
 /** A floating, draggable output panel inside the hub page. */
 export function OutputField({ field }: { field: OutputFieldData }) {
-  const { outputs, setRect, flashes, raise, zIndexOf, sendTo, context, widgets } = useUIF();
+  const { outputs, setRect, flashes, raise, zIndexOf, sendTo, context, widgets, hubRef } = useUIF();
   const { position, size, setPosition, setSize, startDrag, startResize, onHandleKeyDown, isDragging } = useDragResize({
     initialPosition: { x: field.rect.x, y: field.rect.y },
     initialSize: { width: field.rect.width, height: field.rect.height },
@@ -222,6 +236,23 @@ export function OutputField({ field }: { field: OutputFieldData }) {
 
   const active = outputs.activeId === field.id;
   const max = !!field.maximized;
+  // a new window emerges from the input field: once it is placed (a few frames), it grows out of the field's centre
+  const box = React.useRef<HTMLDivElement>(null);
+  const [emerge, setEmerge] = useState<'wait' | 'go' | null>('wait');
+  useEffect(() => {
+    let n = 0, raf = 0;
+    const step = () => {
+      if (++n < 3) { raf = requestAnimationFrame(step); return; }
+      const el = box.current, h = hubRef.current?.getBoundingClientRect(), r = el?.getBoundingClientRect();
+      if (el && h && r && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        el.style.setProperty('--uif-emerge-origin', `${Math.round(h.left + h.width / 2 - r.left)}px ${Math.round(h.top + h.height / 2 - r.top)}px`);
+        setEmerge('go');
+      } else setEmerge(null);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Esc shrinks the window that fills the screen back to where it was
   useEffect(() => {
     if (!max) return;
@@ -231,7 +262,9 @@ export function OutputField({ field }: { field: OutputFieldData }) {
   }, [max, field.id, outputs]);
   return (
     <div
-      className={`uif-output ${active ? 'is-active' : ''} ${isDragging ? 'is-dragging' : ''} ${max ? 'is-maximized' : ''}`}
+      ref={box}
+      className={`uif-output ${active ? 'is-active' : ''} ${isDragging ? 'is-dragging' : ''} ${max ? 'is-maximized' : ''} ${emerge === 'wait' ? 'is-emerge-wait' : emerge === 'go' ? 'is-emerging' : ''}`}
+      onAnimationEnd={e => { if (e.animationName === 'uif-emerge') setEmerge(null); }}
       data-uif-output={field.id}
       style={
         {

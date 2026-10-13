@@ -12,10 +12,12 @@ export interface ResponseSettings {
   /** Show how each answer was delivered (tokens, speed, carrier, receipt) under it. Off: the details are still kept,
    *  in .memory as a delivery record, and in the T-mode log (`last`). */
   details: boolean;
+  /** A reply field under each response window; off: the input field asks (a window's ⋯ menu turns one on for it). */
+  replyField: boolean;
 }
 
 const KEY = 'uif:responses:settings';
-const DEFAULTS: ResponseSettings = { textSize: 'm', answerIn: 'active', openMaximized: false, details: false };
+const DEFAULTS: ResponseSettings = { textSize: 'm', answerIn: 'active', openMaximized: false, details: false, replyField: false };
 export const TEXT_SIZES: Record<ResponseSettings['textSize'], string> = { s: '12.5px', m: '14px', l: '16px', xl: '19px' };
 
 let current: ResponseSettings = { ...DEFAULTS, ...loadJSON<Partial<ResponseSettings>>(KEY, {}) };
@@ -39,3 +41,13 @@ export const responseSettings = {
     return () => void subscribers.delete(f);
   },
 };
+
+/** A window's own choice of reply field (its ⋯ menu), kept in this browser; unset: the setting for every window. */
+const REPLY = 'uif:responses:reply';
+let replyOf: Record<string, boolean> = loadJSON<Record<string, boolean>>(REPLY, {});
+export function windowReply(id: string): boolean { return replyOf[id] ?? current.replyField; }
+export function setWindowReply(id: string, on: boolean) {
+  replyOf = { ...replyOf, [id]: on };
+  saveJSON(REPLY, replyOf);
+  subscribers.forEach(f => f(current));
+}
