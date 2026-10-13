@@ -1,0 +1,24 @@
+{
+  "name": "browseml-app",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "browseML's pages: ultimate-clientside (the ultimate input field with this computer's controls and diagnostics) beside the landing page in ../web",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0",
+    "vitest": "^2.1.9"
+  }
+}

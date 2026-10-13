@@ -1,0 +1,83 @@
+/* SPDX-License-Identifier: MIT */
+/* Who answers: the tabs, the tab's note and controls, browseML's consent card and controls, the not-found card.
+   The palette of the input field (src/styles/UltimateInputField.css): bitcoin orange for the active tab and work in
+   progress, candle green for what went well, red for stop and failure. 44 px targets on touch; 16 px text on phones. */
+.bk-answerers { min-width: 0; max-width: 100%; }
+.bk-tabs { display: flex; gap: 6px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: #334155 transparent; color-scheme: dark; max-width: 100%;
+           padding: 2px 2px 6px; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
+.bk-tab { flex: none; scroll-snap-align: start; min-height: 44px; padding: 0 14px; border-radius: 999px; white-space: nowrap; cursor: pointer;
+          font: 600 14px system-ui, -apple-system, "Segoe UI", sans-serif; color: #cbd5e1; background: #111820; border: 1px solid #334155; }
+.bk-tab:hover { border-color: var(--btc-orange); }
+.bk-tab.is-active { color: #0b0f14; background: var(--btc-orange); border-color: var(--btc-orange); }
+.bk-tab:focus-visible { outline: 2px solid var(--btc-orange); outline-offset: 2px; }
+.bk-tabpanel { padding: 4px 0 2px; min-width: 0; }
+.bk-tabpanel .bk-note { margin: 4px 0 8px; color: #e2e8f0; overflow-wrap: anywhere; }
+.bk-runs { margin: 6px 0 0; color: #94a3b8; font-size: 12px; overflow-wrap: anywhere; }
+.bk-runs i { color: #94a3b8; }
+
+.bk-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; min-width: 0; }
+.bk-inline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
+.bk-inline > span { color: #94a3b8; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+.bk-inline select, .bk-input, .bk-controls select {
+  min-height: 44px; padding: 0 12px; border-radius: 10px; min-width: 0; max-width: 100%;
+  font: 500 15px system-ui, -apple-system, sans-serif; color: var(--uif-field-text); background: var(--uif-field-bg); border: 1px solid #334155; }
+.bk-input { flex: 1 1 14rem; font-family: ui-monospace, Menlo, Consolas, monospace; }
+.bk-inline select:focus-visible, .bk-input:focus-visible, .bk-controls select:focus-visible { outline: 2px solid var(--btc-orange); outline-offset: 2px; }
+.bk-btn { min-height: 44px; padding: 0 14px; border-radius: 10px; cursor: pointer; display: inline-flex; align-items: center; text-decoration: none;
+          font: 600 14px system-ui, -apple-system, sans-serif; color: var(--btc-orange); background: transparent; border: 1px solid var(--btc-orange); }
+.bk-btn.is-primary { color: #0b0f14; background: var(--candle-green); border-color: var(--candle-green); }
+.bk-btn.is-big { font-size: 15px; padding: 0 18px; }
+.bk-btn.is-danger { color: var(--stop-red); border-color: var(--stop-red); }
+.bk-btn.is-small { min-height: 36px; padding: 0 10px; font-size: 13px; }
+@media (pointer: coarse) { .bk-btn.is-small { min-height: 44px; } }
+.bk-btn:disabled { opacity: .45; cursor: not-allowed; }
+.bk-btn:focus-visible { outline: 2px solid var(--btc-orange); outline-offset: 2px; }
+
+.bk-card { margin: 8px 0; padding: 12px 14px; border-radius: 12px; border: 1px solid #334155; background: rgba(17, 24, 32, 0.92);
+           color: #e2e8f0; overflow-wrap: anywhere; }
+.bk-card h3 { margin: 0 0 6px; font-size: 15px; font-weight: 650; color: #f1f5f9; }
+.bk-consent { border-color: var(--btc-orange); }
+.bk-notfound { border-color: var(--stop-red); }
+.bk-what, .bk-verdicts { margin: 6px 0; padding-left: 1.2em; }
+.bk-what li, .bk-verdicts li { margin: 2px 0; }
+.bk-verdicts { font-size: 13px; }
+.bk-verdicts .is-ok { color: #cbd5e1; }
+.bk-verdicts .is-warn, .bk-warn { color: #fbbf24; }
+.bk-verdicts .is-bad { color: var(--stop-red); }
+.bk-fine { margin: 4px 0; font-size: 12.5px; color: #94a3b8; overflow-wrap: anywhere; }
+.bk-fine q { color: #e2e8f0; }
+.bk-dl { margin: 6px 0; }
+.bk-bar { height: 8px; border-radius: 999px; background: #1f2933; overflow: hidden; }
+.bk-bar > span { display: block; height: 100%; background: var(--btc-orange); transition: width .15s linear; }
+.bk-dl-line { margin: 6px 0; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; color: #cbd5e1; overflow-wrap: anywhere; }
+.bk-dl-line.is-working { color: var(--btc-orange); }
+.bk-dl-line.is-ok { color: var(--candle-green); }
+.bk-dl-line.is-bad { color: var(--stop-red); }
+.bk-settings-details { margin-top: 8px; }
+.bk-settings-details > summary, .bk-notfound details > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; gap: 6px; color: #cbd5e1; list-style: none; }
+.bk-settings-details > summary::-webkit-details-marker, .bk-notfound details > summary::-webkit-details-marker { display: none; }
+.bk-settings-details > summary::before, .bk-notfound details > summary::before { content: '▸'; color: var(--btc-orange); }
+.bk-settings-details[open] > summary::before, .bk-notfound details[open] > summary::before { content: '▾'; }
+.bk-settings-details > summary:focus-visible, .bk-notfound details > summary:focus-visible { outline: 2px solid var(--btc-orange); outline-offset: 2px; }
+.bk-controls { display: grid; gap: 8px; }
+.bk-controls fieldset { margin: 0; padding: 8px 10px; border: 1px solid #1f2933; border-radius: 10px; min-width: 0; }
+.bk-controls legend { padding: 0 4px; color: #94a3b8; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+.bk-ctl { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-height: 44px; }
+.bk-ctl > span { min-width: 7rem; color: #cbd5e1; }
+.bk-ctl input[type="range"] { flex: 1 1 10rem; min-width: 0; accent-color: var(--btc-orange); min-height: 44px; }
+.bk-ctl select { flex: 1 1 12rem; }
+.bk-check { display: flex; gap: 8px; align-items: center; min-height: 44px; cursor: pointer; font-size: 13.5px; }
+.bk-check input { width: 20px; height: 20px; flex: none; accent-color: var(--btc-orange); }
+.bk-files { margin: 4px 0; padding-left: 1.2em; font-size: 13px; }
+.bk-files code { color: #a7f3d0; }
+.bk-files i { color: #94a3b8; }
+.bk-confirm { padding: 8px; border: 1px solid var(--stop-red); border-radius: 10px; }
+.bk-ways { margin: 6px 0; padding-left: 1.3em; display: grid; gap: 10px; }
+.bk-ways p { margin: 4px 0; }
+.bk-cmd { margin: 6px 0; font: 12.5px/1.5 ui-monospace, Menlo, Consolas, monospace; background: #0b0f14; border: 1px solid #1f2933;
+          border-radius: 10px; padding: 10px; white-space: pre-wrap; overflow-wrap: anywhere; color: #a7f3d0; }
+.bk-creds { margin: 6px 0; }
+@media (max-width: 640px) {
+  .bk-tabpanel .bk-note, .bk-card { font-size: 15px; }
+  .bk-inline select, .bk-input, .bk-controls select { font-size: 16px; }  /* iOS does not zoom at 16 px */
+}

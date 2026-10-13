@@ -1,0 +1,55 @@
+{
+  "name": "dreamknob",
+  "version": "1.1.4",
+  "description": "A feature-full, studio-grade React knob & fader library. Rotary, linear, 2D, 3D, digital and analog styles with a headless core.",
+  "license": "MIT",
+  "author": "Dreamodus Software Inc.",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "keywords": [
+    "react",
+    "knob",
+    "fader",
+    "slider",
+    "rotary",
+    "audio",
+    "synth",
+    "dial",
+    "typescript"
+  ],
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tsup": "^8.1.0",
+    "typescript": "^5.5.3",
+    "vitest": "^2.0.3"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --sourcemap --clean",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  }
+}

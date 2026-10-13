@@ -1,0 +1,87 @@
+/* SPDX-License-Identifier: MIT */
+/* ultimate-clientside: a dark page with an instrument rack above the field. The palette is the field's
+   (UltimateInputField.css): candle green for Send and what went well, bitcoin orange for work in progress and the
+   knobs, stop red for failures and what needs applying, terminal green on black in T mode; panels are glass. */
+html, body { margin: 0; min-height: 100%; }
+html { -webkit-text-size-adjust: 100%; color-scheme: dark; }
+body { background: radial-gradient(circle at 50% 0%, #1a160f, #0b0f14 60%) fixed, #0b0f14; color: #e5e7eb;
+       font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.cs-page { min-height: 100vh; overflow-x: clip; padding-bottom: 190px; }
+/* the sidebar menu open on a wide screen: the page moves over for it instead of sitting under it */
+/* the sidebar holds the knobs and the diagnostics: wide enough for two knobs a row */
+.cs-page { --uif-shelves-width: min(340px, 92vw); }
+@media (min-width: 1100px) { .cs-page:has(.uif-shelves.is-open) { padding-left: min(340px, 92vw); } }
+/* the client tools (ClientTools.tsx): in the 🛠 tray and at the top of the sidebar */
+.cs-tools { display: grid; gap: 12px; }
+.cs-tools .cs-rack, .cs-tools .cs-usage { box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(148, 163, 184, .04); }
+.cs-tools .cs-said { padding: 0; }
+.uif-shelves .cs-knobs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.uif-shelves .cs-row { grid-template-columns: 7em minmax(0, 1fr); }
+/* where the field docks in the page: under the title, as wide as the page's content */
+.cs-dock { box-sizing: border-box; max-width: 980px; margin: 18px auto 0; padding: 0 16px; }
+.cs-page :focus-visible { outline: 2px solid var(--btc-orange); outline-offset: 2px; }
+
+.cs-head { text-align: center; padding: clamp(20px, 5vh, 56px) 16px 0; }
+.cs-mark { margin: 0; font: 700 clamp(30px, 5.5vw, 48px)/1 system-ui, -apple-system, sans-serif; letter-spacing: -0.03em; color: #f8fafc; }
+.cs-mark span { color: var(--btc-orange); }
+.cs-line { margin: 10px auto 0; max-width: 640px; color: #cbd5e1; font-size: 15px; }
+.cs-who { box-sizing: border-box; max-width: 980px; margin: 0 auto; padding: 14px 16px 0; font-size: 13px; color: #cbd5e1; }
+
+
+.cs-rack, .cs-usage { box-sizing: border-box; min-width: 0; padding: 14px 16px; border-radius: 14px;
+                      background: var(--uif-glass, rgba(13, 17, 23, .82)); border: 1px solid #263241;
+                      box-shadow: 0 8px 30px rgba(0, 0, 0, .35); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.cs-rack h2, .cs-usage h2 { margin: 0; font: 700 13px ui-monospace, monospace; text-transform: uppercase; letter-spacing: .14em; color: #f8fafc; }
+.cs-usage h2 small { font-weight: 400; letter-spacing: .04em; text-transform: none; color: #94a3b8; margin-left: 6px; }
+
+.cs-rack-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.cs-lamps { display: flex; gap: 10px; flex-wrap: wrap; }
+.cs-lamp { display: inline-flex; align-items: center; font: 600 10px ui-monospace, monospace; color: #cbd5e1; letter-spacing: .06em; }
+
+.cs-knobs { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px 6px; justify-items: center; padding: 6px 0; }
+.cs-knob { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.cs-readout { justify-content: center; gap: 6px; min-height: 104px; }
+.cs-readout span { font: 600 10px ui-monospace, monospace; color: #94a3b8; letter-spacing: .08em; text-transform: uppercase; }
+
+.cs-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.cs-buttons > * { min-height: 40px; }
+.cs-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; padding: 10px; border-radius: 10px;
+              border: 1px solid var(--stop-red, #F6465D); background: rgba(246, 70, 93, .08); color: #fecdd3; }
+.cs-warn { margin: 8px 0 0; color: #fbbf24; font-size: 13px; }
+.cs-fine { margin: 8px 0 0; color: #94a3b8; font-size: 12px; }
+
+.cs-advice { list-style: none; margin: 10px 0; padding: 0; display: grid; gap: 6px; }
+.cs-advice li { padding: 7px 10px; border-radius: 8px; font-size: 13px; border-left: 3px solid #334155; background: rgba(148, 163, 184, .06); }
+.cs-advice li.is-ok { border-left-color: var(--candle-green, #0ECB81); }
+.cs-advice li.is-warn { border-left-color: var(--btc-orange, #F7931A); }
+.cs-advice li.is-bad { border-left-color: var(--stop-red, #F6465D); color: #fecdd3; }
+
+.cs-table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; font: 12px ui-monospace, monospace; }
+.cs-table caption { text-align: left; color: #94a3b8; font: 12px system-ui, sans-serif; padding-bottom: 4px; }
+.cs-table th, .cs-table td { text-align: right; padding: 4px 6px; border-bottom: 1px solid #1f2937; }
+.cs-table th:first-child, .cs-table td:first-child { text-align: left; }
+.cs-table th { color: #94a3b8; font-weight: 600; }
+
+.cs-usage dl { margin: 0; display: grid; gap: 4px; }
+.cs-row { display: grid; grid-template-columns: 8.5em minmax(0, 1fr); gap: 8px; font-size: 13px; }
+.cs-row dt { color: #94a3b8; }
+.cs-row dd { margin: 0; overflow-wrap: anywhere; }
+.cs-row dd.is-bad { color: var(--stop-red, #F6465D); }
+.cs-row-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.cs-btn { min-height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid #334155; background: #111827; color: #e5e7eb;
+          font: 600 12px system-ui, sans-serif; cursor: pointer; }
+.cs-btn:hover:not(:disabled) { border-color: var(--btc-orange, #F7931A); }
+.cs-btn:disabled { opacity: .45; cursor: default; }
+.cs-btn.is-danger:hover:not(:disabled) { border-color: var(--stop-red, #F6465D); color: #fecdd3; }
+
+.cs-said { box-sizing: border-box; max-width: 980px; margin: 0 auto; padding: 0 16px; font-size: 13px; color: #cbd5e1; }
+.cs-said.is-ok { color: var(--candle-green, #0ECB81); }
+.cs-said.is-bad { color: var(--stop-red, #F6465D); }
+.cs-said.is-working { color: var(--btc-orange, #F7931A); }
+
+.cs-pill { font: 600 12px ui-monospace, monospace; color: #cbd5e1; border: 1px solid #334155; border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.cs-pill.is-ok { color: var(--candle-green, #0ECB81); border-color: var(--candle-green, #0ECB81); }
+.cs-pill.is-bad { color: var(--stop-red, #F6465D); border-color: var(--stop-red, #F6465D); }
+.cs-pill.is-working { color: var(--btc-orange, #F7931A); border-color: var(--btc-orange, #F7931A); }
+
+.cs-foot { text-align: center; padding: 18px 16px; color: #64748b; font-size: 12px; }

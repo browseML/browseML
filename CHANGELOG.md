@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.0 — 2026-10-12 — public; ultimate-clientside; the docs
+
+- **Public**, with the organization's profile (browseML/.github).
+- **`app/` — ultimate-clientside**: the ultimate input field with this computer's controls (DreamKnob dials for
+  threads, memory, prompt cache and answer length; load, unload, clear, measure) and diagnostics from actual usage,
+  behind 🛠 in the field and in a sidebar that appears when a button is dragged off the field. Built beside the
+  landing page into one folder (`npm run build` → `dist/`: `index.html`, `clientside.html`). From the bankML UIF
+  working tree at `cc56466`, without the GPL credential module, THOT, iNFT or the other pages.
+- **The docs**: the README explains the project; the detail is in [docs/usage.md](docs/usage.md),
+  [docs/explanation.md](docs/explanation.md) and [docs/technical.md](docs/technical.md).
+- **The runtime**: `load()` and `chat()` take optional callbacks; `bankml.persona` served beside the pages.
+
 ## 0.1.0 — 2026-10-12 — browseML on its own
 
 - **Its own repository**, out of bankML: the WebAssembly exports (`src/lib.rs`), the browser runtime (`web/browseml.js`,

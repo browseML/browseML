@@ -122,7 +122,7 @@ let loading = null;
 /** A load in progress (a download, the verification), or null. */
 export const isLoading = () => !!loading;
 export const whenLoaded = () => loading;
-export function load(progress, log, opts = {}) {
+export function load(progress = () => {}, log = () => {}, opts = {}) {
   if (ready) return Promise.resolve(ready);
   if (loading) return loading;  // one download at a time: a second caller waits for the first
   loading = loadOnce(progress, log, opts).finally(() => { loading = null; });
@@ -161,7 +161,7 @@ async function loadOnce(progress, log, { threads: want, ctx = 4096, cacheRam = 0
  * One answer: an OpenAI-shaped request (messages, max_tokens, …), the pieces as they are written, and the
  * `/v1/chat/completions` object at the end (usage, timings, bankml_receipt).
  */
-export function chat(request, onPiece, log) {
+export function chat(request, onPiece, log = () => {}) {
   if (!ready) return Promise.reject(new Error("browseML is not loaded"));
   if (busy) return Promise.reject(new Error("browseML is still writing the last answer"));
   busy = new Promise((resolve, reject) => {
