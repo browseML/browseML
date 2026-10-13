@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // browseML's pages in one folder: ../web (the runtime, the three .wasm, the model's pin, the landing page index.html)
-// is copied as it is, and ultimate-clientside (clientside.html, src/clientside/) is built beside it. Threads need
+// is copied as it is, and the browseML app (app.html, src/clientside/) is built beside it. Threads need
 // the page served cross-origin isolated (COOP same-origin, COEP credentialless), as `vite` and `vite preview` do here.
 // DreamKnob (MIT, Dreamodus Software Inc.) is vendored as its built package in vendor/dreamknob.
-//   npm run build  →  dist/  (index.html: the landing page · clientside.html: ultimate-clientside)
+//   npm run build  →  dist/  (index.html: the landing page · app.html: the browseML app)
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'node:path';
@@ -19,11 +19,11 @@ export default defineConfig({
     alias: { dreamknob: resolve(__dirname, 'vendor/dreamknob/dist/index.js') },
     dedupe: ['react', 'react-dom'],
   },
-  server: { headers: isolated, open: '/clientside.html' },
+  server: { headers: isolated, open: '/app.html' },
   preview: { headers: isolated },
   build: {
     outDir: resolve(__dirname, 'dist'),
     emptyOutDir: true,
-    rollupOptions: { input: { clientside: resolve(__dirname, 'clientside.html') } },
+    rollupOptions: { input: { app: resolve(__dirname, 'app.html') } },
   },
 });

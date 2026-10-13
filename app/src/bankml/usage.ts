@@ -9,7 +9,7 @@ import { KV_BYTES_PER_TOKEN, mb, type Verdict } from './caps';
 
 export interface LoadRecord {
   at: number;
-  /** 'cache': the model came from this browser's Cache Storage; 'download': from huggingface.co. */
+  /** 'cache': the model came from this browser's Cache Storage; 'download': pulled from the model's pinned source. */
   source: 'download' | 'cache';
   /** Bytes downloaded (0 from the cache). */
   fetched: number;

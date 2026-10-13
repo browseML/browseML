@@ -1,0 +1,19 @@
+/* SPDX-License-Identifier: MIT */
+/* browseML's download feedback (DownloadProgress): the bar, the line, pause / resume / cancel / retry. */
+.bk-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; min-width: 0; }
+.bk-btn { min-height: 44px; padding: 0 14px; border-radius: 10px; cursor: pointer; display: inline-flex; align-items: center; text-decoration: none;
+          font: 600 14px system-ui, -apple-system, sans-serif; color: var(--btc-orange); background: transparent; border: 1px solid var(--btc-orange); }
+.bk-btn.is-primary { color: #0b0f14; background: var(--candle-green); border-color: var(--candle-green); }
+.bk-btn.is-big { font-size: 15px; padding: 0 18px; }
+.bk-btn.is-danger { color: var(--stop-red); border-color: var(--stop-red); }
+.bk-btn.is-small { min-height: 36px; padding: 0 10px; font-size: 13px; }
+@media (pointer: coarse) { .bk-btn.is-small { min-height: 44px; } }
+.bk-btn:disabled { opacity: .45; cursor: not-allowed; }
+.bk-btn:focus-visible { outline: 2px solid var(--btc-orange); outline-offset: 2px; }
+.bk-dl { margin: 6px 0; }
+.bk-bar { height: 8px; border-radius: 999px; background: #1f2933; overflow: hidden; }
+.bk-bar > span { display: block; height: 100%; background: var(--btc-orange); transition: width .15s linear; }
+.bk-dl-line { margin: 6px 0; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; color: #cbd5e1; overflow-wrap: anywhere; }
+.bk-dl-line.is-working { color: var(--btc-orange); }
+.bk-dl-line.is-ok { color: var(--candle-green); }
+.bk-dl-line.is-bad { color: var(--stop-red); }

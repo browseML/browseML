@@ -22,9 +22,9 @@ body { background: radial-gradient(circle at 50% 0%, #1a160f, #0b0f14 60%) fixed
 .cs-page :focus-visible { outline: 2px solid var(--btc-orange); outline-offset: 2px; }
 
 .cs-head { text-align: center; padding: clamp(20px, 5vh, 56px) 16px 0; }
-.cs-mark { margin: 0; font: 700 clamp(30px, 5.5vw, 48px)/1 system-ui, -apple-system, sans-serif; letter-spacing: -0.03em; color: #f8fafc; }
-.cs-mark span { color: var(--btc-orange); }
-.cs-line { margin: 10px auto 0; max-width: 640px; color: #cbd5e1; font-size: 15px; }
+.cs-mark { margin: 0; line-height: 0; }
+.cs-mark img { width: clamp(96px, 16vw, 132px); height: auto; border-radius: 18px; box-shadow: 0 10px 40px rgba(37, 99, 235, .25); }
+.cs-line { margin: 12px auto 0; max-width: 640px; color: #cbd5e1; font-size: clamp(15px, 2.2vw, 18px); letter-spacing: .02em; }
 .cs-who { box-sizing: border-box; max-width: 980px; margin: 0 auto; padding: 14px 16px 0; font-size: 13px; color: #cbd5e1; }
 
 
@@ -85,3 +85,28 @@ body { background: radial-gradient(circle at 50% 0%, #1a160f, #0b0f14 60%) fixed
 .cs-pill.is-working { color: var(--btc-orange, #F7931A); border-color: var(--btc-orange, #F7931A); }
 
 .cs-foot { text-align: center; padding: 18px 16px; color: #64748b; font-size: 12px; }
+
+/* browseML's card in a response window (BrowseCard.tsx): the import, the download, or the ready line */
+.uif-msg-widget { margin-top: 8px; }
+.cs-card { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid #334155; background: rgba(148, 163, 184, .06); font-size: 13px; color: #cbd5e1; }
+.cs-card.is-ready { display: block; border-color: rgba(14, 203, 129, .45); color: #d1fae5; margin: 0; }
+.cs-card.is-ready b { color: var(--candle-green, #0ECB81); }
+.cs-import { min-height: 40px; padding: 0 18px; border-radius: 10px; border: 0; cursor: pointer;
+  font: 700 14px system-ui, sans-serif; color: var(--candle-green-ink, #04140d); background: var(--candle-green, #0ECB81); }
+.cs-import:hover:not(:disabled) { filter: brightness(1.08); }
+.cs-import:disabled { opacity: .5; cursor: default; }
+.cs-card-what { flex: 1 1 16rem; color: #94a3b8; font-size: 12px; }
+.cs-card-bad { flex-basis: 100%; color: var(--stop-red, #F6465D); font-size: 12px; }
+.cs-card .bk-dl { flex-basis: 100%; }
+
+/* the FAQ, answered by browseML (Faq.tsx) */
+.cs-faq { box-sizing: border-box; max-width: 980px; margin: 28px auto 0; padding: 0 16px; }
+.cs-faq h2 { margin: 0; font: 700 18px system-ui, sans-serif; color: #f8fafc; }
+.cs-faq > p { margin: 6px 0 12px; color: #94a3b8; font-size: 14px; }
+.cs-faq-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.cs-faq-q { text-align: left; min-height: 44px; padding: 10px 14px; border-radius: 10px; border: 1px solid #263241;
+  background: rgba(148, 163, 184, .05); color: #e5e7eb; font: 500 14px system-ui, sans-serif; cursor: pointer; }
+.cs-faq-q::after { content: " →"; color: var(--btc-orange, #F7931A); }
+.cs-faq-q:hover { border-color: var(--btc-orange, #F7931A); background: rgba(247, 147, 26, .06); }
+.cs-foot a { color: #94a3b8; }

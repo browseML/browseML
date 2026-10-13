@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
-// ultimate-clientside: the ultimate input field with this computer's controls. bankML runs in this browser (browseML:
-// the consent card, 248 MB once from huggingface.co, its sha256 checked, a receipt on every answer checked here); the
-// client rack sets what it may take of this computer — CPU threads, RAM (the context), the prompt cache, the answer
-// length — clears the kept model and unloads the engine; the diagnostics come from what actually ran here (usage.ts),
-// never from estimates. No T mode: 🛠 in the field (where T sits elsewhere) opens the controls and the diagnostics on
-// the field; the sidebar appears when a button is first dragged off the field and opens with the same controls and
-// diagnostics, then the buttons dropped there. Commands: /client (`/client threads|ram|cache|answer <n>`,
-// `/client apply|unload|clear yes|measure`), /usage, /receipt. Nothing is sent anywhere except the model's download.
-// Built by vite.clientside.config.ts into dist-clientside/.
+// The browseML app: the ultimate input field with this computer's controls. bankML runs in this browser
+// (browseML): the model is pulled once, in the background, from its pinned source when the visitor imports it — the
+// card in the response window offers it — checked against its sha256 pin, with a receipt on every answer checked
+// here. An inquiry drops the field to the bottom left; its response window opens above it, joined by its string.
+// 🛠 in the field (no terminal mode here) and the sidebar (it appears when a button is dragged off the field) hold the
+// DreamKnob controls — threads, RAM (the context), the prompt cache, the answer length — and the diagnostics from what
+// actually ran (usage.ts), never estimates. Commands: /client, /usage, /receipt, /shelf. Nothing is sent anywhere
+// except the model's download.
+// Built by vite.config.ts into dist/ (beside the landing page).
 import { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { UltimateBar } from '../components/UltimateBar';
@@ -17,22 +17,24 @@ import { useUIF, type UIFContextValue } from '../components/UIFContext';
 import { OutputWindow } from '../components/OutputWindow';
 import { isOutputWindow } from '../core/bus';
 import type { Action } from '../core/actions';
-import { loadPersonaText, type Engine } from '../bankml/engine';
+import type { SendMeta } from '../types';
+import { loadPersonaText } from '../bankml/engine';
 import {
   CACHE_CHOICES, CTX_CHOICES, MAXTOK_CHOICES, browseDiag, browseMaxThreads, browseSettings, browseState, clearBrowseCache,
-  loadBrowse, setBrowseSettings, unloadBrowse,
+  download, downloadState, loadBrowse, setBrowseSettings, unloadBrowse,
 } from '../bankml/free';
 import { mb, ramEstimate, readCaps } from '../bankml/caps';
 import { advise, summarize, usageLog } from '../bankml/usage';
-import { useAnswerers } from '../bankml/ui/answering';
+import { useBrowseML, WIDGET } from './useBrowseML';
+import { BrowseCard } from './BrowseCard';
 import { trackKeyboard } from '../core/keyboard';
 import { ClientTools } from './ClientTools';
+import { Faq } from './Faq';
 import { measureTab } from './memory';
 import '../styles/UltimateInputField.css';
 import './clientside.css';
 
-const KEY = 'ultimate-clientside';
-const ENGINES: readonly Engine[] = ['browse'];
+const KEY = 'ultimate-clientside';  // the storage key kept, so visitors keep their settings and shelves
 const PHONE = '(max-width: 640px)';
 /** The bar: ⬇ load, ⧉ dock in the page / pop out, ❏ spawn. No T mode here: 🛠 (where T sits) holds this computer's
  *  controls and the diagnostics; the commands stay reachable as /client, /usage, /receipt. */
@@ -63,21 +65,52 @@ const pick = <T extends number>(list: readonly T[], v: number): T | null => (lis
 function Page() {
   const [at] = useState(fieldAt);
   const uif = useRef<UIFContextValue | null>(null);
-  const a = useAnswerers({ prefsKey: `${KEY}:prefs`, offered: ENGINES, uif, idBase: 'cs-tab', creds: false });
+  const a = useBrowseML(uif);
   const A = useRef(a); A.current = a;
   useEffect(() => trackKeyboard(), []);
 
   const onReady = () => {
     const field = uif.current!;
-    if (!field.context.personaText.trim()) loadPersonaText().then(t => field.context.setPersonaText(t)).catch(() => {});
-    A.current.showModel();
+    if (!field.context.personaText.trim()) loadPersonaText('browseml.persona').then(t => field.context.setPersonaText(t)).catch(() => {});
+  };
+
+  /** An inquiry: a field still docked in the page drops to the bottom left (clear of the sidebar), and a window
+   *  opened for this question goes right above it, joined to it by its string; then browseML answers (or its card in
+   *  the window offers the import). Ready, a new window starts with browseML's diagnostic line. */
+  const onSend = (text: string, meta: SendMeta) => {
+    const f = uif.current;
+    const fresh = (f?.outputs.list().find(w => w.id === meta.outputId)?.messages.filter(m => m.role !== 'system').length ?? 0) <= 1;
+    const hub = f?.hubLayout(), h = hub?.get();
+    if (hub && h && h.docked === 'page') {
+      const side = shelves.get().shown && window.innerWidth > 640 ? (document.querySelector('.uif-shelves.is-open')?.getBoundingClientRect().width ?? 0) : 0;
+      const width = Math.max(300, Math.min(560, window.innerWidth - side - 32));
+      hub.set({ ...h, docked: null, width, x: side + 16, y: window.innerHeight - h.height - 16 });
+    }
+    if (fresh && f) {
+      if (browseState()) f.outputs.append(meta.outputId, { role: 'system', text: '', widget: WIDGET });
+      // after the field has moved (two frames): the window right above it, as wide as there is room for
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const r = f.hubRef.current?.getBoundingClientRect();
+        if (!r) return;
+        const width = Math.round(Math.max(r.width, Math.min(720, window.innerWidth - r.left - 16)));
+        const height = Math.round(Math.max(160, Math.min(560, r.top - 24)));
+        f.setRect(meta.outputId, { x: Math.round(r.left), y: Math.max(8, Math.round(r.top) - 12 - height), width, height });
+      }));
+    }
+    return A.current.onSend(text, meta);
   };
 
   const actions = useRef<Action[]>([
     {
       id: 'bankml-load', label: 'bankML in this browser', command: 'load', aliases: ['browseml'], icon: '⬇',
-      description: 'load - bankML in this browser: the consent card (248 MB once, from huggingface.co, its sha256 checked), then answers here with receipts',
-      run: ctx => A.current.loadHere(ctx.print),
+      description: 'load - import browseML: the model pulled once in the background (248 MB), checked against its sha256 pin, kept in this browser',
+      async run(ctx) {
+        if (browseState()) return ctx.print('browseML is ready: bankML answers in this browser');
+        ctx.print('importing browseML: the model is pulled in the background, then bankML checks it…');
+        const v = await download();
+        if (v) { A.current.ready(); ctx.print(`✓ ${v.model} verified · ${v.threads} thread${v.threads === 1 ? '' : 's'}`); }
+        else ctx.print(`browseML is not ready: ${downloadState().error ?? downloadState().phase}`, 'err');
+      },
     },
     {
       id: 'client', label: 'Client', command: 'client', aliases: ['knobs'], icon: '🎛',
@@ -168,6 +201,7 @@ function Page() {
 
   const phone = window.matchMedia(PHONE).matches;
   const own = a.outcome;
+  const widgets = { [WIDGET]: () => <BrowseCard onReady={() => A.current.ready()} /> };
   const mine = a.live !== null ? null
     : !own ? { text: 'receipt —', tone: '' }
     : own.how === 'delivered' ? (own.ok ? { text: '✓ receipt', tone: 'ok' } : { text: '✗ receipt', tone: 'bad' })
@@ -176,16 +210,19 @@ function Page() {
   return (
     <div className="cs-page">
       <header className="cs-head">
-        <h1 className="cs-mark">ultimate<span>-clientside</span></h1>
-        <p className="cs-line">bankML in this browser, verified · this computer's controls · diagnostics from what actually ran</p>
+        <h1 className="cs-mark"><img src="browseML-logo.png" alt="browseML" width="132" height="132" /></h1>
+        <p className="cs-line">machine learning in your browser</p>
       </header>
       <div className="cs-dock">
         <UltimateBar
           storageKey={KEY}
           actions={actions}
           modeBar={RACK}
-          onSend={a.onSend}
-          placeholder={phone ? 'Ask bankML (here)' : 'Ask bankML — it runs in this browser, with a receipt'}
+          onSend={onSend}
+          outputPlace="above"
+          defaultStrings
+          widgets={widgets}
+          placeholder={phone ? 'Ask browseML' : 'Ask browseML — it runs in your browser, with a receipt'}
           initialSize={at.size}
           initialPosition={at.at}
           initialDock={phone ? undefined : 'page'}
@@ -196,15 +233,15 @@ function Page() {
           }}
           terminalMode={false}
           tools={TOOLS}
-          left={<span className={'cs-pill ' + (a.ready ? 'is-ok' : '')} title={a.ready ? 'bankML is verified and loaded here' : 'not loaded: ⬇ or the card below'}>{a.ready ? '● browseML' : '○ browseML'}</span>}
+          left={<span className={'cs-pill ' + (a.isReady ? 'is-ok' : '')} title={a.isReady ? 'bankML is verified and loaded here' : 'not imported yet: ask, or ⬇'}>{a.isReady ? '● browseML' : '○ browseML'}</span>}
           right={mine ? <span className={'cs-pill ' + (mine.tone ? `is-${mine.tone}` : '')}>{mine.text}</span> : <span className="cs-pill is-working">streaming · {a.live}</span>}
         >
           <Bridge into={uif} onReady={onReady} />
           <Shelves store={shelves} top={<ClientTools />} />
         </UltimateBar>
       </div>
-      <section className="cs-who" aria-label="bankML in this browser">{a.tabArea}</section>
-      <footer className="cs-foot"><p>MIT · bankML (cryptoAGI) · the knobs are DreamKnob (MIT, Dreamodus Software Inc.) · nothing you type leaves this device</p></footer>
+      <Faq uif={uif} />
+      <footer className="cs-foot"><p>browseML · MIT OR Apache-2.0 · built on <a href="https://github.com/cryptoAGI/bankml">bankML</a> · dials by DreamKnob · <a href="https://github.com/browseML/browseML">source</a> · nothing you type leaves this device</p></footer>
     </div>
   );
 }

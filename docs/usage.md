@@ -3,7 +3,7 @@
 How to use browseML, run it yourself, and check it. What it is and why: [explanation.md](explanation.md). The
 internals: [technical.md](technical.md).
 
-**Contents** · [Try it](#try-it) · [Run it yourself](#run-it-yourself) · [ultimate-clientside](#ultimate-clientside-your-controls) ·
+**Contents** · [Try it](#try-it) · [Run it yourself](#run-it-yourself) · [The browseML app](#the-browseml-app-your-controls) ·
 [Build the engine](#build-the-engine) · [Check it](#check-it) · [Use the runtime in your page](#use-the-runtime-in-your-page)
 
 ---
@@ -40,14 +40,20 @@ Cross-Origin-Embedder-Policy: credentialless
 
 Without them browseML still runs, on one thread. The `app/` build below serves with them already.
 
-## ultimate-clientside: your controls
+## The browseML app: your controls
 
 ```sh
 cd app
 npm install
-npm run dev            # http://localhost:5173/clientside.html  (cross-origin isolated)
-npm run build          # dist/: index.html (landing) + clientside.html, ready to host
+npm run dev            # http://localhost:5173/app.html  (cross-origin isolated)
+npm run build          # dist/: index.html (landing) + app.html, ready to host
 ```
+
+Ask anything, or press a FAQ question. The field drops to the bottom left and the answer's window opens above it,
+joined to it by a string, so you can find it from anywhere on the page. If the model is not in your browser yet, the
+window says **Click to load the model in your browser** with an **Import browseML** button: the model is pulled once in
+the background, checked against its sha256 pin, and your question is answered. Once loaded, each new window starts with
+browseML's state: what was verified, threads, context, the memory it holds, the last answer's speed.
 
 | control | where | what it does |
 |---|---|---|

@@ -18,7 +18,7 @@ it does, read [explanation.md](explanation.md); to run, build and check it, [usa
 | `web/browseml.js` | downloads the model with progress, caches it, loads it (one load at a time) and chats with it |
 | `web/browseML/*.FORK.json` | the model's pin |
 | `web/index.html`, `app.js`, `style.css` | the landing page (as on PYTHAI/browseML): ask, the download and verification shown as they happen, a receipt under every answer |
-| `app/` | ultimate-clientside: the ultimate input field with this computer's controls and diagnostics, built beside the landing page ([app/README.md](../app/README.md)) |
+| `app/` | the browseML app: the ultimate input field with this computer's controls and diagnostics, built beside the landing page ([app/README.md](../app/README.md)) |
 | `testing/oracle.mjs`, `testing/bench.mjs`, `testing/download.mjs` | exactness against llama-server's record; timing at any thread count, with the pool on Node worker threads |
 
 ## Three builds, one engine

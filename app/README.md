@@ -1,35 +1,28 @@
-# app — ultimate-clientside
+# app — the browseML app
 
-browseML behind the ultimate input field, with this computer's controls: the page `clientside.html`, built beside
-the landing page (`../web/index.html`) into one folder, `dist/`.
+`app.html`: browseML behind the ultimate input field, built beside the landing page (`../web/index.html`) into one
+folder, `dist/`.
 
-- **🛠 in the field** (where T sits on other pages; this one has no terminal mode) opens a tray with the
-  [DreamKnob](vendor/dreamknob/README.md) controls — CPU threads, RAM (the context), the prompt cache, the answer
-  length, a gauge of the memory the engine holds, load/apply, unload, clear cache, measure — and the diagnostics from
-  what actually ran (`src/bankml/usage.ts`: every load and answer recorded in this browser; advice from those records
-  only).
-- **The sidebar** is absent until a button is dragged off the field; then it appears with a menu (drop strip), the
-  same controls and diagnostics, and any button panels (+ panel). Shelved buttons run on a press and drag back to the
-  bar, to another shelf, or anywhere (`src/core/shelves.ts`, `src/components/Shelves.tsx`).
-- **Docked in the page or popped out**: ⧉, or drag the field's grip; popped out it moves, resizes and docks to an edge.
-- Slash commands: `/client` (`threads|ram|cache|answer <n>`, `apply`, `unload`, `clear yes`, `measure`), `/usage`,
-  `/receipt`, `/shelf`.
+| | |
+|---|---|
+| **Ask** | The field drops to the bottom left and the answer's window opens above it, joined by a string. |
+| **Load with one click** | Not loaded yet, the window says *Click to load the model in your browser* with **Import browseML**; the question is answered once it is ready. Loaded, a new window starts with browseML's state. |
+| **FAQ** | Each question is asked of browseML itself, answered on your computer with a receipt (facts in `../web/browseml.persona`). |
+| **🛠 Tools** | DreamKnob dials for threads, memory (context), prompt cache and answer length; load, unload, clear, measure; the diagnostics from what actually ran. |
+| **Sidebar** | Appears when a button is dragged off the field: a menu, the same dials and diagnostics, button panels. |
+| **⧉** | Dock the field in the page, or pop it out. |
 
 ```sh
 npm install
 npm run typecheck && npm test
-npm run dev        # http://localhost:5173/clientside.html, cross-origin isolated (threads)
-npm run build      # dist/: index.html (landing) + clientside.html, the runtime and the .wasm from ../web
+npm run dev        # http://localhost:5173/app.html, cross-origin isolated (threads)
+npm run build      # dist/: index.html (landing) + app.html, the runtime and the .wasm from ../web
 ```
 
 Serve `dist/` with `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: credentialless` for
-threads (`npm run preview` does).
+threads (`npm run preview` does). Hugging Face is only where the model is pulled from.
 
-## Where the code comes from
-
-`src/` is the ultimate input field (from [ultimate-input-field](https://github.com/Professor-Codephreak/ultimate-input-field),
-MIT, with the shelves, the page dock, the tools tray and `terminalMode` added) and the bankML page code it needs
-(answerers, the delivery pattern, browseML's settings, download and consent card), as in the bankML UIF working tree
-at `cc56466` (2026-10-12). Left out: the GPL-3.0-only credential module (this page offers no sign-in; it loads none),
-THOT and iNFT, and the other pages (bankML UIF, mindx.pythai.net/bankml, the Space mount). DreamKnob 1.1.4 is
-vendored as its built package (MIT, Dreamodus Software Inc.). Licence: MIT ([LICENSE](LICENSE)).
+`src/` is the ultimate input field ([ultimate-input-field](https://github.com/Professor-Codephreak/ultimate-input-field),
+MIT, with shelves, the page dock, the tools tray, message widgets, windows above the field and `terminalMode`) and the
+browseML page code (`src/clientside/`, `src/bankml/`). DreamKnob 1.1.4 is vendored as its built package (MIT, Dreamodus
+Software Inc.). Licence: MIT ([LICENSE](LICENSE)).

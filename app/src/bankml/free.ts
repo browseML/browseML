@@ -1,25 +1,14 @@
 // SPDX-License-Identifier: MIT
-// The free tier: answering without the visitor's own bankML and without a sign-in.
-//  · space — "bankML · free CPU", the default: answers at once, exactly as PYTHAI/savante renders from Bonsai, through
-//    @gradio/client to the Space Gregory-L/mindXhfgradio, endpoint /mindx. HONEST: that is Bonsai in llama.cpp on
-//    Hugging Face's free CPU, not bankML's engine, and there is no receipt; every answer says so. What is typed is
-//    processed on a public Space. When the Space offers a /bankml endpoint that returns a bankml_receipt, it is used
-//    instead and the receipt is checked here (askSpace, findReceipt).
-//  · browse — browseML: bankML itself in this browser (bankML compiled to WebAssembly). The model (Bonsai-1.7B Q1_0,
-//    248 MB) is downloaded only after the visitor presses "Download and verify" (the consent card), with progress,
-//    pause and cancel (download()); bankML checks its sha256 before it answers and puts a receipt on every answer,
-//    checked here. The visitor's settings (threads, context, answer length, the cache) are kept in localStorage.
+// browseML: bankML itself in this browser (bankML compiled to WebAssembly). The model (Bonsai-1.7B Q1_0, 248 MB) is
+// pulled from its pinned source only when the visitor imports it, in the background, with progress, pause and cancel
+// (download()); bankML checks its sha256 before it answers and puts a receipt on every answer, checked here. The
+// visitor's settings (threads, context, prompt cache, answer length) are kept in localStorage.
 import type { Turn, Verdict } from './engine';
 import { sha256hex } from './engine';
 import { ctxCapFor } from './caps';
 import { recordAnswer, recordLoad } from './usage';
 
 const esm = (url: string): Promise<any> => import(/* @vite-ignore */ url);
-export const GRADIO_ESM = 'https://cdn.jsdelivr.net/npm/@gradio/client@2.7.0/+esm';
-export const FREE_SPACE = 'Gregory-L/mindXhfgradio';
-export const SPACE_MODELS = { ternary: 'ternary-bonsai-8b (CPU llama.cpp)', bonsai: 'bonsai-8b (1-bit, CPU llama.cpp)' } as const;
-export type SpaceModel = keyof typeof SPACE_MODELS;
-export const SPACE_MODEL_NAME: Record<SpaceModel, string> = { ternary: 'Ternary-Bonsai-8B', bonsai: 'Bonsai-8B (1-bit)' };
 const MAX_TOKENS = 384;
 
 // ── settings: what the visitor chose for browseML, kept in this browser ─────────────────────────────────────────
@@ -137,7 +126,7 @@ export async function loadBrowse(progress: (line: string, phase?: string) => voi
     else if (phase === 'retry') progress(`the connection dropped at ${MB(got)}: asking for that piece again`, phase);
   }, () => {}, { threads: s.threads ?? undefined, ctx: s.ctx, cacheRam: s.cacheRam });
   browsed = { ...browsed!, cacheRam: s.cacheRam };
-  // a download by the consent card (download()) put the model in the cache first: the record says it was downloaded
+  // an import (download()) put the model in the cache first: the record says it was downloaded
   if (b.loadStats) recordLoad(b.loadStats.source === 'cache' && lastDownload
     ? { ...b.loadStats, source: 'download', fetched: lastDownload.fetched, retries: lastDownload.retries, modelMs: lastDownload.ms + b.loadStats.modelMs, totalMs: lastDownload.ms + b.loadStats.totalMs }
     : b.loadStats);
@@ -175,7 +164,7 @@ export const downloadState = () => dl;
 export function onDownload(f: (s: DownloadState) => void) { dlFns.add(f); return () => { dlFns.delete(f); }; }
 
 let abort: AbortController | null = null;
-/** The consent card's last finished download, for the next load's usage record. */
+/** The last finished import, for the next load's usage record. */
 let lastDownload: { fetched: number; retries: number; ms: number } | null = null;
 /** The bytes so far, kept in this tab's memory only while paused or after a dropped connection (resumed with an HTTP
  *  Range request); a reload loses them. */
@@ -385,8 +374,8 @@ export function sessionCleanup() {
 export async function* askBrowse(composed: string, turns: Turn[], message: string, done: (v: Verdict) => void, maxTokens = settings.maxTokens): AsyncGenerator<string> {
   const b = await mod();
   if (!b.isReady()) {
-    // the page shows the consent card first; asked anyway, nothing is downloaded unasked
-    if (!(await browseCached())) throw new Error('browseML is not loaded yet: press "Download and verify" in the browseML tab (248 MB once)');
+    // nothing is downloaded unasked: the response window's card offers the import
+    if (!(await browseCached())) throw new Error('browseML is not imported yet: press "Import browseML" (248 MB once)');
     await loadBrowse();
   }
   const v = browsed!;
@@ -419,147 +408,4 @@ export async function* askBrowse(composed: string, turns: Turn[], message: strin
     line: `${ok ? '✓ receipt' : receipt ? '✗ receipt: the answer does not match its sha256' : '✗ no receipt'} · bankML ${v.version} in this browser · ${v.model} · ` +
       `${u.prompt_tokens ?? '?'} + ${u.completion_tokens ?? '?'} tokens · ${Number(tm.predicted_per_second || 0).toFixed(2)} tok/s · free`,
   });
-}
-
-// ── Bonsai on Hugging Face's free CPU (mindXhfgradio), as PYTHAI/savante renders it ──────────────────────────────
-/** The honest label, on every answer and in the tab's note, until bankML itself runs on that Space. */
-export const SPACE_HONEST = "Bonsai on Hugging Face's free CPU — llama.cpp, not bankML's engine, no receipt";
-/** Said when the Space answers with bankML and a receipt (its /bankml endpoint). */
-export const SPACE_BANKML = "bankML on Hugging Face's free CPU — a receipt on the answer, checked here";
-/** The Space appends a footer after the model's words (Savante's "— sAGI (Savante) …"): split off, shown as the Space's. */
-export const FOOTER_MARK = '\n\n— sAGI';
-
-const plain = (html: unknown) => {
-  const s = String(html ?? '');
-  if (typeof DOMParser === 'undefined') return s.replace(/<[^>]*>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
-  return new DOMParser().parseFromString(s.replace(/</g, ' <'), 'text/html').body.textContent!.replace(/\s+/g, ' ').trim();
-};
-export { plain as plainText };
-
-/** The answer and the Space's footer, apart; while streaming, a tail that may be the start of the footer is held
- *  back, so the footer's first characters never show as the model's words. Pure, so it is tested. */
-export function splitFooter(full: string, final: boolean): { answer: string; footer: string } {
-  const i = full.indexOf(FOOTER_MARK);
-  if (i >= 0) return { answer: full.slice(0, i), footer: full.slice(i + 2).trim() };
-  if (!final) {
-    for (let k = Math.min(full.length, FOOTER_MARK.length - 1); k > 0; k--) {
-      if (FOOTER_MARK.startsWith(full.slice(-k))) return { answer: full.slice(0, -k), footer: '' };
-    }
-  }
-  return { answer: full, footer: '' };
-}
-
-/** What the Space's stats say: prompt and completion tokens, tok/s, seconds, where, first token. Pure, so it is tested. */
-export interface SpaceStats { prompt?: number; completion?: number; tps?: number; seconds?: number; on?: string; first?: number; stopped?: string }
-export function parseStats(s: string): SpaceStats {
-  const num = (re: RegExp) => { const m = s.match(re); return m ? Number(m[1]) : undefined; };
-  return {
-    prompt: num(/prompt\s+(\d+)/), completion: num(/completion\s+(\d+)/), tps: num(/([\d.]+)\s*tok\/s/), seconds: num(/tok\/s in ([\d.]+)\s*s/),
-    on: (s.match(/tok\/s in [\d.]+\s*s on (.+?)(?:\s+context\b|\s+model\b|$)/) || [])[1]?.trim(),
-    first: num(/first token\s+([\d.]+)\s*s/), stopped: (s.match(/stopped on\s+(\w+)/) || [])[1],
-  };
-}
-/** The delivery line from the Space's own stats. Pure, so it is tested. */
-export function spaceDelivery(st: SpaceStats, model: string, receipt: 'none' | 'ok' | 'bad' = 'none'): string {
-  const counts = `${st.prompt ?? '?'} prompt → ${st.completion ?? 0} completion tokens`;
-  const r = receipt === 'ok' ? '✓ receipt: the answer matches its sha256' : receipt === 'bad' ? '✗ receipt: the answer does NOT match its sha256' : 'no receipt (not bankML)';
-  return `delivered by the model — ${counts}` +
-    (st.tps !== undefined ? ` · ${st.tps} tok/s` : '') + (st.first !== undefined ? ` · first token ${st.first} s` : '') +
-    ` · ${model} on ${st.on || 'cpu'} · free public CPU (${FREE_SPACE}) · ${r}`;
-}
-
-/** A bankml_receipt among a Space's outputs (an object, or JSON text), or null. Pure, so it is tested. */
-export function findReceipt(data: unknown[]): Record<string, unknown> | null {
-  for (const d of data) {
-    let o: any = d;
-    if (typeof d === 'string' && /^\s*\{/.test(d)) { try { o = JSON.parse(d); } catch { continue; } }
-    if (!o || typeof o !== 'object') continue;
-    if (o.bankml_receipt && typeof o.bankml_receipt === 'object') return o.bankml_receipt;
-    if (typeof o.response_sha256 === 'string' && typeof o.model_sha256 === 'string') return o;
-  }
-  return null;
-}
-
-let gradio: any = null;
-let hasBankml: boolean | null = null;
-/** Does the Space offer bankML itself (a /bankml endpoint)? Read from its API description once. */
-async function spaceOffersBankml(client: any): Promise<boolean> {
-  if (hasBankml !== null) return hasBankml;
-  try {
-    const api = await client.view_api();
-    hasBankml = !!api?.named_endpoints?.['/bankml'];
-  } catch { hasBankml = false; }
-  return hasBankml;
-}
-/** What the free CPU tab's answers are now: Bonsai in llama.cpp (no receipt), or bankML with a receipt. */
-export const spaceIsBankml = () => hasBankml === true;
-
-export async function* askSpace(composed: string, turns: Turn[], message: string, done: (v: Verdict) => void,
-  which: SpaceModel = 'ternary', maxTokens = MAX_TOKENS, progress: (line: string) => void = () => {}): AsyncGenerator<string> {
-  const t0 = Date.now();
-  let coldSaid = false, shown = '';
-  // a Space asleep or busy says nothing for a while: after 8 s the page says it may take minutes
-  let lastEv = t0, quietSaid = 0;
-  const cold = setInterval(() => {
-    if (!coldSaid && !shown && Date.now() - t0 > 8000) { coldSaid = true; progress('the free CPU is waking up or busy: a cold Space may take minutes (it loads the model first)'); }
-    // words had started and then nothing for 30 s: say so (the connection may have dropped); Stop ends it
-    const quiet = Math.round((Date.now() - lastEv) / 1000);
-    if (shown && quiet >= 30 && quiet - quietSaid >= 15) { quietSaid = quiet; progress(`no word from the free CPU for ${quiet} s: it may be busy or the connection dropped — Stop, then ask again, or use browseML`); }
-  }, 1000);
-  try {
-    if (!gradio) {
-      progress(`connecting to the free CPU (${FREE_SPACE})…`);
-      const { Client } = await esm(GRADIO_ESM);
-      // status events too: the queue position, errors, and "complete" (without them the job's iterator never ends)
-      gradio = await Client.connect(FREE_SPACE, { events: ['data', 'status'] });
-    }
-    const bankml = await spaceOffersBankml(gradio);
-    // the Space takes one system prompt and one message: the earlier turns ride in the system prompt, briefly
-    const recent = turns.slice(-6).map(t => `${t.role === 'user' ? 'Visitor' : 'You'}: ${t.content.slice(0, 600)}`).join('\n');
-    const system = composed.slice(0, 3500) +
-      (bankml ? '' : `\n\nWHERE THIS REPLY COMES FROM: you speak for bankML, but this reply is generated by Bonsai on Hugging Face's free public CPU (the Space ${FREE_SPACE}, llama.cpp), not by bankML's engine: no bankML arithmetic and no receipt. If asked what is running, say so.`) +
-      (recent ? `\n\nTHE CONVERSATION SO FAR:\n${recent}` : '');
-    const job = bankml
-      ? gradio.submit('/bankml', { system, text: message, npred: Math.min(maxTokens, 512) })
-      : gradio.submit('/mindx', {
-        system, text: message, where: SPACE_MODELS[which], bz_persona: 'the system box above',
-        npred: Math.min(maxTokens, 512), temp: 0.6, top_p: 0.9, rg_use: false,
-      });
-    let full = '', stats = '', data: unknown[] = [];
-    for await (const ev of job) {
-      lastEv = Date.now(); quietSaid = 0;
-      if (ev.type === 'status') {
-        if (ev.stage === 'error') throw new Error(ev.message || 'the free CPU Space reported an error');
-        if (ev.stage === 'complete') break;
-        if (ev.stage === 'pending' && !shown) progress(`queued on the free CPU${ev.position != null ? ` (position ${ev.position + 1}${ev.queue_size ? ` of ${ev.queue_size}` : ''})` : ''}…`);
-      }
-      if (ev.type === 'data') {
-        data = ev.data as unknown[];
-        full = String(data[0] ?? '');
-        stats = plain(data[1]);
-        if (!shown && !full) progress(stats ? `the free CPU: ${stats}` : 'the free CPU is reading the prompt…');
-        const { answer } = splitFooter(full, false);
-        if (answer.startsWith(shown) && answer.length > shown.length) { yield answer.slice(shown.length); shown = answer; }
-      }
-    }
-    const { answer, footer } = splitFooter(full, true);
-    if (answer.startsWith(shown) && answer.length > shown.length) { yield answer.slice(shown.length); shown = answer; }
-    const st = parseStats(stats);
-    // no completion counted, or no stats at all: no delivery from the model (as Savante)
-    const completion = st.completion ?? 0;
-    const receipt = bankml ? findReceipt(data) : null;
-    const ok = !!receipt && (await sha256hex(answer)) === receipt.response_sha256;
-    const model = bankml ? 'bankML' : SPACE_MODEL_NAME[which];
-    done({
-      ok, receipt: receipt as Verdict['receipt'],
-      usage: { prompt_tokens: st.prompt, completion_tokens: completion, finish: st.stopped },
-      footer: footer || undefined,
-      delivery: spaceDelivery(st, model, bankml ? (ok ? 'ok' : 'bad') : 'none'),
-      line: bankml
-        ? `${ok ? '✓' : '✗'} receipt · bankML on the free CPU (${FREE_SPACE}) · ${completion} tokens`
-        : `not bankML · ${model} on the free public CPU (${FREE_SPACE}, llama.cpp) · ${completion} tokens${st.tps ? ` · ${st.tps} tok/s` : ''} · no receipt · free`,
-    });
-  } finally {
-    clearInterval(cold);
-  }
 }

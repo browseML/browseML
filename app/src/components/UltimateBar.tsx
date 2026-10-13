@@ -16,9 +16,9 @@ export interface UltimateBarProps extends UltimateInputFieldProps {
  * A modular bar with the input field at its centre. It owns the shared state
  * (actions, output fields, strings) so modules can reach it through `useUIF()`.
  */
-export function UltimateBar({ storageKey, popoutUrl, defaultStrings, modules, outputTop, outputArea, children, ...fieldProps }: UltimateBarProps) {
+export function UltimateBar({ storageKey, popoutUrl, defaultStrings, modules, outputTop, outputArea, outputPlace, widgets, children, ...fieldProps }: UltimateBarProps) {
   return (
-    <UIFProvider storageKey={storageKey} popoutUrl={popoutUrl} defaultStrings={defaultStrings} modules={modules} outputTop={outputTop} outputArea={outputArea}>
+    <UIFProvider storageKey={storageKey} popoutUrl={popoutUrl} defaultStrings={defaultStrings} modules={modules} outputTop={outputTop} outputArea={outputArea} outputPlace={outputPlace} widgets={widgets}>
       <UltimateInputField {...fieldProps} />
       {children}
     </UIFProvider>

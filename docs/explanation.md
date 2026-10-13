@@ -73,9 +73,11 @@ Two problems showed up only on real machines, and both are solved in the code:
   into place and holds it once (317 MB, measured) — the difference between working and not on a laptop with little
   free RAM.
 
-## Your controls: ultimate-clientside
+## Your controls: the browseML app
 
-[`app/`](../app/README.md) is browseML behind the *ultimate input field*, with this computer's controls in plain
+[`app/`](../app/README.md) is browseML behind the *ultimate input field*. Ask a question and, if the model is not in
+your browser yet, the answer's window offers one button to load it; the question is answered as soon as it is ready.
+Its FAQ is answered the same way, by browseML itself. This computer's controls are in plain
 view: how many CPU threads it may take, how much memory (the context), a prompt cache, the answer length — turned
 on DreamKnob dials — and diagnostics built only from what actually ran here: the download's speed, the time to
 verify, the memory the engine really took, each answer's reading and writing speed. Its advice (fewer threads, a

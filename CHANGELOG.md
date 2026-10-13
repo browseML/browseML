@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.0 — 2026-10-13 — the browseML app: ask, load with one click, a FAQ browseML answers
+
+- **One click to load.** Asked before the model is in the browser, the answer's window says *Click to load the model in
+  your browser* with **Import browseML**; the model is pulled once in the background, checked against its sha256 pin,
+  and the question is answered. Loaded, a new window starts with browseML's state (what was verified, threads,
+  context, memory held, the last answer's speed). Checked in Brave: import, then the held question answered, ✓.
+- **Ask, and find it anywhere.** An inquiry drops the field to the bottom left; its window opens above it, joined by a
+  string (the field's tethers, on by default).
+- **A FAQ answered by browseML**, from `web/browseml.persona` (a short factual persona, in place of bankML's 10 KB one).
+- **browseML only.** Hugging Face is where the model comes from, nothing more: the free-CPU and provider answerers,
+  the credential bridge, the answerer tabs and the install guide are gone from `app/`.
+- **The page** is `app.html`, titled *browseML — machine learning in your browser*, with the logo.
+- The field (`app/src`): message widgets (`widgets`), windows above the field (`outputPlace: 'above'`).
+
 ## 0.2.0 — 2026-10-12 — public; ultimate-clientside; the docs
 
 - **Public**, with the organization's profile (browseML/.github).

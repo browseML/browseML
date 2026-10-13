@@ -60,7 +60,7 @@ The download comes in 16 MB pieces, each resumed from the exact byte a dropped c
 
 **Your controls**
 
-[ultimate-clientside](app/README.md): dials for threads, memory and cache, with diagnostics measured from what ran.
+[The browseML app](app/README.md): dials for threads, memory and cache, diagnostics measured from what ran, and a FAQ browseML answers itself.
 
 </td>
 </tr>
@@ -89,7 +89,7 @@ cd browseML && python3 -m http.server -d web 8000     # open http://localhost:80
 | | |
 |---|---|
 | [`web/`](web) | the browser runtime, the three prebuilt engines (`.wasm`) and the landing page |
-| [`app/`](app/README.md) | ultimate-clientside: the ultimate input field with this computer's controls and diagnostics |
+| [`app/`](app/README.md) | the browseML app: ask, load the model with one click, your controls and diagnostics, a FAQ answered by browseML |
 | [`src/`](src/lib.rs) | the WebAssembly exports over bankML's engine |
 | [`bankml/`](https://github.com/cryptoAGI/bankml/tree/browseml) | the engine itself, pinned as a git submodule |
 | [`models/`](models/README.md) | the model, byte for byte (Git LFS), with its licence and card |

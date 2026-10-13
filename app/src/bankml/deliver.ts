@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // How an answer is delivered, as on PYTHAI/savante: three things kept apart under each question.
 //  · the answer   — only the text the model generated, streamed into the reply (React writes it as text, never markup)
-//  · the footer   — a line the page adds (a provider's answer is not bankML), labelled as the page's
+//  · the footer   — a line the page adds, labelled as the page's (never the model's words)
 //  · the delivery — prompt → completion tokens, time to first token, tok/s, where it ran, the receipt's verdict
 // With no completion tokens counted there was no delivery from the model: the reply says so instead of showing text,
 // and the exchange never joins .history (the field keeps an undelivered reply out of it).
@@ -46,14 +46,14 @@ export type Outcome = 'delivered' | 'none' | 'stopped' | 'error';
 export interface DeliveryOptions {
   /** Where the model runs, as the delivery line names it. */
   where: string;
-  /** Whether this answerer puts a receipt on every answer (bankML does; a provider does not). */
+  /** Whether this answerer puts a receipt on every answer (bankML does). */
   receipts: boolean;
   /** A footer the page adds under every answer it asks for (shown from the start, so a stopped answer has it too). */
   footer?: string;
   /** Aborted when the visitor stops the answer (SendMeta.signal). */
   signal?: AbortSignal;
   /** Called first: resolves to a note when the answerer is not ready (nothing is asked then), null when it is. */
-  prepare?: (progress: (line: string) => void) => Promise<string | null>;
+  prepare?: (progress: (line: string) => void) => Promise<string | { note: string; widget: string } | null>;
   now?: () => number;
 }
 
@@ -61,16 +61,9 @@ export const NO_DELIVERY = 'No delivery from the model: it counted no completion
 export const NO_TEXT = 'No delivery from the model: it wrote no answer text (only reasoning, or nothing), so there is no answer to show.';
 
 /** Plain hints for the errors a visitor meets, appended to the error's own words. */
-export function hintFor(message: string, origin = typeof location !== 'undefined' ? location.origin : 'this page'): string {
+export function hintFor(message: string): string {
   const m = String(message);
-  if (/\b402\b|credit|payment required/i.test(m)) return 'Your Hugging Face Inference Providers credits appear to be spent for this period.';
-  if (/\b404\b|not supported|no provider|model not found/i.test(m)) return 'No live provider serves that model: choose another in the .model window (owner/name).';
-  if (/127\.0\.0\.1|localhost|loopback|local network|private network|your bankML/i.test(m)) {
-    return `The browser may be keeping this page from 127.0.0.1: allow it to reach apps and services on this device (the local-network permission), and start serve with --allow-origin ${origin}.`;
-  }
-  if (/free CPU|hf\.space|gradio|mindXhfgradio/i.test(m)) return 'The free CPU Space did not answer: it may be waking up or busy — ask again in a minute, or use browseML (bankML in this browser).';
-  if (/credential module|not signed in/i.test(m)) return 'Sign in (or paste a token) in the Hugging Face tab, or use the free CPU tab.';
-  if (/download|browseml|dynamically imported|sha256|quota ?exceeded/i.test(m)) return 'The download failed: check the connection and press "Download and verify" in the browseML tab to try again.';
+  if (/download|browseml|dynamically imported|sha256|quota ?exceeded/i.test(m)) return 'The download failed: check the connection and press "Import browseML" again; it resumes where it stopped.';
   if (/failed to fetch|networkerror|load failed|network/i.test(m)) return 'The network request failed: check the connection and ask again.';
   return '';
 }
@@ -121,8 +114,14 @@ export async function* deliver(
       const note = await opts.prepare(l => hooks.line(l, 'working', 'status'));
       if (note) {
         ended = true;
-        hooks.mark({ text: note, undelivered: true, silent: true });
-        hooks.line('a note from this page, not the model: nothing was asked yet', 'working', 'status');
+        if (typeof note === 'string') {
+          hooks.mark({ text: note, undelivered: true, silent: true });
+          hooks.line('a note from this page, not the model: nothing was asked yet', 'working', 'status');
+        } else {
+          // the page's own part does the explaining (and offers what to do): the short note and nothing more
+          hooks.mark({ text: note.note, undelivered: true, silent: true, widget: note.widget });
+          hooks.line('', undefined, 'status');
+        }
         return;
       }
     }

@@ -100,20 +100,20 @@ describe('the delivery under each answer', () => {
 
   it('an error carries a plain hint', async () => {
     const r = recorder();
-    await expect(drain(deliver(async function* () { throw new Error('HTTP 402 Payment Required'); }, r.hooks, { where: 'w', receipts: false })))
-      .rejects.toThrow(/credits appear to be spent/);
+    await expect(drain(deliver(async function* () { throw new Error('TypeError: Failed to fetch'); }, r.hooks, { where: 'w', receipts: false })))
+      .rejects.toThrow(/network request failed/);
     expect(r.lines[r.lines.length - 1]).toMatchObject({ tone: 'bad' });
     expect(r.ends).toEqual(['error']);
   });
 });
 
 describe('plain hints', () => {
-  it('402, 404, loopback, download', () => {
-    expect(hintFor('HTTP 402')).toMatch(/credits/);
-    expect(hintFor('404 Not Found: no provider')).toMatch(/No live provider/);
-    expect(hintFor('could not reach your bankML at http://127.0.0.1:18093 (Failed to fetch)', 'https://x.test')).toMatch(/local-network permission.*--allow-origin https:\/\/x\.test/);
-    expect(hintFor('download failed: HTTP 503')).toMatch(/download failed/);
+  it('the download, the network, nothing else', () => {
+    expect(hintFor('the download stopped at 5 of 9 bytes')).toMatch(/Import browseML/);
+    expect(hintFor('TypeError: Failed to fetch')).toMatch(/network request failed/);
     expect(hintFor('something else')).toBe('');
+    // browseML asks nothing of Hugging Face but the model: no hint sends anyone there
+    for (const m of ['HTTP 402', 'no provider', 'hf.space', 'not signed in']) expect(hintFor(m)).not.toMatch(/Hugging Face|provider|free CPU|sign in/i);
   });
   it('the delivery line and the rule', () => {
     expect(wasDelivered('', verdict(3))).toBe(false);

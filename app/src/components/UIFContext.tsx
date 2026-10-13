@@ -88,6 +88,8 @@ export interface UIFContextValue {
   /** A host page adds a part of its own to the layout (.profile): `get` is saved with it under `name`; `set` gets
    *  it back when a profile is applied (untrusted when imported: check it), and null on reset. */
   registerProfilePart(name: string, part: ProfilePart): () => void;
+  /** The page's live message parts (UIFProviderOptions.widgets). */
+  widgets?: UIFProviderOptions['widgets'];
 }
 
 export interface ProfilePart {
@@ -145,6 +147,8 @@ export function UIFProvider({
   modules,
   outputTop,
   outputArea,
+  outputPlace = 'beside',
+  widgets,
 }: UIFProviderOptions & { children?: React.ReactNode; actions?: Action[] }) {
   // The context module (.history .memory .prompt .persona .model) first, then the host's. Read once, like actions.
   const allModules = useMemo<UIFModule[]>(() => [contextModule, ...(modules ?? [])], []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -208,6 +212,8 @@ export function UIFProvider({
   outputTopRef.current = outputTop;
   const outputAreaRef = useRef(outputArea);
   outputAreaRef.current = outputArea;
+  const outputPlaceRef = useRef(outputPlace);
+  outputPlaceRef.current = outputPlace;
   const slotBeside = useCallback((n: number): Rect => {
     // the width response windows may use: the viewport, or the part the page leaves them (outputArea)
     const area = outputAreaRef.current?.();
@@ -225,7 +231,8 @@ export function UIFProvider({
     const gap = 12;
     // No room beside the field (a phone, a tablet, a centred field): above it, as wide as it, below the page's top
     // matter, each further window a step down and right.
-    if (hub.left - 24 - width < wide.lo + 8 && wide.hi - hub.right - 24 - width < 8) {
+    // or the page asked for windows above the field
+    if (outputPlaceRef.current === 'above' || (hub.left - 24 - width < wide.lo + 8 && wide.hi - hub.right - 24 - width < 8)) {
       const step = Math.min(n, 4) * 24;
       const w = Math.min(Math.round(hub.width), wide.hi - wide.lo - 32);
       const x = Math.max(wide.lo + 16, Math.min(Math.round(hub.left) + step, wide.hi - w - 16));
@@ -871,6 +878,7 @@ export function UIFProvider({
       registerHubLayout,
       hubLayout: getHubLayout,
       registerProfilePart,
+      widgets,
     }),
     [
       registry,
@@ -895,6 +903,7 @@ export function UIFProvider({
       registerHubLayout,
       getHubLayout,
       registerProfilePart,
+      widgets,
     ],
   );
 

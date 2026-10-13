@@ -5,6 +5,8 @@ import { useUIF } from './UIFContext';
 import { ResizeCorners } from './ResizeCorners';
 
 interface ViewProps {
+  /** The page's live message parts (OutputMessage.widget); a popped-out window has none and shows the text. */
+  widgets?: import('../types').UIFProviderOptions['widgets'];
   field: OutputFieldData;
   active: boolean;
   flash: number;
@@ -42,6 +44,7 @@ export function OutputView({
   onHome,
   onMaximize,
   onClose,
+  widgets,
 }: ViewProps) {
   const [kept, setKept] = useState<Record<string, boolean>>({});
   const listRef = useRef<HTMLDivElement>(null);
@@ -137,12 +140,13 @@ export function OutputView({
       <div className="uif-output-body" ref={listRef}>
         {field.messages.length === 0 && <div className="uif-output-empty">No messages yet.</div>}
         {field.messages.map(m => {
-          if (m.role === 'system' && !m.text && !m.pending) return null;  // a status line the engine cleared
+          if (m.role === 'system' && !m.text && !m.pending && !m.widget) return null;  // a status line the engine cleared
           const keep = onRemember && m.role === 'assistant' && !m.pending && !m.undelivered && m.text;
           const msg = (
             <div key={m.id} className={['uif-msg', `uif-msg-${m.role}`, m.kind && `is-${m.kind}`, m.tone && `is-${m.tone}`, m.undelivered && 'is-undelivered'].filter(Boolean).join(' ')}>
               {m.text}
               {m.pending && <span className="uif-caret">▍</span>}
+              {m.widget && widgets?.[m.widget] && <div className="uif-msg-widget">{widgets[m.widget]({ outputId: field.id, message: m })}</div>}
               {m.media && (
                 <span className="uif-msg-media">
                   {m.media.kind === 'video'
@@ -200,7 +204,7 @@ export function OutputView({
 
 /** A floating, draggable output panel inside the hub page. */
 export function OutputField({ field }: { field: OutputFieldData }) {
-  const { outputs, setRect, flashes, raise, zIndexOf, sendTo, context } = useUIF();
+  const { outputs, setRect, flashes, raise, zIndexOf, sendTo, context, widgets } = useUIF();
   const { position, size, setPosition, setSize, startDrag, startResize, onHandleKeyDown, isDragging } = useDragResize({
     initialPosition: { x: field.rect.x, y: field.rect.y },
     initialSize: { width: field.rect.width, height: field.rect.height },
@@ -244,6 +248,7 @@ export function OutputField({ field }: { field: OutputFieldData }) {
       }}
     >
       <OutputView
+        widgets={widgets}
         field={field}
         active={active}
         flash={flashes[field.id] ?? 0}

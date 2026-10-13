@@ -35,6 +35,8 @@ export interface OutputMessage {
   /** The reply was not delivered by the model (no completion tokens, an error, stopped): it says so in place of an
    *  answer, and the exchange is kept out of .history. */
   undelivered?: boolean;
+  /** A live part of the message the page draws (its key in the provider's `widgets`), under the text. */
+  widget?: string;
 }
 
 export interface OutputField {
@@ -212,7 +214,7 @@ export interface SendMeta {
 }
 
 /** What an engine may say about its own reply: not to be read aloud; not delivered, with the text that says so. */
-export type ReplyMarks = Pick<Partial<OutputMessage>, 'silent' | 'undelivered' | 'text'>;
+export type ReplyMarks = Pick<Partial<OutputMessage>, 'silent' | 'undelivered' | 'text' | 'widget'>;
 
 export type SendResult = void | string | Promise<string | void> | AsyncIterable<string>;
 
@@ -294,4 +296,8 @@ export interface UIFProviderOptions {
   /** The part of the viewport's width response windows open in (px from the left, read when one opens): a page with
    *  sidebars keeps them clear of its panels. Default: the whole width. */
   outputArea?: () => { left: number; right: number };
+  /** Where a new response window opens: beside the field where there is room (default), or above it, as wide. */
+  outputPlace?: 'beside' | 'above';
+  /** Live parts a message can carry (OutputMessage.widget): drawn in the response window under the message's text. */
+  widgets?: Record<string, (p: { outputId: string; message: OutputMessage }) => React.ReactNode>;
 }
