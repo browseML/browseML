@@ -18,6 +18,7 @@ import { browseDiag, browseMaxThreads, browseSettings, browseState, browseWarm, 
 import { mb, readCaps } from '../bankml/caps';
 import { summarize } from '../bankml/usage';
 import { UsagePanel } from './UsagePanel';
+import { Folders } from './Folders';
 import { gpuVerdict, probeGpu, readGpu, KEY_FEATURES, type GpuExact, type GpuProbe, type GpuReport } from '../bankml/gpu';
 import { ClientRack, useTick, useUsage } from './ClientRack';
 import { cpu, memory, ping, sensors, speed, storage, type Sensors } from './tools';
@@ -68,7 +69,7 @@ function useLimits() {
   return l;
 }
 
-export function ControlPanel({ uif }: { uif: MutableRefObject<UIFContextValue | null> }) {
+export function ControlPanel({ uif, onModelReady = () => {} }: { uif: MutableRefObject<UIFContextValue | null>; onModelReady?(): void }) {
   useTick(1000);
   const usage = useUsage();
   const limits = useLimits();
@@ -153,6 +154,8 @@ export function ControlPanel({ uif }: { uif: MutableRefObject<UIFContextValue | 
         </div>
         {said && <p className={`cp-said ${said.tone ? `is-${said.tone}` : ''}`} role="status">{said.text}</p>}
       </Fold>
+
+      <Fold id="folders" title="MODELS ON THIS COMPUTER" open={false}><Folders onReady={onModelReady} say={say} /></Fold>
 
       <Fold id="dials" title="DIALS"><ClientRack onSaid={say} /></Fold>
 

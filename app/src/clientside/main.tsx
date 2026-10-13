@@ -241,7 +241,7 @@ function Page() {
           right={mine ? <span className={'cs-pill ' + (mine.tone ? `is-${mine.tone}` : '')}>{mine.text}</span> : <span className="cs-pill is-working">streaming · {a.live}</span>}
         >
           <Bridge into={uif} onReady={onReady} />
-          <Shelves store={shelves} title="control panel" top={<ControlPanel uif={uif} />} />
+          <Shelves store={shelves} title="control panel" top={<ControlPanel uif={uif} onModelReady={() => void A.current.ready()} />} />
         </UltimateBar>
       </div>
       <Faq uif={uif} />

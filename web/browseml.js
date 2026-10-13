@@ -143,7 +143,7 @@ export function load(progress = () => {}, log = () => {}, opts = {}) {
 /** The last load, measured: when each phase ended (ms from the start), the bytes fetched (0: from this browser's
  *  cache), retried pieces, and the engine's WebAssembly memory once open. null before a load finishes. */
 export let loadStats = null;
-async function loadOnce(progress, log, { threads: want, ctx = 4096, cacheRam = 0 } = {}) {
+async function loadOnce(progress, log, { threads: want, ctx = 4096, cacheRam = 0, bytes: given = null, from = "" } = {}) {
   const t0 = performance.now(), st = { fetched: 0, retries: 0, source: "download" };
   const seen = (got, total, phase) => {
     if (phase === "retry") st.retries++;
@@ -151,7 +151,10 @@ async function loadOnce(progress, log, { threads: want, ctx = 4096, cacheRam = 0
     else if (phase === "download") st.fetched = got;
     progress(got, total, phase);
   };
-  const [bytes, fork] = await Promise.all([fetchModel(seen), fetch(MODEL.fork).then((r) => { if (!r.ok) throw new Error("the model's FORK.json is missing"); return r.text(); })]);
+  // the model's bytes: handed over (read from a folder on this computer: no download, nothing kept here), or from
+  // this browser's cache, or downloaded from its sources
+  if (given) { st.source = from || "folder"; progress(given.byteLength, MODEL.bytes, "folder"); }
+  const [bytes, fork] = await Promise.all([given ? Promise.resolve(given) : fetchModel(seen), fetch(MODEL.fork).then((r) => { if (!r.ok) throw new Error("the model's FORK.json is missing"); return r.text(); })]);
   st.modelMs = Math.round(performance.now() - t0);
   progress(MODEL.bytes, MODEL.bytes, "verify");
   worker = new Worker(new URL("./browseml-worker.js", import.meta.url), { type: "module" });

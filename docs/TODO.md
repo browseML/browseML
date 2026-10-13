@@ -9,8 +9,16 @@ browseML takes a model from any source, and the sha256 pin decides. Two verified
 [Hugging Face](https://huggingface.co/prism-ml/Bonsai-1.7B-gguf) and [browseML/models](https://github.com/browseML/models)
 (each piece is asked of the source that answered last; a retry moves to the other).
 
+**Limits, measured 2026-10-13.** Hugging Face serves the model at its pinned revision (CORS, Range). browseML/models
+serves it through Git LFS (`media.githubusercontent.com`: CORS, Range) — metered: 10 GiB of LFS bandwidth a month for a
+free organisation (~40 full downloads; with a $0 budget LFS is blocked for the rest of the month, not billed), so it is
+the second source, not the first. GitHub Release assets are not metered the same way but send no
+`Access-Control-Allow-Origin`: a page cannot read them. **Self-hosting** joins as a third source under the same pin.
+
 | module | what | checked by |
 |---|---|---|
+| **Self-hosted** | the model on browseML's own host (CORS + Range), a third source beside Hugging Face and GitHub | the pin, as for every source |
+| **Folders on this computer** | **done**: models found in folders the visitor grants (gguf, Ollama and Hugging Face blobs named by sha256), persistent access as a toggle | `classify()` and the pin |
 | **IPFS** ([helia](https://github.com/interplanetaryfilesystem/helia), [ipfs-car](https://github.com/interplanetaryfilesystem/ipfs-car)) | the model by its content address (CID) from IPFS peers and gateways; its CID recorded in the pin beside the sha256 | the CID recomputed in the page, then bankML's sha256 |
 | **Peer to peer** (WebRTC) | a browser that has the model serves it to another (same room, a signed offer); [wave-share](https://github.com/interplanetaryfilesystem/wave-share) for tiny files | each piece's hash against a piece list in the pin, then the whole sha256 |
 | **Folder import** (File System Access API) | a whole folder of models chosen once (bankML's `.models`, Ollama's blobs), recognised by size and sha256 | `recognise()` (done for a single file) |

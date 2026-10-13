@@ -10,6 +10,8 @@ import { DownloadProgress, useBrowseSettings, useDownload } from '../bankml/ui/b
 import { browseVerdicts, mb, readCaps } from '../bankml/caps';
 import { summarize } from '../bankml/usage';
 import { useTick, useUsage } from './ClientRack';
+import { canPickFolders, classify, pickFolder, scan } from '../bankml/folders';
+import { getLimits } from './limits';
 
 export function BrowseCard({ onReady }: { onReady(): void }) {
   const s = useDownload();
@@ -51,11 +53,26 @@ export function BrowseCard({ onReady }: { onReady(): void }) {
     if (r.ok) { setLocal({ text: `✓ recognised: ${r.name} (sha256 ${r.sha256.slice(0, 12)}…), no download`, tone: 'ok' }); if (r.verified) onReady(); }
     else setLocal({ text: r.reason, tone: 'bad' });
   };
+  // a folder on this computer: its models scanned, browseML's used if it is there (no download)
+  const lookIn = async () => {
+    try {
+      const h = await pickFolder();
+      setLocal({ text: `looking in ${h.name}…`, tone: 'working' });
+      const found = await scan(h);
+      const pin = { bytes: 248_302_272, sha256: '3d7c6c90dd98717a203adb22d5eacd2581850e40aa5327e144b97766cae5f7e3' };
+      const best = found.find(x => classify(x, pin) === 'named') ?? found.find(x => classify(x, pin) === 'size');
+      if (!best) return setLocal({ text: `${h.name}: ${found.length} model file${found.length === 1 ? '' : 's'}, none of them browseML's (${mb(pin.bytes)})`, tone: 'bad' });
+      const r = await useLocalModel(await best.handle!.getFile(), line => setLocal({ text: line, tone: 'working' }), { keep: getLimits().keepCopy, named: best.named });
+      if (r.ok) { setLocal({ text: `✓ ${r.name} from ${h.name}/${best.path.join('/')}: no download`, tone: 'ok' }); if (r.verified) onReady(); }
+      else setLocal({ text: r.reason, tone: 'bad' });
+    } catch (e) { if ((e as Error).name !== 'AbortError') setLocal({ text: String((e as Error).message || e), tone: 'bad' }); }
+  };
   const overwrite = async () => { setLocal(null); void askPersist(); if (await overwriteModel()) onReady(); };
   const extra = (
     <>
       <input ref={pick} type="file" accept=".gguf,application/octet-stream" hidden onChange={e => void useFile(e.target.files?.[0])} />
       <button type="button" className="cs-card-link" onClick={() => pick.current?.click()}>Use a model file you already have</button>
+      {canPickFolders() && <button type="button" className="cs-card-link" onClick={() => void lookIn()}>Look in a folder</button>}
       {local && <span className={`cs-card-local ${local.tone ? `is-${local.tone}` : ''}`}>{local.text}</span>}
     </>
   );

@@ -6,16 +6,20 @@
 //   askFirst    — ask before downloading the model (a question does not start it); on when the browser asks to save data
 //   warm        — read browseML's prompt in the background once the model is here, and keep it for the next visit
 //   gpuProbe    — allow the GPU probe (compute shaders on the visitor's GPU, on request only)
-export interface Limits { spareCore: boolean; lowMemory: boolean; askFirst: boolean; warm: boolean; gpuProbe: boolean; power: 'low-power' | 'high-performance' }
+//   rememberFolders — persistent access: folders granted for models are kept (their handles, in IndexedDB) for the next
+//                 visit; off by default, and turning it off forgets them
+//   keepCopy    — a model found in a folder is also kept in this browser (off: read from the folder each visit)
+export interface Limits { spareCore: boolean; lowMemory: boolean; askFirst: boolean; warm: boolean; gpuProbe: boolean; power: 'low-power' | 'high-performance'; rememberFolders: boolean; keepCopy: boolean }
 
 const KEY = 'browseml:limits';
 const saveData = () => { try { return !!(navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData; } catch { return false; } };
-export const DEFAULT_LIMITS = (): Limits => ({ spareCore: false, lowMemory: false, askFirst: saveData(), warm: true, gpuProbe: true, power: 'high-performance' });
+export const DEFAULT_LIMITS = (): Limits => ({ spareCore: false, lowMemory: false, askFirst: saveData(), warm: true, gpuProbe: true, power: 'high-performance', rememberFolders: false, keepCopy: true });
 
 export function parseLimits(raw: unknown): Limits {
   const d = DEFAULT_LIMITS(), o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const b = (k: keyof Limits) => (typeof o[k] === 'boolean' ? o[k] as boolean : d[k] as boolean);
   return { spareCore: b('spareCore'), lowMemory: b('lowMemory'), askFirst: b('askFirst'), warm: b('warm'), gpuProbe: b('gpuProbe'),
+    rememberFolders: b('rememberFolders'), keepCopy: b('keepCopy'),
     power: o.power === 'low-power' ? 'low-power' : 'high-performance' };
 }
 

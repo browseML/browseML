@@ -113,7 +113,7 @@ export async function browseMaxThreads(): Promise<{ max: number; cap: number; is
 }
 
 /** Start bankML in this browser from the model kept here (download() puts it there); progress as one line. */
-export async function loadBrowse(progress: (line: string, phase?: string) => void = () => {}): Promise<Browsed> {
+export async function loadBrowse(progress: (line: string, phase?: string) => void = () => {}, from?: { bytes: ArrayBuffer; name: string }): Promise<Browsed> {
   const b = await mod();
   if (b.isReady() && browsed) return browsed;
   const MB = (n: number) => `${(n / 1e6).toFixed(0)} MB`;
@@ -124,7 +124,8 @@ export async function loadBrowse(progress: (line: string, phase?: string) => voi
     else if (phase === 'cache') progress(`the model is in this browser (${MB(got)}): no download`, phase);
     else if (phase === 'verify') progress('checking sha256… (bankML checks the model against its pin)', phase);
     else if (phase === 'retry') progress(`the connection dropped at ${MB(got)}: asking for that piece again`, phase);
-  }, () => {}, { threads: s.threads ?? undefined, ctx: s.ctx, cacheRam: s.cacheRam });
+    else if (phase === 'folder') progress(`the model from this computer (${from?.name ?? 'a folder'}): no download`, phase);
+  }, () => {}, { threads: s.threads ?? undefined, ctx: s.ctx, cacheRam: s.cacheRam, ...(from ? { bytes: from.bytes, from: 'folder' } : {}) });
   browsed = { ...browsed!, cacheRam: s.cacheRam };
   // an import (download()) put the model in the cache first: the record says it was downloaded
   if (b.loadStats) recordLoad(b.loadStats.source === 'cache' && lastDownload
@@ -324,7 +325,7 @@ async function pinnedSha(): Promise<string> {
  * sha256 against the pin, here in the page. Recognised, it is kept in this browser as if downloaded and bankML
  * checks it again as it starts (its own sha256); not recognised, nothing of it is kept.
  */
-export async function useLocalModel(file: File, progress: (line: string) => void = () => {}): Promise<Recognised> {
+export async function useLocalModel(file: File, progress: (line: string) => void = () => {}, { keep = true, named }: { keep?: boolean; named?: string } = {}): Promise<Recognised> {
   const b = await mod();
   const want = await pinnedSha();
   const model = { title: b.MODEL.title, bytes: b.MODEL.bytes, sha256: want };
@@ -332,10 +333,27 @@ export async function useLocalModel(file: File, progress: (line: string) => void
   if (bySize) return bySize;
   progress(`reading ${file.name}…`);
   const bytes = await file.arrayBuffer();
-  progress(`checking ${file.name}'s sha256 against the pin…`);
-  const got = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(x => x.toString(16).padStart(2, '0')).join('');
+  // a blob named by its sha256 (Ollama, the Hugging Face cache) is recognised by its name; anything else is hashed here.
+  // Either way bankML hashes it again as it opens, and refuses it if it is not the pin.
+  let got = named?.toLowerCase();
+  if (!got || got !== want) {
+    progress(`checking ${file.name}'s sha256 against the pin…`);
+    got = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(x => x.toString(16).padStart(2, '0')).join('');
+  }
   const r = recognise({ name: file.name, size: file.size, sha256: got }, model)!;
   if (!r.ok) return r;
+  if (!keep) {
+    // read from the folder each visit: nothing kept in this browser
+    progress('recognised: bankML checks it as it starts (nothing kept in this browser)…');
+    try {
+      const b2 = await mod();
+      if (b2.isReady()) b2.unload();
+      browsed = null;
+      const v = await loadBrowse(line => progress(line), { bytes, name: file.name });
+      setDl({ phase: 'verified', verified: v });
+      return { ok: true, name: model.title, sha256: got, verified: v };
+    } catch (e) { return { ok: false, reason: `recognised, but bankML could not start it: ${String((e as Error).message || e)}`, sha256: got }; }
+  }
   progress('recognised: keeping it in this browser, then bankML checks it as it starts…');
   try {
     const c = await caches.open(CACHE);

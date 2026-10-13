@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.6.0 — 2026-10-13 — models already on this computer, folder control, persistent access
+
+- **Folders on this computer** (`app/src/bankml/folders.ts`): the visitor grants a folder (read-only, File System
+  Access API); browseML finds the models in it — `*.gguf` anywhere (bankML's `.models`, LM Studio, llama.cpp), and blobs
+  named by their sha256 (Ollama's `blobs/sha256-…`, the Hugging Face cache's `blobs/…`), recognised by name at once —
+  and uses its own with no download (bankML still checks the sha256 as it opens). Where the API is missing or off
+  (Firefox, Safari; Brave until `brave://flags/#file-system-access-api` is on), a folder input reads a folder for that
+  visit. 5 tests: what a file is, which one browseML runs, a nested scan with its skips and limits.
+- **Persistent access, a toggle** (off by default): granted folders kept in IndexedDB; the next visit starts the model
+  from its folder with no prompt when the browser kept the grant, or offers RECONNECT. Turning it off forgets them.
+- **Keep a copy, a toggle:** off, the model is read from its folder each visit — nothing kept in the browser (248 MB
+  saved).
+- **Folder control** in the control panel (MODELS ON THIS COMPUTER): add, rescan, reconnect, remove; every model found
+  with its verdict and USE. **Look in a folder** in the response window's card.
+- `docs/TODO.md`: the sources' limits, measured (Git LFS metered at 10 GiB a month for a free organisation; GitHub
+  Release assets send no CORS header); self-hosting as the third source.
+
 ## 0.5.0 — 2026-10-13 — the GPU, exactly; two verified sources; a model you already have
 
 - **bankML's Q1_0 kernel on WebGPU, bit-exact** (`web/browseml-gpu.js`): the dot product in WGSL as `vec_dot_ref`

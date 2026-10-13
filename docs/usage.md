@@ -71,6 +71,12 @@ The diagnostics record every load and answer **in your browser only** (the last 
 from those records: the thread count that measured fastest, a smaller context when conversations use little of it,
 memory against what the device reports. Save them as JSON or clear them from the panel.
 
+**Models already on this computer.** In the control panel, MODELS ON THIS COMPUTER → ADD FOLDER (or *Look in a folder*
+in the response window's card): choose a folder, read-only. browseML lists every model in it — `.gguf` files, Ollama and
+Hugging Face blobs (recognised by their sha256 names) — and USE starts its own with no download. *Persistent access*
+remembers the folders for the next visit; *keep a copy* off reads the model from its folder each time. In Brave, turn
+on `brave://flags/#file-system-access-api` to remember folders; without it a folder is read for that visit.
+
 Slash commands in the field: `/client threads|ram|cache|answer <n>`, `/client apply|unload|measure`,
 `/client clear yes`, `/usage`, `/receipt`, `/shelf`.
 

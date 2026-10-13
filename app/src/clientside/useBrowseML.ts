@@ -8,8 +8,9 @@ import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import type { UIFContextValue } from '../components/UIFContext';
 import type { ReplyMarks, SendMeta } from '../types';
 import { slackWindow, type Turn, type Verdict } from '../bankml/engine';
-import { askBrowse, browseCached, browseState, download, downloadState, loadBrowse, markKeptBad, sessionCleanup, warmBrowse } from '../bankml/free';
+import { askBrowse, browseCached, browseState, download, downloadState, loadBrowse, markKeptBad, sessionCleanup, useLocalModel, warmBrowse } from '../bankml/free';
 import { getLimits } from './limits';
+import { rememberedModel } from './Folders';
 import { deliver, type DeliveryHooks, type Outcome } from '../bankml/deliver';
 
 /** Said in place of an answer while browseML is not ready; the card under it offers the import. */
@@ -36,8 +37,19 @@ export function useBrowseML(uif: MutableRefObject<UIFContextValue | null>) {
   };
   /** The page opened with the model already kept here: started and warmed in the background (nothing is downloaded). */
   const preload = async () => {
-    if (browseState() || !getLimits().warm || !(await browseCached())) return;
-    try { await loadBrowse(); tick(n => n + 1); await warm(); } catch { /* the card says so when asked */ }
+    if (browseState() || !getLimits().warm) return;
+    try {
+      if (await browseCached()) await loadBrowse();
+      else {
+        // a remembered folder (persistent access) whose model was used: read from there, no download, no prompt
+        const r = await rememberedModel();
+        if (!r) return;
+        const u = await useLocalModel(r.file, () => {}, { keep: getLimits().keepCopy, named: r.named });
+        if (!u.ok) return;
+      }
+      tick(n => n + 1);
+      await warm();
+    } catch { /* the card says so when asked */ }
   };
 
   /** browseML verified (the card's import, or a model already kept): warmed, then the held question is asked. */
