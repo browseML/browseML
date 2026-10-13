@@ -48,12 +48,16 @@ export async function activePersona(): Promise<Persona> {
 }
 
 /** Put a persona in the field's context (its .persona), and read its prompt once if browseML is running. */
-export async function applyPersona(f: UIFContextValue, p: Persona) {
-  f.context.setPersonaText(toFile(p));
+export async function applyPersona(live: () => UIFContextValue | null, p: Persona) {
+  const text = toFile(p);
+  live()?.context.setPersonaText(text);
   setActive(p.id);
   savedFns.forEach(f => f());
-  await new Promise(r => setTimeout(r, 0));
-  if (browseState()) void warmBrowse(f.context.forSend('', '').system, p.name);
+  // the prompt is built from the field's context as it is after the switch: wait for it to carry the new persona
+  // (the context of the render before still has the old one, whose prompt is already kept)
+  for (let i = 0; i < 40 && live()?.context.personaText !== text; i++) await new Promise(r => setTimeout(r, 25));
+  const f = live();
+  if (f && browseState()) void warmBrowse(f.context.forSend('', '').system, p.name);
 }
 
 export function PersonaSection({ uif, say }: { uif: MutableRefObject<UIFContextValue | null>; say: Say }) {
@@ -70,7 +74,7 @@ export function PersonaSection({ uif, say }: { uif: MutableRefObject<UIFContextV
   const use = async (p: Persona) => {
     const f = uif.current;
     if (!f) return;
-    await applyPersona(f, p);
+    await applyPersona(() => uif.current, p);
     setAct(p.id);
     // its opening message, in a window of its own (the persona's first words, not the model's)
     if (p.opening.trim()) { const id = f.outputs.spawn(p.name); f.outputs.append(id, { role: 'system', text: p.opening }); }

@@ -73,7 +73,7 @@ export function Builder({ uif, say }: { uif: MutableRefObject<UIFContextValue | 
     const f = uif.current;
     if (!f || !p.name.trim() || !p.system_prompt.trim()) return say('a persona needs a name and a system prompt', 'bad');
     savePersona(p);
-    await applyPersona(f, p);
+    await applyPersona(() => uif.current, p);
     if (p.opening.trim()) { const id = f.outputs.spawn(p.name); f.outputs.append(id, { role: 'system', text: p.opening }); }
     say(`${p.name} answers now (saved in PERSONA)`, 'ok');
   };

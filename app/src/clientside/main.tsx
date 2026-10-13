@@ -90,10 +90,9 @@ function Page() {
   useEffect(() => onDownload(d => { if (d.phase === 'downloading') openPanelOnce(); }), []);
 
   const onReady = () => {
-    const field = uif.current!;
     // browseML's persona first (the prompt it answers from), then, if the model is already here, started and warmed
     // the persona chosen (browseML's own is read from browseml.persona every visit, so its facts stay current)
-    const persona = activePersona().then(p => applyPersona(field, p)).catch(() => {});
+    const persona = activePersona().then(p => applyPersona(() => uif.current, p)).catch(() => {});
     // the page just loads: browseML starts with the visitor's first interaction (below), not before
     void persona;
   };
