@@ -5,15 +5,16 @@
 import fs from "node:fs";
 import path from "node:path";
 import { wasi as makeWasi } from "../web/browseml-wasi.js";
+import { gpuEnv } from "../web/browseml-gpu-host.js";
 
 const [wasmPath, models, stem, forkPath, limit] = process.argv.slice(2);
 // the page's own WASI, given the model file as the page gives it the download
 const w = makeWasi({ files: { [`${stem}.gguf`]: new Uint8Array(fs.readFileSync(path.join(models, `${stem}.gguf`))) },
-                     env: { BANKML_CACHE_RAM: "0" }, write: (fd, s) => process.stderr.write(s) });
+                     env: { BANKML_CACHE_RAM: "0", BANKML_GPU: "off" }, write: (fd, s) => process.stderr.write(s) });
 let mem, onPiece = () => 1, log = [];
 const text = (p, n) => Buffer.from(mem().buffer, p, n).toString("utf8");
 const { instance } = await WebAssembly.instantiate(fs.readFileSync(wasmPath), {
-  ...w.imports,
+  ...w.imports, env: gpuEnv(null),  // one thread: no GPU
   browseml: { piece: (p, n) => onPiece(text(p, n)), log: (lv, p, n) => log.push(text(p, n)) },
 });
 const x = instance.exports; mem = () => x.memory;

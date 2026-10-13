@@ -3,9 +3,10 @@
 // it, each with what is measured now beside it.
 //   CPU   — threads, 1 to 8 (100%). Past the cores the browser reports is allowed: Brave reports fewer than there are.
 //   RAM   — the context (1k to 8k tokens): the keys and values the engine may hold, against what the device reports.
-//   GPU   — off · low power · high performance: the probe and EXACT (the forward pass runs on the CPU for now).
+//   GPU   — off · low power · high performance: the probe, EXACT, and bankML's forward pass (rows the card computes
+//           bit-exact and faster; it needs threads). APPLY restarts the engine with it.
 //   CACHE — the prompt cache in RAM (0 to 256 MiB), warming the prompt for the next visit, the kept slot and CLEAR.
-// CPU, RAM and CACHE apply when the engine starts again: APPLY restarts it now (the model stays here).
+// CPU, RAM, GPU and CACHE apply when the engine starts again: APPLY restarts it now (the model stays here).
 import { useEffect, useState } from 'react';
 import { Button, LEDFader, SegmentSwitch, ToggleSwitch } from 'dreamknob';
 import {
@@ -54,7 +55,8 @@ export function Sliders({ usage, say, gpu, uif }: { usage: Usage; say: Say; gpu:
   const cacheI = Math.max(0, CACHE_CHOICES.indexOf(s.cacheRam as never));
   const ram = ramEstimate(s.ctx, s.cacheRam), device = caps.memoryGB ? caps.memoryGB * 1e9 : null;
   const gpuI = !lim.gpuProbe ? 0 : lim.power === 'low-power' ? 1 : 2;
-  const stale = !!v && (v.threads !== threads || (v.ctx ?? s.ctx) !== s.ctx || (v.cacheRam ?? 0) !== s.cacheRam);
+  const gpuWant = (['off', 'low-power', 'high-performance'] as const)[gpuI];
+  const stale = !!v && (v.threads !== threads || (v.ctx ?? s.ctx) !== s.ctx || (v.cacheRam ?? 0) !== s.cacheRam || (v.gpu ?? 'off') !== gpuWant);
 
   /** READ NOW: the prompt questions are asked with now, read once and kept (or restored, if it is kept). */
   const readNow = async () => {
@@ -68,7 +70,7 @@ export function Sliders({ usage, say, gpu, uif }: { usage: Usage; say: Say; gpu:
     if (busy) return;
     setBusy(true);
     try {
-      say(`restarting bankML: ${threads} thread${threads === 1 ? '' : 's'}, context ${s.ctx}, cache ${s.cacheRam} MiB…`, 'working');
+      say(`restarting bankML: ${threads} thread${threads === 1 ? '' : 's'}, context ${s.ctx}, cache ${s.cacheRam} MiB, GPU ${['off', 'low', 'high'][gpuI]}…`, 'working');
       if (v) await unloadBrowse();
       const r = await loadBrowse(line => say(line, 'working'));
       say(`✓ ${r.model} · ${r.threads} thread${r.threads === 1 ? '' : 's'} · context ${r.ctx} · ${mb(browseDiag().memoryBytes)} held`, 'ok');
@@ -107,7 +109,7 @@ export function Sliders({ usage, say, gpu, uif }: { usage: Usage; say: Say; gpu:
         <div className="cp-slider-head"><b>GPU</b><span>{['off', 'low power', 'high performance'][gpuI]}</span></div>
         <SegmentSwitch options={['OFF', 'LOW', 'HIGH']} value={gpuI} color={ORANGE} size={26}
           onChange={i => setLimits(i === 0 ? { gpuProbe: false } : { gpuProbe: true, power: i === 1 ? 'low-power' : 'high-performance' })} />
-        <p className="cp-fine">{gpu || 'no GPU reported'} · the probe and EXACT use it; the answers are written on the CPU (the GPU joins the forward pass only bit-exact)</p>
+        <p className="cp-fine">{gpu || 'no GPU reported'} · {v ? (v.gpuNote || 'the CPU computes everything') : 'bankML checks the card\'s bits before it computes anything, and gives it only the rows it does faster'}{v && (v.gpu ?? 'off') !== gpuWant ? ' · APPLY restarts with it' : ''}</p>
       </div>
 
       <div className="cp-slider">

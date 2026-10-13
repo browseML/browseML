@@ -9,15 +9,21 @@
 // which the engine itself refuses where relaxed_madd is not fused; then browseml-mt.wasm. Elsewhere it runs
 // browseml.wasm on this one thread.
 //
-//   page → worker  {type: "open", name, bytes: ArrayBuffer (transferred), fork, threads, ctx, cacheRam, stop?: SharedArrayBuffer}
+//   page → worker  {type: "open", name, bytes: ArrayBuffer (transferred), fork, threads, ctx, cacheRam, gpu, stop?: SharedArrayBuffer}
 //                  |  {type: "chat", request}
 //                  |  {type: "slot", action: "save"|"restore", name, bytes?: ArrayBuffer (restore)}
 //   worker → page  {type: "log", level, text} · {type: "opened", rc, out, threads, memory} · {type: "piece", text} ·
 //                  {type: "done", rc, out, memory} · {type: "slotted", rc, out, bytes?: ArrayBuffer (save)}
 //                  (memory: the engine's WebAssembly memory, bytes)
+//
+// GPU (`gpu`: "off", "low-power" or "high-performance"): with threads, a GPU worker (browseml-gpu-worker.js) holds the
+// WebGPU device and serves the engine's bankml_gpu_* imports (browseml-gpu-host.js). bankML gives the card rows only
+// after its kernel reproduced the CPU kernel's bits on it, and only where it measured the card faster. Without
+// threads, or with no WebGPU, every import answers "no GPU" and the CPU computes everything.
 import { wasi } from "./browseml-wasi.js";
+import { connectGpu, gpuEnv } from "./browseml-gpu-host.js";
 
-let x = null, w = null, memory = null, builtWith = "browseml.wasm", relaxedRefused = false, pool = [];
+let x = null, w = null, memory = null, builtWith = "browseml.wasm", relaxedRefused = false, pool = [], gpuWorker = null;
 // the engine's /slots directory: a slot file is written here by a save and read from here by a restore, then dropped
 const slots = {};
 const dec = new TextDecoder(), enc = new TextEncoder();
@@ -53,7 +59,25 @@ function importedMemory(bytes) {
 // the engine is asked for its next piece, and a 0 from here ends the answer there, with its receipt
 let stopFlag = null;
 
-async function open({ name, bytes, fork, threads, ctx, cacheRam, stop }) {
+/** The GPU worker on this memory, ready, or null (GPU off, no WebGPU here, or it did not answer in 10 s). */
+async function startGpu(power) {
+  if (power === "off" || !(self.navigator && self.navigator.gpu)) return null;
+  const ctrl = new SharedArrayBuffer(8), { port1, port2 } = new MessageChannel();
+  const t = new Worker(new URL("./browseml-gpu-worker.js", import.meta.url), { type: "module" });
+  const ready = await new Promise((ok) => {
+    const timer = setTimeout(() => ok(null), 10000);
+    t.onmessage = (e) => { if (e.data.type === "ready") { clearTimeout(timer); ok(e.data); } };
+    t.onerror = () => { clearTimeout(timer); ok(null); };
+    t.postMessage({ type: "init", port: port2, ctrl, memory, power }, [port2]);
+  });
+  if (!ready || !ready.adapter) { t.terminate(); return null; }
+  gpuWorker = t;
+  const [vendor, arch, desc] = ready.adapter.split("\t");
+  postMessage({ type: "log", level: 2, text: `WebGPU: ${[vendor, arch, desc].filter(Boolean).join(" · ")} — bankML checks its kernel's bits on it before it computes anything` });
+  return connectGpu({ port: port1, ctrl, memory, adapter: ready.adapter });
+}
+
+async function open({ name, bytes, fork, threads, ctx, cacheRam, gpu = "off", stop }) {
   if (stop) stopFlag = new Int32Array(stop);
   // the engine's host prompt cache, in MiB (serve's --cache-ram): 0 off, the default here; a little lets a repeated
   // prefix skip its prompt reading at the cost of that much memory
@@ -91,15 +115,17 @@ async function open({ name, bytes, fork, threads, ctx, cacheRam, stop }) {
       t.postMessage({ type: "init", module, memory });
     })));
     pool = idle.slice();  // every thread of this engine, to end them if it is refused
+    if (gpuWorker) { gpuWorker.terminate(); gpuWorker = null; }
+    const bridge = await startGpu(gpu);
     let tid = 0;
-    w = wasi({ files, slots, env: { BANKML_CACHE_RAM: cache, BANKML_THREADS: String(n) }, write: log });
+    w = wasi({ files, slots, env: { BANKML_CACHE_RAM: cache, BANKML_THREADS: String(n), ...(bridge ? {} : { BANKML_GPU: "off" }) }, write: log });
     ({ exports: x } = await WebAssembly.instantiate(module, {
-      ...w.imports, env: { memory }, browseml,
+      ...w.imports, env: { memory, ...gpuEnv(bridge) }, browseml,
       wasi: { "thread-spawn": (arg) => { const t = idle.shift(); if (!t) return -1; t.postMessage({ type: "start", tid: ++tid, arg }); return tid; } },
     }));
   } else {
-    w = wasi({ files, slots, env: { BANKML_CACHE_RAM: cache, BANKML_THREADS: "1" }, write: log });
-    const { instance } = await WebAssembly.instantiateStreaming(fetch(new URL("./browseml.wasm", import.meta.url)), { ...w.imports, browseml });
+    w = wasi({ files, slots, env: { BANKML_CACHE_RAM: cache, BANKML_THREADS: "1", BANKML_GPU: "off" }, write: log });
+    const { instance } = await WebAssembly.instantiateStreaming(fetch(new URL("./browseml.wasm", import.meta.url)), { ...w.imports, env: gpuEnv(null), browseml });
     x = instance.exports;
     memory = x.memory;
   }
@@ -110,7 +136,8 @@ async function open({ name, bytes, fork, threads, ctx, cacheRam, stop }) {
     postMessage({ type: "log", level: 1, text: "relaxed SIMD is not fused here: using browseml-mt.wasm (exact, slower)" });
     relaxedRefused = true; x = null;
     pool.forEach((t) => t.terminate()); pool = [];  // the refused engine's threads and their memory go with it
-    return open({ name, bytes: files[name].buffer, fork, threads, ctx, cacheRam, stop: stopFlag && stopFlag.buffer });
+    if (gpuWorker) { gpuWorker.terminate(); gpuWorker = null; }
+    return open({ name, bytes: files[name].buffer, fork, threads, ctx, cacheRam, gpu, stop: stopFlag && stopFlag.buffer });
   }
   w.release(name);  // the engine holds the model in its own memory now; the downloaded copy can go
   postMessage({ type: "opened", rc, out: out(), threads: n, memory: memory.buffer.byteLength, build: builtWith });

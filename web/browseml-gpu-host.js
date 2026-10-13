@@ -9,7 +9,10 @@
 //
 // It needs the threaded build's shared memory (the GPU worker writes results into it), which cross-origin isolation —
 // already needed for threads — gives. With no bridge, every import answers "no GPU", so any host can load the engine.
-import { Q1_MM_WGSL, workgroupFor } from "./browseml-gpu.js";
+//
+// The kernels are bankML's (gpu/wgsl.rs): the engine hands over each shader's text and the vendor's workgroup size,
+// and the GPU worker compiles what it is given. browseML's copy (browseml-gpu.js, for EXACT and the tests) is checked
+// identical to the engine's by the release gate (testing/gpu.mjs).
 
 /** The engine's imports. `bridge`: from `connectGpu`, or null (no GPU). */
 export function gpuEnv(bridge) {
@@ -32,7 +35,12 @@ export function gpuEnv(bridge) {
     bankml_gpu_buffer(bytes) { const id = nextId++; sizes.set(id, bytes); bridge.post({ op: "buffer", id, bytes }); return id; },
     bankml_gpu_write: (id, ptr, len, wait) => (wait ? bridge.call({ op: "write", id, ptr, len }) : (bridge.post({ op: "write", id, ptr, len }), 1)),
     bankml_gpu_free(id) { sizes.delete(id); bridge.post({ op: "free", id }); },
-    bankml_gpu_pipeline(kind, bindings, pushBytes) { const id = nextId++; bridge.post({ op: "pipeline", id, kind, bindings, pushBytes }); return id; },
+    bankml_gpu_pipeline(code, len, wg, bindings) {
+      // the shader's text, copied out of the engine's memory now (the GPU worker compiles it in order)
+      const id = nextId++, text = new TextDecoder().decode(new Uint8Array(mem(), code, len).slice());
+      bridge.post({ op: "pipeline", id, code: text, wg, bindings });
+      return id;
+    },
     bankml_gpu_submit(pipe, idsPtr, n, pushPtr, np, outPtr, outLen) {
       const ids = Array.from(new Uint32Array(mem(), idsPtr, n)), push = Array.from(new Uint32Array(mem(), pushPtr, np));
       bridge.post({ op: "submit", pipe, ids, push, outPtr, outLen });
@@ -54,13 +62,14 @@ export function connectGpu({ port, ctrl, memory, adapter }) {
   };
 }
 
-/** What the GPU worker reports about its adapter: "vendor\tarchitecture\tdescription\tkind\theap" ("" when none). */
+/** What the GPU worker reports about its adapter: "vendor\tarchitecture\tdescription\tkind\theap\tsubgroup" ("" when
+ *  none; subgroup: the largest subgroup size, 0 when unknown — bankML picks the workgroup from it and the vendor). */
 export async function adapterText(gpu, power = "high-performance") {
   const a = gpu && (await gpu.requestAdapter({ powerPreference: power }));
   if (!a) return "";
   const i = a.info || {};
   const kind = i.isFallbackAdapter || a.isFallbackAdapter ? "cpu" : "integrated";  // WebGPU does not say discrete; the calibration decides
-  return [i.vendor || "", i.architecture || "", i.description || i.device || "", kind, String(a.limits.maxBufferSize || 0)].join("\t");
+  return [i.vendor || "", i.architecture || "", i.description || i.device || "", kind, String(a.limits.maxBufferSize || 0), String(i.subgroupMaxSize || 0)].join("\t");
 }
 
 /** The GPU worker: serve the engine's calls on `gpu` (navigator.gpu, or Dawn's in Node). `onMessage(f)` registers the
@@ -68,7 +77,9 @@ export async function adapterText(gpu, power = "high-performance") {
 export function serveGpu({ gpu, onMessage, ctrl, memory, power = "high-performance" }) {
   const c = new Int32Array(ctrl);
   const U = globalThis.GPUBufferUsage, MAP = globalThis.GPUMapMode;
-  let device = null, wg = 64, chain = Promise.resolve(), pending = Promise.resolve(true);
+  // pending: every submit since the last wait (bankML may put several in flight: Q/K/V, gate/up); each output buffer
+  // has its own staging buffer, so their results never share one
+  let device = null, chain = Promise.resolve(), pending = [];
   const bufs = new Map(), pipes = new Map(), groups = new Map(), staging = new Map();
   const signal = (v) => { Atomics.store(c, 1, v); Atomics.store(c, 0, 1); Atomics.notify(c, 0); };
   const view = (ptr, len) => new Uint8Array(memory.buffer, ptr, len);
@@ -77,7 +88,6 @@ export function serveGpu({ gpu, onMessage, ctrl, memory, power = "high-performan
     async open() {
       const a = await gpu.requestAdapter({ powerPreference: power });
       if (!a) return 0;
-      wg = workgroupFor(a.info || {});
       device = await a.requestDevice({ requiredLimits: { maxStorageBufferBindingSize: a.limits.maxStorageBufferBindingSize, maxBufferSize: a.limits.maxBufferSize } });
       device.lost.then(() => { device = null; });
       return 1;
@@ -93,37 +103,38 @@ export function serveGpu({ gpu, onMessage, ctrl, memory, power = "high-performan
       device.queue.writeBuffer(bufs.get(id), 0, data);
       return 1;
     },
-    free({ id }) { bufs.get(id)?.destroy(); bufs.delete(id); groups.forEach((_, k) => { if (k.split(",").includes(String(id))) groups.delete(k); }); return 1; },
-    pipeline({ id, kind }) {
-      // both Q1_0 kernels (one invocation per row, or eight) have one WGSL twin: the same bits; its workgroup the vendor's
-      if (kind !== 1 && kind !== 2) return 0;
-      const module = device.createShaderModule({ code: Q1_MM_WGSL });
+    free({ id }) { bufs.get(id)?.destroy(); bufs.delete(id); staging.get(id)?.destroy(); staging.delete(id); groups.forEach((_, k) => { if (k.split(",").includes(String(id))) groups.delete(k); }); return 1; },
+    pipeline({ id, code, wg }) {
+      // bankML's kernel (gpu/wgsl.rs), its workgroup the vendor's (bankML chooses it)
+      const module = device.createShaderModule({ code });
       const pipeline = device.createComputePipeline({ layout: "auto", compute: { module, entryPoint: "main", constants: { WG: wg } } });
-      pipes.set(id, { pipeline, uniform: device.createBuffer({ size: 16, usage: U.UNIFORM | U.COPY_DST }) });
+      pipes.set(id, { pipeline, wg, uniform: device.createBuffer({ size: 16, usage: U.UNIFORM | U.COPY_DST }) });
       return 1;
     },
     submit({ pipe, ids, push, outPtr, outLen }) {
-      const p = pipes.get(pipe), [rows, nb] = push;
-      device.queue.writeBuffer(p.uniform, 0, new Uint32Array([rows, nb, 1, 0]));  // rows, blocks per row, one activation, the zero
+      // rows, blocks per row, activations (one, or a micro-batch's tokens when the engine reads a prompt), the zero
+      const p = pipes.get(pipe), [rows, nb, cols = 1] = push;
+      device.queue.writeBuffer(p.uniform, 0, new Uint32Array([rows, nb, cols, 0]));
       const key = `${pipe}:${ids.join(",")}`;
       if (!groups.has(key)) groups.set(key, device.createBindGroup({ layout: p.pipeline.getBindGroupLayout(0),
         entries: [...ids.map((i) => bufs.get(i)), p.uniform].map((buffer, binding) => ({ binding, resource: { buffer } })) }));
-      const size = Math.ceil(outLen / 4) * 4;
-      let st = staging.get(size);
-      if (!st) { st = device.createBuffer({ size, usage: U.MAP_READ | U.COPY_DST }); staging.set(size, st); }
+      const size = Math.ceil(outLen / 4) * 4, oid = ids[ids.length - 1];
+      let st = staging.get(oid);
+      if (st && st.size < size) { st.destroy(); st = null; }
+      if (!st) { st = device.createBuffer({ size, usage: U.MAP_READ | U.COPY_DST }); staging.set(oid, st); }
       const enc = device.createCommandEncoder();
       const pass = enc.beginComputePass(); pass.setPipeline(p.pipeline); pass.setBindGroup(0, groups.get(key));
-      pass.dispatchWorkgroups(Math.ceil((rows * 8) / wg), 1); pass.end();
+      pass.dispatchWorkgroups(Math.ceil((rows * 8) / p.wg), cols); pass.end();
       enc.copyBufferToBuffer(bufs.get(ids[ids.length - 1]), 0, st, 0, size);
       device.queue.submit([enc.finish()]);
-      pending = st.mapAsync(MAP.READ).then(() => {
+      pending.push(st.mapAsync(MAP.READ, 0, size).then(() => {
         view(outPtr, outLen).set(new Uint8Array(st.getMappedRange(0, size)).subarray(0, outLen));
         st.unmap();
         return true;
-      }, () => false);
+      }, () => false));
       return 1;
     },
-    async wait() { return (await pending) ? 1 : 0; },
+    async wait() { const all = pending; pending = []; return (await Promise.all(all)).every(Boolean) ? 1 : 0; },
   };
 
   onMessage((m) => {

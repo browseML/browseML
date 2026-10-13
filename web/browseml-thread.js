@@ -6,6 +6,7 @@
 //   engine → thread  {type: "init", module, memory}  then  {type: "start", tid, arg}
 //   thread → engine  {type: "ready"} · {type: "log", level, text} · {type: "exit", tid, error?}
 import { wasi } from "./browseml-wasi.js";
+import { gpuEnv } from "./browseml-gpu-host.js";
 
 let instance = null;
 onmessage = async (e) => {
@@ -15,7 +16,7 @@ onmessage = async (e) => {
     const w = wasi({ files: {}, write: (fd, s) => postMessage({ type: "log", level: 1, text: s.trimEnd() }) });
     instance = await WebAssembly.instantiate(m.module, {
       ...w.imports,
-      env: { memory: m.memory },
+      env: { memory: m.memory, ...gpuEnv(null) },  // the engine's thread drives the GPU; the pool only computes
       wasi: { "thread-spawn": () => -1 },  // the engine's threads do not start threads of their own
       browseml: { piece: () => 1, log: (level, p, n) => postMessage({ type: "log", level, text: "(thread) " + new TextDecoder().decode(new Uint8Array(m.memory.buffer).slice(p, p + n)) }) },
     });

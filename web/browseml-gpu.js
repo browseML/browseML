@@ -108,6 +108,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
  * (row, activation), one per accumulation lane of the CPU kernel — chains independent there too — then lane 0 adds the
  * eight in the CPU's order. `WG` (the workgroup size, a multiple of 8) follows the vendor: 64 for AMD's wavefronts,
  * 32 for NVIDIA's warps (`workgroupFor`). Output: O[col · rows + row], the f32 bits of `vec_dot_ref`.
+ * bankML keeps this kernel as its own (gpu/wgsl.rs) and hands it to the page's GPU worker; testing/gpu.mjs checks that
+ * the two texts are identical, so a change is made in bankML first and copied here.
  */
 export const Q1_MM_WGSL = /* wgsl */ `
 override WG: u32 = 64u;
@@ -274,7 +276,10 @@ export function randomCase(rows, n, seed = 1) {
 export async function reference(wasmUrl, wasiUrl, { W, A, rows, n }) {
   const { wasi } = await import(wasiUrl);
   const w = wasi({ files: {}, write: () => {} });
-  const { instance } = await WebAssembly.instantiateStreaming(fetch(wasmUrl), { ...w.imports, browseml: { piece: () => 1, log: () => {} } });
+  const module = await WebAssembly.compileStreaming(fetch(wasmUrl));
+  // the engine's GPU imports (bankml_gpu_*) answer "no GPU" here: this is the CPU's reference
+  const env = Object.fromEntries(WebAssembly.Module.imports(module).filter((i) => i.module === "env" && i.kind === "function").map((i) => [i.name, () => 0]));
+  const instance = await WebAssembly.instantiate(module, { ...w.imports, env, browseml: { piece: () => 1, log: () => {} } });
   const x = instance.exports; w.bind(x.memory);
   const rowBytes = (n / QK1_0) * Q1_0_BYTES;
   const yp = x.browseml_alloc(A.length); new Uint8Array(x.memory.buffer, yp, A.length).set(A);

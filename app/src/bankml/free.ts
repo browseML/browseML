@@ -7,6 +7,7 @@ import type { Turn, Verdict } from './engine';
 import { sha256hex } from './engine';
 import { ctxCapFor, mb } from './caps';
 import { recordAnswer, recordLoad, recordWarm } from './usage';
+import { getLimits } from '../clientside/limits';
 
 const esm = (url: string): Promise<any> => import(/* @vite-ignore */ url);
 const MAX_TOKENS = 384;
@@ -83,7 +84,12 @@ export function setBrowseSettings(patch: Partial<BrowseSettings>) {
 export function onBrowseSettings(f: () => void) { settingsFns.add(f); return () => { settingsFns.delete(f); }; }
 
 // ── bankML in this browser ──────────────────────────────────────────────────────────────────────────────────
-export interface Browsed { model: string; sha256: string; version: string; threads: number; ctx?: number; build?: string; guard?: string; cacheRam?: number }
+export interface Browsed { model: string; sha256: string; version: string; threads: number; ctx?: number; build?: string; guard?: string; cacheRam?: number; gpu?: GpuMode; gpuNote?: string; host?: string; side?: string }
+/** The GPU the engine was asked to use: the control panel's GPU switch (OFF · LOW · HIGH). */
+export type GpuMode = 'off' | 'low-power' | 'high-performance';
+export const gpuMode = (): GpuMode => { const l = getLimits(); return l.gpuProbe ? l.power : 'off'; };
+/** What bankML said about the GPU at its last start: the card it verified and its share, or why it computes nothing. */
+let gpuNote = '';
 let browseml: any = null;
 let browsed: Browsed | null = null;
 const mod = async () => (browseml ??= await esm(new URL('browseml.js', location.href).href));
@@ -108,7 +114,10 @@ export function engineLog(kind: LogLine['kind'], text: string) {
   logFns.forEach(f => f());
 }
 /** bankML's log callback: level 0 error, 1 warning, else the engine's own line. */
-const fromEngine = (level: number, text: string) => engineLog(level === 0 ? 'error' : level === 1 ? 'warn' : 'engine', text);
+const fromEngine = (level: number, text: string) => {
+  if (/\bGPU\b|WebGPU/.test(text) && !/^\(thread\)/.test(text)) gpuNote = text.replace(/^bankml:\s*/, '');
+  engineLog(level === 0 ? 'error' : level === 1 ? 'warn' : 'engine', text);
+};
 export const engineLogLines = () => logLines;
 export function onEngineLog(f: () => void) { logFns.add(f); return () => { logFns.delete(f); }; }
 export function clearEngineLog() { logLines.length = 0; logFns.forEach(f => f()); }
@@ -166,7 +175,9 @@ export async function loadBrowse(progress: (line: string, phase?: string) => voi
   if (pendingMeasure) await pendingMeasure.catch(() => {});
   const s = settings;
   let lastLogged = '';
-  engineLog('step', `starting bankML: ${s.threads ?? (autoThreads ? `${autoThreads} (measured free)` : 'default')} threads, context ${s.ctx}, cache ${s.cacheRam} MiB`);
+  const gpu = gpuMode();
+  gpuNote = '';
+  engineLog('step', `starting bankML: ${s.threads ?? (autoThreads ? `${autoThreads} (measured free)` : 'default')} threads, context ${s.ctx}, cache ${s.cacheRam} MiB, GPU ${gpu === 'off' ? 'off' : gpu.replace('-', ' ')}`);
   browsed = await b.load((got: number, total: number, phase: string) => {
     lastProgress = { phase, got, total };
     if (phase !== 'download' && phase !== lastLogged) { lastLogged = phase; engineLog('step', phase === 'cache' ? `the model from this browser (${MB(got)}): no download` : phase === 'verify' ? 'bankML: the guard, then the sha256 of the whole model against its pin' : phase === 'folder' ? `the model from this computer: ${from?.name ?? 'a folder'}` : `${phase}: ${MB(got)} of ${MB(total)}`); }
@@ -175,9 +186,10 @@ export async function loadBrowse(progress: (line: string, phase?: string) => voi
     else if (phase === 'verify') progress('checking sha256… (bankML checks the model against its pin)', phase);
     else if (phase === 'retry') progress(`the connection dropped at ${MB(got)}: asking for that piece again`, phase);
     else if (phase === 'folder') progress(`the model from this computer (${from?.name ?? 'a folder'}): no download`, phase);
-  }, fromEngine, { threads: s.threads ?? autoThreads ?? undefined, ctx: s.ctx, cacheRam: s.cacheRam, ...(from ? { bytes: from.bytes, from: 'folder' } : {}) });
-  browsed = { ...browsed!, cacheRam: s.cacheRam };
-  engineLog('ok', `verified ${browsed.model} · sha256 ${browsed.sha256} · guard ${browsed.guard ?? '?'} · bankML ${browsed.version} · ${browsed.threads} thread(s) · ${browsed.build ?? 'browseml.wasm'} · context ${browsed.ctx}`);
+  }, fromEngine, { threads: s.threads ?? autoThreads ?? undefined, ctx: s.ctx, cacheRam: s.cacheRam, gpu, ...(from ? { bytes: from.bytes, from: 'folder' } : {}) });
+  browsed = { ...browsed!, cacheRam: s.cacheRam, gpu, gpuNote: gpuNote || (gpu === 'off' ? 'GPU off: the CPU computes everything' : browsed!.threads > 1 ? 'no WebGPU device here: the CPU computes everything' : 'one thread (not cross-origin isolated): the CPU computes everything') };
+  engineLog('ok', `verified ${browsed.model} · sha256 ${browsed.sha256} · guard ${browsed.guard ?? '?'} · bankML ${browsed.version} · ${browsed.threads} thread(s) · ${browsed.build ?? 'browseml.wasm'} · context ${browsed.ctx}${browsed.host ? ` · host ${browsed.host}, ${browsed.side ?? 'client'} side` : ''}`);
+  engineLog(browsed.gpuNote && /computes \d+%/.test(browsed.gpuNote) ? 'ok' : 'step', `GPU: ${browsed.gpuNote}`);
   // an import (download()) put the model in the cache first: the record says it was downloaded
   if (b.loadStats) recordLoad(b.loadStats.source === 'cache' && lastDownload
     ? { ...b.loadStats, source: 'download', fetched: lastDownload.fetched, retries: lastDownload.retries, modelMs: lastDownload.ms + b.loadStats.modelMs, totalMs: lastDownload.ms + b.loadStats.totalMs }

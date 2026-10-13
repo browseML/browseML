@@ -107,6 +107,31 @@ pub extern "C" fn browseml_version() -> usize {
     engine::VERSION.len()
 }
 
+/// bankML's WGSL kernel (gpu/wgsl.rs), the one the page's GPU worker compiles: browseML's gate checks that its own
+/// copy (`browseml-gpu.js`, for EXACT and the tests) is the same text.
+#[no_mangle]
+pub extern "C" fn browseml_wgsl() -> usize {
+    set_out(engine::gpu::wgsl::Q1_0_MM);
+    engine::gpu::wgsl::Q1_0_MM.len()
+}
+
+/// Where this engine runs (bankML's host registry, `bankml hosts`): browseML on the client side.
+#[no_mangle]
+pub extern "C" fn browseml_hosts() -> usize {
+    let s = engine::host::report_json();
+    set_out(&s);
+    s.len()
+}
+
+/// The GPU's work so far, as JSON (`null` when no card computes): its share, the products it took and those the CPU
+/// took instead (resting, or over the memory limit), and the shapes decided for it.
+#[no_mangle]
+pub extern "C" fn browseml_gpu_status() -> usize {
+    let s = engine::gpu::worker::status_json();
+    set_out(&s);
+    s.len()
+}
+
 /// As `bankml_open`: the guard, the sha256 pin, the native forward pass, or a refusal with serve's reason.
 fn open(model: &Path, fork: &str, n_ctx: u32) -> Result<Open, String> {
     // the relaxed build is the reference's arithmetic only where relaxed_madd is fused: refuse it elsewhere (the page
@@ -131,6 +156,11 @@ fn open(model: &Path, fork: &str, n_ctx: u32) -> Result<Open, String> {
 #[no_mangle]
 pub unsafe extern "C" fn browseml_open(model_ptr: *const u8, model_len: usize, fork_ptr: *const u8, fork_len: usize, n_ctx: u32) -> i32 {
     engine::set_log_sink(Some(to_page));
+    // bankML's host registry: this engine is browseML's, on the client side (`bankml hosts`)
+    if std::env::var_os("BANKML_HOST").is_none() {
+        std::env::set_var("BANKML_HOST", "browseml");
+        std::env::set_var("BANKML_HOST_VERSION", env!("CARGO_PKG_VERSION"));
+    }
     let r = (|| {
         let model = unsafe { arg(model_ptr, model_len, "model_path") }?;
         let fork = unsafe { arg(fork_ptr, fork_len, "fork_json") }?;
@@ -141,13 +171,15 @@ pub unsafe extern "C" fn browseml_open(model_ptr: *const u8, model_len: usize, f
         Ok(o) => {
             let v = &o.verified;
             set_out(&format!(
-                "{{\"model\": {}, \"sha256\": {}, \"guard\": {}, \"engine\": {}, \"arch\": {}, \"version\": {}}}",
+                "{{\"model\": {}, \"sha256\": {}, \"guard\": {}, \"engine\": {}, \"arch\": {}, \"version\": {}, \"host\": {}, \"side\": {}}}",
                 engine::gguf::jstr(&o.model_id),
                 engine::gguf::jstr(&v.model_sha256),
                 engine::gguf::jstr(v.guard),
                 engine::gguf::jstr(&o.engine),
                 v.arch.as_deref().map(engine::gguf::jstr).unwrap_or_else(|| "null".into()),
-                engine::gguf::jstr(engine::VERSION)
+                engine::gguf::jstr(engine::VERSION),
+                engine::gguf::jstr(&engine::host::line()),
+                engine::gguf::jstr(engine::host::current().side)
             ));
             *OPEN.lock().unwrap_or_else(|e| e.into_inner()) = Some(o);
             OK

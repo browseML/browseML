@@ -7,6 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { wasi as makeWasi } from "../web/browseml-wasi.js";
+import { gpuEnv } from "../web/browseml-gpu-host.js";
 
 const [wasmPath, modelPath, forkPath] = process.argv.slice(2);
 const name = path.basename(modelPath);
@@ -15,10 +16,10 @@ const persona = JSON.parse(fs.readFileSync(new URL("../web/browseml.persona", im
 const module = await WebAssembly.compile(fs.readFileSync(wasmPath));
 
 async function engine(slots) {
-  const w = makeWasi({ files: { [name]: model }, slots, env: { BANKML_CACHE_RAM: "0" }, write: () => {} });
+  const w = makeWasi({ files: { [name]: model }, slots, env: { BANKML_CACHE_RAM: "0", BANKML_GPU: "off" }, write: () => {} });
   let mem;
   const text = (p, n) => Buffer.from(mem.buffer, p, n).toString("utf8");
-  const inst = await WebAssembly.instantiate(module, { ...w.imports, browseml: { piece: () => 1, log: () => {} } });
+  const inst = await WebAssembly.instantiate(module, { ...w.imports, env: gpuEnv(null), browseml: { piece: () => 1, log: () => {} } });
   const x = inst.exports; mem = x.memory; w.bind(mem);
   const put = (s) => { const b = Buffer.from(s, "utf8"); const p = x.browseml_alloc(b.length); new Uint8Array(mem.buffer, p, b.length).set(b); return [p, b.length]; };
   const out = () => text(x.browseml_out_ptr(), x.browseml_out_len());

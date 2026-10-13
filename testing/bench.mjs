@@ -89,6 +89,8 @@ if (!isMainThread) {
     console.log(`prompt ${tm.prompt_n} tok ${tm.prompt_per_second.toFixed(2)} tok/s · write ${tm.predicted_n} tok ${tm.predicted_per_second.toFixed(2)} tok/s${ok === null ? "" : ok ? " · identical" : " · DIFFERENT"}`);
   }
   if (oraclePath) console.log(`${same} of ${reqs.length} identical to the record`);
+  // with GPU=: what the card did (bankML's limiter: products on the card, on the CPU, the shapes decided)
+  if (process.env.GPU && x.browseml_gpu_status) { x.browseml_gpu_status(); console.log(`  gpu: ${out()}`); }
   // with a record, an answer that differs fails the run (the release gate relies on it)
   process.exit(oraclePath && same !== reqs.length ? 1 : 0);
 }

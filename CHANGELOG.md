@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.6.7 — 2026-10-13 — the visitor's GPU in bankML's forward pass, exactly
+
+- **The GPU computes answers in the page** (bankML `a32f81c`, branch `browseml`): a GPU worker
+  (`web/browseml-gpu-worker.js`) holds the WebGPU device and serves the engine's `bankml_gpu_*` imports
+  (`web/browseml-gpu-host.js`) while the engine's thread waits on `Atomics`. bankML gives the card rows only after its
+  kernel reproduced the CPU kernel's bits on it, and keeps each matrix shape on the card only where it measured the
+  card faster. It needs threads (cross-origin isolation); the CPU computes everything otherwise.
+- **The GPU switch** (CPU · RAM · GPU · CACHE): OFF · LOW · HIGH now chooses the engine's GPU too; APPLY restarts
+  bankML with it, and the panel says what the card does (verified, its share) or why the CPU does everything.
+- **Found and fixed in bankML:** the GPU limiter read the available RAM from `/proc`, which a browser does not have,
+  so a browser's integrated card was never given a matrix. Now the heap's limit alone applies there.
+- **Prompt reading on the GPU** (`begin_many` / `finish_many`): the kernel's token dimension takes a share of every
+  micro-batch's rows; **grouped submissions** (`begin_group` / `finish_group`): Q/K/V and gate/up on the card at
+  once, one wait. Through Dawn on an AMD Radeon Vega 3 (3 compute units), 3 threads, two rounds alternating with the
+  GPU off: reading 5.05 → 5.41 and 5.10 → 5.60 tok/s, writing unchanged (~2.2), 12 of 12 answers identical to
+  llama-server b11192's record.
+- **bankML owns the kernel** (`gpu/wgsl.rs`): the engine hands the GPU worker the shader's text and the vendor's
+  workgroup size (AMD 64, NVIDIA 32); `testing/gpu.mjs` checks that `browseml-gpu.js`'s copy is the same text.
+- **bankML knows browseML** (`host.rs`, `bankml hosts`): browseML is a client host — the visitor's own machine,
+  nothing leaves it — and `bankml serve` a server host. The engine names itself at open and the engine log shows
+  the host and the side.
+- Every host of the engine (the page's worker and threads, the oracle, the slot test, the GPU test, EXACT's
+  reference) is given the GPU imports; `testing/bench.mjs` prints the GPU limiter's state with `GPU=`.
+
 ## 0.6.6 — 2026-10-13 — speed, measured to the kernel; WebGPU exact on real AMD
 
 - **Cheaper sign lanes** (bankML `1c3c16c`): the relaxed WebAssembly kernels make each block's 0/1 lanes in three

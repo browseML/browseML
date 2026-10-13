@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import * as g from "../web/browseml-gpu.js";
+import { gpuEnv } from "../web/browseml-gpu-host.js";
 
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const dawn = arg("--dawn", process.env.DAWN || ".");
@@ -23,7 +24,7 @@ console.log(`adapter: ${info.vendor} · ${info.architecture} · ${info.descripti
 // bankML's reference, from the browseml.wasm beside the page (read from disk here, as the page fetches it)
 const { wasi } = await import("../web/browseml-wasi.js");
 const w = wasi({ files: {}, write: () => {} });
-const { instance } = await WebAssembly.instantiate(readFileSync(new URL("../web/browseml.wasm", import.meta.url)), { ...w.imports, browseml: { piece: () => 1, log: () => {} } });
+const { instance } = await WebAssembly.instantiate(readFileSync(new URL("../web/browseml.wasm", import.meta.url)), { ...w.imports, env: gpuEnv(null), browseml: { piece: () => 1, log: () => {} } });
 const x = instance.exports; w.bind(x.memory);
 const ref = (W, A, rows, n) => {
   const rb = (n / g.QK1_0) * g.Q1_0_BYTES, out = new Uint32Array(rows);
@@ -35,6 +36,12 @@ const ref = (W, A, rows, n) => {
 
 let failed = 0;
 const check = (what, ok, more = "") => { console.log(`${ok ? "ok  " : "FAIL"} ${what}${more ? " — " + more : ""}`); failed += !ok; };
+
+// the kernel the engine hands the GPU worker (bankML's gpu/wgsl.rs) is this page's own text
+{
+  const len = x.browseml_wgsl(), engine = new TextDecoder().decode(new Uint8Array(x.memory.buffer, x.browseml_out_ptr(), len).slice());
+  check("bankML's WGSL kernel (gpu/wgsl.rs) is browseml-gpu.js's Q1_MM_WGSL, character for character", engine === g.Q1_MM_WGSL, `${engine.length} vs ${g.Q1_MM_WGSL.length} chars`);
+}
 
 // exactness: shapes small and layer-like, one and many activations, −128 included (randomCase puts some in)
 for (const [rows, n, cols] of [[64, 128, 1], [257, 1024, 3], [512, 2048, 8], [96, 6144, 5]]) {
