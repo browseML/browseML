@@ -89,6 +89,7 @@ BANKML_PATH=~/bankml tools/build.sh         # against another bankML checkout in
 |---|---|---|
 | kernels, bit for bit (SIMD and relaxed SIMD) | `tools/build.sh test` | Node 20+ |
 | the download survives cut connections | `node testing/download.mjs` | Node 20+ |
+| the prompt cache: save, restore, the same answer as a cold engine | `node testing/slot.mjs web/browseml.wasm MODEL.gguf FORK.json` | the model |
 | answers identical to llama-server's record | `BANKML_MODELS=… tools/build.sh oracle` | the model and `oracle-forward/serve-Bonsai-1.7B-Q1_0.jsonl` |
 | speed at any thread count, plus the oracle | `node testing/bench.mjs web/browseml-mt-relaxed.wasm MODEL.gguf FORK.json 4 ORACLE.jsonl 9` | the same |
 | the page code | `cd app && npm run typecheck && npm test` | Node 20+ |

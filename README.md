@@ -12,8 +12,9 @@
 
 </div>
 
-**browseML** runs a language model in your web browser, on your own CPU. It is
-[bankML](https://github.com/cryptoAGI/bankml)'s engine compiled to WebAssembly. There's nothing to install, no account
+**browseML** runs a language model in your web browser, on your own CPU. Its engine is
+[bankML](https://github.com/cryptoAGI/bankml) (a separate project) compiled to WebAssembly; browseML is the client side:
+the runtime, the pages and the controls, on the CPU today and on the GPU (WebGPU) next. There's nothing to install, no account
 to make, and no server answers for you: the page only serves files, and nothing you type leaves your device.
 
 <table>
@@ -125,6 +126,15 @@ The kernels, the three builds, measurements, where the time goes, limits.
 **[History →](HISTORY.md)**
 
 The first public experiments on Hugging Face, mapped to the code they ran.
+
+</td>
+</tr>
+<tr>
+<td valign="top" colspan="4">
+
+**Software catalogues** — what exists, with licences, and what browseML takes from it:
+[graphics cards →](docs/gpu-software.md) · [CPU, memory and network →](docs/cpu-software.md) ·
+[JavaScript tooling and client-side files →](docs/js-software.md)
 
 </td>
 </tr>

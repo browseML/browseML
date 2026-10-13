@@ -11,6 +11,7 @@ import { Button, Gauge, IndicatorLamp, LEDKnob, SegmentDisplay, SteppedKnob } fr
 import {
   CACHE_CHOICES, CTX_CHOICES, MAXTOK_CHOICES, browseDiag, browseMaxThreads, browseState, clearBrowseCache, keptFiles,
   loadBrowse, setBrowseSettings, unloadBrowse,
+  browseWarm, onBrowseWarm,
 } from '../bankml/free';
 import { useBrowseSettings, useDownload } from '../bankml/ui/browse';
 import { ctxCapFor, mb, ramEstimate, readCaps } from '../bankml/caps';
@@ -39,6 +40,10 @@ export function ClientRack({ onSaid }: { onSaid(line: string, tone?: 'ok' | 'bad
   const [busy, setBusy] = useState<'' | 'apply' | 'unload' | 'clear' | 'measure'>('');
   const [confirm, setConfirm] = useState<number | null>(null);
   const [tab, setTab] = useState<TabMemory | null>(null);
+  const [, rewarm] = useState(0);
+  useEffect(() => onBrowseWarm(() => rewarm(n => n + 1)), []);
+  const w = browseWarm();
+  const warming = w.phase === 'warming';
   useEffect(() => { void browseMaxThreads().then(setLim); }, []);
   useTick(1000);
 
@@ -85,7 +90,7 @@ export function ClientRack({ onSaid }: { onSaid(line: string, tone?: 'ok' | 'bad
   });
 
   return (
-    <section className="cs-rack" aria-label="Client controls">
+    <section className={`cs-rack ${warming ? 'is-warming' : ''}`} aria-label="Client controls">
       <header className="cs-rack-head">
         <h2>client</h2>
         <div className="cs-lamps">
@@ -93,6 +98,8 @@ export function ClientRack({ onSaid }: { onSaid(line: string, tone?: 'ok' | 'bad
           <Lamp on={!!lim?.isolated} color={GREEN} label="THREADS" title={lim?.isolated ? 'cross-origin isolated: threads allowed' : 'not cross-origin isolated: one thread'} />
           <Lamp on={caps.relaxedSimd} color={GREEN} label="RELAXED" title={caps.relaxedSimd ? 'relaxed SIMD compiles here (used only where exact)' : 'plain SIMD'} />
           <Lamp on={working} color={ORANGE} label="BUSY" blink={working} title="downloading, verifying or reloading" />
+          <Lamp on={w.phase !== 'cold'} color={warming ? ORANGE : w.phase === 'failed' ? RED : GREEN} label="WARM" blink={warming}
+            title={warming ? "reading browseML's prompt once (kept in this browser for next time)" : w.phase === 'restored' ? 'the prompt was restored from this browser' : w.phase === 'warmed' ? 'the prompt was read and kept' : w.phase === 'failed' ? `warming failed: ${w.error}` : 'the prompt is not read yet'} />
           <Lamp on={stale} color={RED} label="APPLY" blink={stale} title={stale ? 'the knobs differ from the running engine: APPLY reloads it' : 'the engine runs the knobs\' settings'} />
         </div>
       </header>
@@ -141,6 +148,7 @@ export function ClientRack({ onSaid }: { onSaid(line: string, tone?: 'ok' | 'bad
         </div>
       )}
       {tab && <p className="cs-fine">this tab: {tab.bytes !== null ? mb(tab.bytes) : 'not measured'} · {tab.how}{tab.wasm ? ` · of which WebAssembly ${mb(tab.wasm)}` : ''}</p>}
+      <WarmStrip />
       <p className="cs-fine">CPU, RAM and CACHE apply when the engine (re)loads; ANSWER applies to the next question. Read in this browser, never sent.</p>
     </section>
   );
@@ -151,5 +159,32 @@ function Lamp({ on, color, label, title, blink }: { on: boolean; color: string; 
     <span className="cs-lamp" title={title}>
       <IndicatorLamp on={on} color={color} size={10} blink={blink} readOnly label={label} labelSize={10} aria-label={`${label}: ${on ? 'on' : 'off'}`} />
     </span>
+  );
+}
+
+/** The prompt cache's feedback: orange with red flares while browseML reads its prompt (a clock running), green once
+ *  it is ready (restored from this browser, or read and kept), red if it failed. Nothing while there is no engine. */
+function WarmStrip() {
+  const [, rewarm] = useState(0);
+  useEffect(() => onBrowseWarm(() => rewarm(n => n + 1)), []);
+  useTick(1000);
+  const w = browseWarm();
+  if (w.phase === 'cold') return null;
+  if (w.phase === 'warming') {
+    const s = Math.round((Date.now() - w.since) / 1000);
+    return (
+      <p className="cs-warm is-warming" role="status">
+        <b>WARMING</b> reading browseML's prompt once · {s >= 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s} s`} · kept in this browser, so the next visit
+        starts at once; a question asked now waits for it and reuses it
+      </p>
+    );
+  }
+  if (w.phase === 'failed') return <p className="cs-warm is-failed" role="status"><b>NOT WARM</b> {w.error}: each question reads the prompt itself</p>;
+  return (
+    <p className="cs-warm is-ready" role="status">
+      <b>WARM</b> {w.phase === 'restored'
+        ? `${w.tokens} prompt tokens restored from this browser in ${(w.ms / 1000).toFixed(1)} s`
+        : `prompt read once (${w.tokens} tokens, ${Math.round(w.ms / 1000)} s) and kept for next time`} · {mb(w.bytes)} kept
+    </p>
   );
 }

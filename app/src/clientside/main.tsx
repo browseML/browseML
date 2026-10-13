@@ -8,7 +8,7 @@
 // actually ran (usage.ts), never estimates. Commands: /client, /usage, /receipt, /shelf. Nothing is sent anywhere
 // except the model's download.
 // Built by vite.config.ts into dist/ (beside the landing page).
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import ReactDOM from 'react-dom/client';
 import { UltimateBar } from '../components/UltimateBar';
 import { Shelves } from '../components/Shelves';
@@ -28,7 +28,7 @@ import { advise, summarize, usageLog } from '../bankml/usage';
 import { useBrowseML, WIDGET } from './useBrowseML';
 import { BrowseCard } from './BrowseCard';
 import { trackKeyboard } from '../core/keyboard';
-import { ClientTools } from './ClientTools';
+import { ControlPanel } from './ControlPanel';
 import { Faq } from './Faq';
 import { measureTab } from './memory';
 import '../styles/UltimateInputField.css';
@@ -39,7 +39,8 @@ const PHONE = '(max-width: 640px)';
 /** The bar: ⬇ load, ⧉ dock in the page / pop out, ❏ spawn. No T mode here: 🛠 (where T sits) holds this computer's
  *  controls and the diagnostics; the commands stay reachable as /client, /usage, /receipt. */
 const RACK = { chat: ['bankml-load', 'dock-page', 'spawn'] };
-const TOOLS = { label: "Tools: this computer's controls and diagnostics", icon: '🛠', render: () => <ClientTools compact /> };
+/** T in the field: the control panel (opens it on the left; again, shelves it). */
+const togglePanel = () => shelves.set(s => (s.shown ? { ...s, shown: false, shelved: true } : { ...s, shown: true, shelved: false }));
 
 /** The sidebar menu and the button panels, kept in this browser. */
 const shelves = createShelves(`${KEY}:shelves`);
@@ -66,12 +67,15 @@ function Page() {
   const [at] = useState(fieldAt);
   const uif = useRef<UIFContextValue | null>(null);
   const a = useBrowseML(uif);
+  const panel = useSyncExternalStore(shelves.subscribe, shelves.get, shelves.get);
   const A = useRef(a); A.current = a;
   useEffect(() => trackKeyboard(), []);
 
   const onReady = () => {
     const field = uif.current!;
-    if (!field.context.personaText.trim()) loadPersonaText('browseml.persona').then(t => field.context.setPersonaText(t)).catch(() => {});
+    // browseML's persona first (the prompt it answers from), then, if the model is already here, started and warmed
+    const persona = field.context.personaText.trim() ? Promise.resolve() : loadPersonaText('browseml.persona').then(t => field.context.setPersonaText(t)).catch(() => {});
+    void persona.then(() => new Promise(r => setTimeout(r, 0))).then(() => A.current.preload());
   };
 
   /** An inquiry: a field still docked in the page drops to the bottom left (clear of the sidebar), and a window
@@ -201,7 +205,7 @@ function Page() {
 
   const phone = window.matchMedia(PHONE).matches;
   const own = a.outcome;
-  const widgets = { [WIDGET]: () => <BrowseCard onReady={() => A.current.ready()} /> };
+  const widgets = { [WIDGET]: () => <BrowseCard onReady={() => void A.current.ready()} /> };
   const mine = a.live !== null ? null
     : !own ? { text: 'receipt —', tone: '' }
     : own.how === 'delivered' ? (own.ok ? { text: '✓ receipt', tone: 'ok' } : { text: '✗ receipt', tone: 'bad' })
@@ -232,12 +236,12 @@ function Page() {
             return { left: side, right: window.innerWidth };
           }}
           terminalMode={false}
-          tools={TOOLS}
+          tools={{ label: 'T — tools: the control panel (STOP, CLEAR, dials, diagnostics, tool suite, limiters)', icon: 'T', onPress: togglePanel, pressed: !!panel.shown }}
           left={<span className={'cs-pill ' + (a.isReady ? 'is-ok' : '')} title={a.isReady ? 'bankML is verified and loaded here' : 'not imported yet: ask, or ⬇'}>{a.isReady ? '● browseML' : '○ browseML'}</span>}
           right={mine ? <span className={'cs-pill ' + (mine.tone ? `is-${mine.tone}` : '')}>{mine.text}</span> : <span className="cs-pill is-working">streaming · {a.live}</span>}
         >
           <Bridge into={uif} onReady={onReady} />
-          <Shelves store={shelves} top={<ClientTools />} />
+          <Shelves store={shelves} title="control panel" top={<ControlPanel uif={uif} />} />
         </UltimateBar>
       </div>
       <Faq uif={uif} />

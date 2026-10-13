@@ -14,6 +14,9 @@
 //!   browseml_open(model_path, fork_json, n_ctx) -> 0 or an error code; out = the verified model as JSON, or the reason
 //!   browseml_chat(request_json) -> 0 or an error code; pieces stream to the import `browseml.piece`; out = the
 //!     `/v1/chat/completions` object (usage, timings, bankml_receipt) or {"error": …}
+//!   browseml_slot(action, path) -> 0 or an error code; action "save" or "restore": the slot (its tokens and every
+//!     layer's keys and values) to or from a file, as `serve`'s /slots/0?action=save|restore; out = {"tokens", "bytes"}
+//!     or {"error": …}. The page keeps a warm slot (the persona prompt already read) and restores it on the next visit.
 //!   browseml_out_ptr() / browseml_out_len(), browseml_version() (into out)
 //! Imports (module "browseml"): piece(ptr, len) -> i32 (0 stops the answer), log(level, ptr, len).
 
@@ -173,6 +176,37 @@ pub unsafe extern "C" fn browseml_chat(req_ptr: *const u8, req_len: usize) -> i3
             })
             .map_err(|e| (E_ENGINE, e))?;
         Ok(completion_json(created, &o.model_id, &d, &t, &o.engine, &o.verified))
+    })();
+    match r {
+        Ok(j) => {
+            set_out(&j);
+            OK
+        }
+        Err((code, e)) => {
+            set_out(&format!("{{\"error\": {{\"code\": {code}, \"message\": {}}}}}", engine::gguf::jstr(&e)));
+            code
+        }
+    }
+}
+
+/// # Safety
+/// The pointers must be valid for their lengths in this module's memory.
+#[no_mangle]
+pub unsafe extern "C" fn browseml_slot(action_ptr: *const u8, action_len: usize, path_ptr: *const u8, path_len: usize) -> i32 {
+    let r = (|| {
+        let guard = OPEN.lock().unwrap_or_else(|e| e.into_inner());
+        let o = guard.as_ref().ok_or((E_NOT_OPEN, "no model is open: browseml_open first".to_string()))?;
+        let action = unsafe { arg(action_ptr, action_len, "action") }.map_err(|e| (E_ARG, e))?;
+        let path = Path::new(unsafe { arg(path_ptr, path_len, "path") }.map_err(|e| (E_ARG, e))?);
+        // the slot names the model it was read with: a slot for another model is refused (save_slot / restore_slot)
+        let sha = &o.verified.model_sha256;
+        match action {
+            "save" => o.native.save_slot(path, sha),
+            "restore" => o.native.restore_slot(path, sha),
+            _ => return Err((E_ARG, format!("unknown slot action {action:?}: save or restore"))),
+        }
+        .map(|(tokens, bytes)| format!("{{\"tokens\": {tokens}, \"bytes\": {bytes}}}"))
+        .map_err(|e| (E_ENGINE, e))
     })();
     match r {
         Ok(j) => {

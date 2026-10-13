@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { beforeEach, describe, expect, it } from 'vitest';
-import { advise, clearUsage, median, recordAnswer, recordLoad, setClock, summarize, usageLog, type AnswerRecord } from '../usage';
+import { advise, clearUsage, median, recordAnswer, recordLoad, recordWarm, setClock, summarize, usageLog, type AnswerRecord } from '../usage';
 
 const mem = new Map<string, string>();
 beforeEach(() => {
@@ -25,7 +25,7 @@ describe('usage records', () => {
     expect(u.answers[0].prompt).toBe(5);
     expect(u.loads[0]).toMatchObject({ at: 1000, memory: 317e6 });
     clearUsage();
-    expect(usageLog()).toEqual({ loads: [], answers: [] });
+    expect(usageLog()).toEqual({ loads: [], answers: [], warms: [] });
   });
   it('survive storage that is off or not theirs', () => {
     mem.set('browseml:usage', '{"nope":1}');
@@ -79,5 +79,11 @@ describe('advise: only from what was measured', () => {
   });
   it('the pieces the connection cut', () => {
     expect(advise({ loads: [{ ...load, at: 1, retries: 2 }], answers: [] }, now).map(v => v.text).join('\n')).toMatch(/cut 2 pieces/);
+  });
+  it('the prompt cache, as measured: a restore against the last read', () => {
+    recordWarm({ how: 'warmed', tokens: 397, bytes: 45.5e6, ms: 206000, threads: 2 });
+    expect(advise(usageLog(), now).map(v => v.text).join('\n')).toMatch(/prompt was read once \(397 tokens, 206 s\) and kept/);
+    recordWarm({ how: 'restored', tokens: 397, bytes: 45.5e6, ms: 300, threads: 2 });
+    expect(advise(usageLog(), now).map(v => v.text).join('\n')).toMatch(/397 prompt tokens restored in 0\.3 s, where reading them took 206 s/);
   });
 });

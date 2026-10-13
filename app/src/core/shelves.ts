@@ -9,7 +9,14 @@
 export interface Shelf { id: string; title: string; ids: string[] }
 /** `shown`: the sidebar is on screen. It appears when a button is first dragged off the field (somewhere to drop it)
  *  and stays until it is closed; the shelves keep their buttons either way. */
-export interface ShelvesState { shelves: Shelf[]; shown?: boolean }
+export interface ShelvesState {
+  shelves: Shelf[];
+  shown?: boolean;
+  /** Shelved: closed to a slim tab on the left edge (hover peeks it open, a press pins it open). */
+  shelved?: boolean;
+  /** The panel's width in px (resized by its right edge). */
+  width?: number;
+}
 
 /** The sidebar menu: always there, first, cannot be removed. */
 export const SIDEBAR = 'sidebar';
@@ -60,7 +67,7 @@ export function renameShelf(s: ShelvesState, id: string, title: string): Shelves
 
 /** A stored value, checked: unknown shapes give the default; the sidebar is always first; a button on one shelf. */
 export function parseShelves(raw: unknown): ShelvesState {
-  const o = raw as { shelves?: unknown; shown?: unknown } | null;
+  const o = raw as { shelves?: unknown; shown?: unknown; shelved?: unknown; width?: unknown } | null;
   if (!o || !Array.isArray(o.shelves)) return defaultShelves();
   const seen = new Set<string>(), ids = new Set<string>();
   const shelves: Shelf[] = [];
@@ -72,7 +79,9 @@ export function parseShelves(raw: unknown): ShelvesState {
     shelves.push({ id: x.id, title: typeof x.title === 'string' && x.title.trim() ? x.title.trim().slice(0, 40) : x.id, ids: list });
   }
   const side = shelves.find(sh => sh.id === SIDEBAR) ?? defaultShelves().shelves[0];
-  return { shelves: [side, ...shelves.filter(sh => sh.id !== SIDEBAR)], shown: o.shown === true };
+  const w = (o as { width?: unknown }).width;
+  return { shelves: [side, ...shelves.filter(sh => sh.id !== SIDEBAR)], shown: o.shown === true, shelved: (o as { shelved?: unknown }).shelved === true,
+    ...(typeof w === 'number' && w >= 240 && w <= 720 ? { width: Math.round(w) } : {}) };
 }
 
 // ── the DOM side: where a drop lands ────────────────────────────────────────────────────────────────────────────

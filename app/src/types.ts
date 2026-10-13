@@ -242,7 +242,9 @@ export interface UltimateInputFieldProps extends UIFProviderOptions {
   terminalMode?: boolean;
   /** A tools button where T sits (when terminalMode is false) that opens a tray on the field: a page's own controls
    *  and feedback (browseML: this computer's controls and diagnostics). */
-  tools?: { label: string; icon: React.ReactNode; render(close: () => void): React.ReactNode };
+  tools?: { label: string; icon: React.ReactNode; render?(close: () => void): React.ReactNode;
+    /** Instead of a tray: the button does this (browseML: open the control panel); `pressed` shows it as on. */
+    onPress?(): void; pressed?: boolean };
   onModeChange?: (mode: UIFMode) => void;
   /** Extra actions to register alongside the built-ins. */
   actions?: Action[];

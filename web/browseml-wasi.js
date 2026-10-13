@@ -1,27 +1,31 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // browseML's WASI: the few system calls bankML's engine makes, answered in memory, for the browser and for Node's
 // oracle alike. One read-only directory (/models) holding the files the page gives it (the model it downloaded and
-// checked), the clocks, random bytes, environment variables, and standard output/error to a callback. Everything
+// checked); one writable directory (/slots) where the engine saves and restores its slot (the page keeps a warm one);
+// the clocks, random bytes, environment variables, and standard output/error to a callback. Everything
 // else is refused with a WASI error, never faked: the engine reports it as it would on a machine without it.
 // Zero dependencies.
 
 const ERR = { SUCCESS: 0, ACCES: 2, BADF: 8, INVAL: 28, NOENT: 44, NOTSUP: 58 };
 const FT = { DIR: 3, FILE: 4 };
 const MOUNT = "/models";
+const SLOTS = "/slots";
 
 /**
- * @param {{files: Object<string, Uint8Array>, env?: Object<string,string>, write?: (fd:number, text:string) => void}} o
+ * @param {{files: Object<string, Uint8Array>, slots?: Object<string, Uint8Array>, env?: Object<string,string>, write?: (fd:number, text:string) => void}} o
+ *   slots: the /slots directory's files, read and written in place (a file the engine writes appears here when closed)
  * @returns {{imports: object, bind: (memory: WebAssembly.Memory) => void, release: (name: string) => void}}
  */
-export function wasi({ files, env = {}, write = () => {} }) {
+export function wasi({ files, slots = {}, env = {}, write = () => {} }) {
   let memory = null;
   const dv = () => new DataView(memory.buffer);
   const u8 = () => new Uint8Array(memory.buffer);
   const dec = new TextDecoder(), enc = new TextEncoder();
   // copies, not views: with threads the memory is a SharedArrayBuffer, which TextDecoder and getRandomValues refuse
   const str = (p, n) => dec.decode(u8().slice(p, p + n));
-  const fds = new Map([[3, { dir: true }]]); // 0–2 are stdio; 3 is the preopened /models
-  let next = 4;
+  const fds = new Map([[3, { dir: true }], [4, { dir: true, slots: true }]]); // 0–2 are stdio; 3 is /models; 4 is /slots
+  let next = 5;
+  const slotName = (p, n) => str(p, n).replace(/^\.?\/+/, "").replace(/^slots\//, "");
 
   const name = (p, n) => str(p, n).replace(/^\.?\/+/, "").replace(/^models\//, "");
   const stat = (buf, type, size) => {
@@ -53,16 +57,29 @@ export function wasi({ files, env = {}, write = () => {} }) {
       return ERR.SUCCESS;
     },
     fd_prestat_get: (fd, buf) => {
-      if (fd !== 3) return ERR.BADF;
-      dv().setUint8(buf, 0); dv().setUint32(buf + 4, MOUNT.length, true); return ERR.SUCCESS;
+      if (fd !== 3 && fd !== 4) return ERR.BADF;
+      dv().setUint8(buf, 0); dv().setUint32(buf + 4, (fd === 3 ? MOUNT : SLOTS).length, true); return ERR.SUCCESS;
     },
-    fd_prestat_dir_name: (fd, p, n) => { if (fd !== 3) return ERR.BADF; u8().set(enc.encode(MOUNT).subarray(0, n), p); return ERR.SUCCESS; },
+    fd_prestat_dir_name: (fd, p, n) => {
+      if (fd !== 3 && fd !== 4) return ERR.BADF;
+      u8().set(enc.encode(fd === 3 ? MOUNT : SLOTS).subarray(0, n), p); return ERR.SUCCESS;
+    },
     fd_fdstat_get: (fd, buf) => {
       const f = fds.get(fd); if (!f && fd > 2) return ERR.BADF;
       const v = dv(); v.setUint8(buf, f ? (f.dir ? FT.DIR : FT.FILE) : 2); v.setUint16(buf + 2, 0, true);
       v.setBigUint64(buf + 8, 0xffffffffn, true); v.setBigUint64(buf + 16, 0xffffffffn, true); return ERR.SUCCESS;
     },
     path_open: (dirfd, _dirflags, p, n, oflags, _rb, _ri, _fdflags, out) => {
+      if (dirfd === 4) {
+        // /slots: create or truncate for writing (the bytes are kept in pieces until the file is closed), else read
+        const f = slotName(p, n);
+        if (f === "" || f === ".") { const fd = next++; fds.set(fd, { dir: true, slots: true }); dv().setUint32(out, fd, true); return ERR.SUCCESS; }
+        const fd = next++;
+        if (oflags & (1 | 8)) fds.set(fd, { slot: f, parts: [], size: 0, pos: 0, writing: true });
+        else if (f in slots) fds.set(fd, { data: slots[f], pos: 0 });
+        else return ERR.NOENT;
+        dv().setUint32(out, fd, true); return ERR.SUCCESS;
+      }
       if (dirfd !== 3) return ERR.BADF;
       const f = name(p, n);
       if (f === "" || f === ".") { const fd = next++; fds.set(fd, { dir: true }); dv().setUint32(out, fd, true); return ERR.SUCCESS; }
@@ -71,6 +88,12 @@ export function wasi({ files, env = {}, write = () => {} }) {
       const fd = next++; fds.set(fd, { data: files[f], pos: 0 }); dv().setUint32(out, fd, true); return ERR.SUCCESS;
     },
     path_filestat_get: (dirfd, _flags, p, n, buf) => {
+      if (dirfd === 4) {
+        const f = slotName(p, n);
+        if (f === "" || f === ".") { stat(buf, FT.DIR, 0); return ERR.SUCCESS; }
+        if (!(f in slots)) return ERR.NOENT;
+        stat(buf, FT.FILE, slots[f].length); return ERR.SUCCESS;
+      }
       if (dirfd !== 3) return ERR.BADF;
       const f = name(p, n);
       if (f === "" || f === ".") { stat(buf, FT.DIR, 0); return ERR.SUCCESS; }
@@ -80,7 +103,7 @@ export function wasi({ files, env = {}, write = () => {} }) {
     path_readlink: () => ERR.INVAL, // nothing here is a link
     fd_filestat_get: (fd, buf) => {
       const f = fds.get(fd); if (!f) return ERR.BADF;
-      stat(buf, f.dir ? FT.DIR : FT.FILE, f.dir ? 0 : f.data.length); return ERR.SUCCESS;
+      stat(buf, f.dir ? FT.DIR : FT.FILE, f.dir ? 0 : f.writing ? f.size : f.data.length); return ERR.SUCCESS;
     },
     fd_read: (fd, iv, n, nread) => {
       const f = fds.get(fd); if (!f || f.dir) return ERR.BADF;
@@ -98,8 +121,38 @@ export function wasi({ files, env = {}, write = () => {} }) {
       f.pos = to; dv().setBigUint64(out, BigInt(to), true); return ERR.SUCCESS;
     },
     fd_readdir: (fd, _buf, _len, _cookie, used) => { if (!fds.has(fd)) return ERR.BADF; dv().setUint32(used, 0, true); return ERR.SUCCESS; },
-    fd_close: (fd) => (fds.delete(fd) ? ERR.SUCCESS : ERR.BADF),
+    fd_close: (fd) => {
+      const f = fds.get(fd);
+      if (!f) return ERR.BADF;
+      if (f.writing) {
+        // the written file, whole, in /slots
+        const b = new Uint8Array(f.size); let at = 0;
+        for (const part of f.parts) { b.set(part, at); at += part.length; }
+        slots[f.slot] = b;
+      }
+      fds.delete(fd); return ERR.SUCCESS;
+    },
+    path_rename: (fd, p, n, fd2, p2, n2) => {
+      if (fd !== 4 || fd2 !== 4) return ERR.ACCES; // only within /slots
+      const a = slotName(p, n), b = slotName(p2, n2);
+      if (!(a in slots)) return ERR.NOENT;
+      slots[b] = slots[a]; delete slots[a]; return ERR.SUCCESS;
+    },
+    path_unlink_file: (fd, p, n) => {
+      if (fd !== 4) return ERR.ACCES;
+      const a = slotName(p, n);
+      if (!(a in slots)) return ERR.NOENT;
+      delete slots[a]; return ERR.SUCCESS;
+    },
     fd_write: (fd, iv, n, written) => {
+      const f = fds.get(fd);
+      if (f && f.writing) {
+        // copies out of memory (it may be shared): appended in order, as the engine writes the file front to back
+        let total = 0;
+        for (const [p, len] of iovs(iv, n)) { f.parts.push(u8().slice(p, p + len)); total += len; }
+        f.size += total; f.pos += total;
+        dv().setUint32(written, total, true); return ERR.SUCCESS;
+      }
       if (fd !== 1 && fd !== 2) return ERR.BADF;
       let total = 0, s = "";
       for (const [p, len] of iovs(iv, n)) { s += str(p, len); total += len; }

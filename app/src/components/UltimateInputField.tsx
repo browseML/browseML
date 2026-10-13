@@ -711,7 +711,7 @@ const HubField: React.FC<UltimateInputFieldProps> = ({
         </div>
       )}
 
-      {toolsOpen && tools && !terminal && (
+      {toolsOpen && tools?.render && !terminal && (
         <div className={`uif-tools-tray ${toolsBelow ? 'is-below' : ''}`} role="region" aria-label={tools.label}>
           {tools.render(() => setToolsOpen(false))}
         </div>
@@ -790,11 +790,12 @@ const HubField: React.FC<UltimateInputFieldProps> = ({
               {!terminalMode && tools && (
                 <button
                   type="button"
-                  className={`uif-tools-toggle ${toolsOpen ? 'is-on' : ''}`}
-                  aria-expanded={toolsOpen}
+                  className={`uif-tools-toggle ${toolsOpen || tools.pressed ? 'is-on' : ''}`}
+                  aria-expanded={tools.onPress ? !!tools.pressed : toolsOpen}
                   aria-label={tools.label}
                   title={tools.label}
                   onClick={e => {
+                    if (tools.onPress) return tools.onPress();
                     // the tray opens where there is room: above the field, or below it near the top of the screen
                     const r = (e.currentTarget.closest('.ultimate-input-field') as HTMLElement | null)?.getBoundingClientRect();
                     setToolsBelow(!!r && r.top < window.innerHeight * 0.45);

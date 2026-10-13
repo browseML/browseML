@@ -9,12 +9,17 @@
 // which the engine itself refuses where relaxed_madd is not fused; then browseml-mt.wasm. Elsewhere it runs
 // browseml.wasm on this one thread.
 //
-//   page → worker  {type: "open", name, bytes: ArrayBuffer (transferred), fork, threads, ctx, cacheRam}  |  {type: "chat", request}
+//   page → worker  {type: "open", name, bytes: ArrayBuffer (transferred), fork, threads, ctx, cacheRam, stop?: SharedArrayBuffer}
+//                  |  {type: "chat", request}
+//                  |  {type: "slot", action: "save"|"restore", name, bytes?: ArrayBuffer (restore)}
 //   worker → page  {type: "log", level, text} · {type: "opened", rc, out, threads, memory} · {type: "piece", text} ·
-//                  {type: "done", rc, out, memory}   (memory: the engine's WebAssembly memory, bytes)
+//                  {type: "done", rc, out, memory} · {type: "slotted", rc, out, bytes?: ArrayBuffer (save)}
+//                  (memory: the engine's WebAssembly memory, bytes)
 import { wasi } from "./browseml-wasi.js";
 
 let x = null, w = null, memory = null, builtWith = "browseml.wasm", relaxedRefused = false, pool = [];
+// the engine's /slots directory: a slot file is written here by a save and read from here by a restore, then dropped
+const slots = {};
 const dec = new TextDecoder(), enc = new TextEncoder();
 const text = (p, n) => dec.decode(new Uint8Array(memory.buffer).slice(p, p + n));
 const put = (s) => { const b = enc.encode(s); const p = x.browseml_alloc(b.length); new Uint8Array(memory.buffer, p, b.length).set(b); return [p, b.length]; };
@@ -44,14 +49,19 @@ function importedMemory(bytes) {
   return null;
 }
 
-async function open({ name, bytes, fork, threads, ctx, cacheRam }) {
+// STOP: a flag the page sets while an answer runs (shared memory, so it reaches this worker while the engine is busy);
+// the engine is asked for its next piece, and a 0 from here ends the answer there, with its receipt
+let stopFlag = null;
+
+async function open({ name, bytes, fork, threads, ctx, cacheRam, stop }) {
+  if (stop) stopFlag = new Int32Array(stop);
   // the engine's host prompt cache, in MiB (serve's --cache-ram): 0 off, the default here; a little lets a repeated
   // prefix skip its prompt reading at the cost of that much memory
   const cache = String(Math.max(0, Math.min(1024, Math.floor(Number(cacheRam) || 0))));
   const files = { [name]: new Uint8Array(bytes) };
   const log = (fd, s) => postMessage({ type: "log", level: fd === 2 ? 1 : 2, text: s.trimEnd() });
   const browseml = {
-    piece: (p, n) => { postMessage({ type: "piece", text: text(p, n) }); return 1; },
+    piece: (p, n) => { postMessage({ type: "piece", text: text(p, n) }); return stopFlag && Atomics.load(stopFlag, 0) ? 0 : 1; },
     log: (level, p, n) => postMessage({ type: "log", level, text: text(p, n) }),
   };
   const mt = threads > 1 && typeof SharedArrayBuffer !== "undefined" && self.crossOriginIsolated;
@@ -82,13 +92,13 @@ async function open({ name, bytes, fork, threads, ctx, cacheRam }) {
     })));
     pool = idle.slice();  // every thread of this engine, to end them if it is refused
     let tid = 0;
-    w = wasi({ files, env: { BANKML_CACHE_RAM: cache, BANKML_THREADS: String(n) }, write: log });
+    w = wasi({ files, slots, env: { BANKML_CACHE_RAM: cache, BANKML_THREADS: String(n) }, write: log });
     ({ exports: x } = await WebAssembly.instantiate(module, {
       ...w.imports, env: { memory }, browseml,
       wasi: { "thread-spawn": (arg) => { const t = idle.shift(); if (!t) return -1; t.postMessage({ type: "start", tid: ++tid, arg }); return tid; } },
     }));
   } else {
-    w = wasi({ files, env: { BANKML_CACHE_RAM: cache, BANKML_THREADS: "1" }, write: log });
+    w = wasi({ files, slots, env: { BANKML_CACHE_RAM: cache, BANKML_THREADS: "1" }, write: log });
     const { instance } = await WebAssembly.instantiateStreaming(fetch(new URL("./browseml.wasm", import.meta.url)), { ...w.imports, browseml });
     x = instance.exports;
     memory = x.memory;
@@ -100,7 +110,7 @@ async function open({ name, bytes, fork, threads, ctx, cacheRam }) {
     postMessage({ type: "log", level: 1, text: "relaxed SIMD is not fused here: using browseml-mt.wasm (exact, slower)" });
     relaxedRefused = true; x = null;
     pool.forEach((t) => t.terminate()); pool = [];  // the refused engine's threads and their memory go with it
-    return open({ name, bytes: files[name].buffer, fork, threads, ctx, cacheRam });
+    return open({ name, bytes: files[name].buffer, fork, threads, ctx, cacheRam, stop: stopFlag && stopFlag.buffer });
   }
   w.release(name);  // the engine holds the model in its own memory now; the downloaded copy can go
   postMessage({ type: "opened", rc, out: out(), threads: n, memory: memory.buffer.byteLength, build: builtWith });
@@ -116,10 +126,17 @@ onmessage = async (e) => {
       const rc = x.browseml_chat(p, len);
       x.browseml_free(p, len);
       postMessage({ type: "done", rc, out: out(), memory: memory.buffer.byteLength });
+    } else if (m.type === "slot") {
+      if (!x) throw new Error("no model is open");
+      if (m.action === "restore") slots[m.name] = new Uint8Array(m.bytes);
+      const rc = x.browseml_slot(...put(m.action), ...put(`/slots/${m.name}`));
+      const kept = m.action === "save" && rc === 0 ? slots[m.name] : null;
+      delete slots[m.name];
+      postMessage({ type: "slotted", rc, out: out(), bytes: kept ? kept.buffer : undefined }, kept ? [kept.buffer] : []);
     }
   } catch (err) {
     // a trap (out of memory, a panic) ends this engine; the page says so and can load it again
-    postMessage({ type: m.type === "open" ? "opened" : "done", rc: -99, out: String(err && err.message || err) });
+    postMessage({ type: m.type === "open" ? "opened" : m.type === "slot" ? "slotted" : "done", rc: -99, out: String(err && err.message || err) });
     x = null;
   }
 };

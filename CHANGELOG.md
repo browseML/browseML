@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.4.0 — 2026-10-13 — the control panel, the prompt cache, the GPU recognised, the software catalogues
+
+- **The prompt cache, across visits.** The engine's slot (the prompt already read) is saved after the first reading
+  and kept in Cache Storage; the next visit restores it. `src/lib.rs` `browseml_slot(save|restore)` over bankML's own
+  slot save/restore; a writable `/slots` in the WASI shim; `browseml.js` `warm(system)`, keyed by the sha256 of the
+  model, the context and the prompt. Measured: `testing/slot.mjs` — the answer after a restore is the cold engine's,
+  word for word; prompt reading 211.8 s → 12.9 s (one thread, Node). In Brave: visit 1 reads 464 tokens once (91 s)
+  then answers from 5.7 s; visit 2 restores them in 0.6 s. The thread count left the prompt (Brave varies the cores it
+  reports), so the key stays the same.
+- **Asking is the go-ahead.** A question starts the model's download in the background, its progress in the window
+  ("Loading the model in your browser…"), then answers; the *ask before downloading* limiter (on when the browser
+  saves data) brings back the button.
+- **STOP that stops.** Where the page is cross-origin isolated, a shared flag ends the answer at its next piece, with
+  its receipt; elsewhere the engine is ended and the next question loads it again. The field's Stop uses it.
+- **The control panel** (the left sidebar; **T** in the field opens it): a live strip (state, tok/s, MB held, with
+  sparklines), TOOLS (STOP, CLEAR), the DreamKnob DIALS with the WARM stage (orange with red flares while the prompt is
+  read), DIAGNOSTICS (network, CPU, RAM, GPU), the TOOL SUITE (PING, SPEED, CPU, MEMORY, STORAGE, GPU, SENSORS — each
+  with its dial and RUN), LIMITERS (spare a core, low memory, ask before downloading, warm in background, GPU probe),
+  ADVICE AND RECORDS. It shelves to a tab with the switch in its top-right corner (hover peeks, a press pins it),
+  resizes by its right edge, folds its sections and remembers them; buttons dragged onto it reorder.
+- **The GPU, recognised and measured** (`app/src/bankml/gpu.ts`): WebGPU's adapter, features and limits, WebGL's
+  renderer; compute probes for fma exactness, GFLOP/s and GB/s. browseML answers on the CPU; a GPU kernel joins only
+  when exact.
+- **The software catalogues:** [graphics cards](docs/gpu-software.md), [CPU, memory and network](docs/cpu-software.md),
+  [JavaScript tooling, client-side files and the historical collections](docs/js-software.md), licences read from
+  each repository. bankML (the engine) and browseML (the client) explained side by side.
+
 ## 0.3.0 — 2026-10-13 — the browseML app: ask, load with one click, a FAQ browseML answers
 
 - **One click to load.** Asked before the model is in the browser, the answer's window says *Click to load the model in

@@ -16,19 +16,33 @@ import type { Action } from '../core/actions';
 
 const SLOP = 5;
 
-export function Shelves({ store, top }: { store: ShelvesStore; top?: ReactNode }) {
+export function Shelves({ store, top, title = 'menu' }: { store: ShelvesStore; top?: ReactNode; title?: string }) {
   const uif = useUIF();
   const { registry } = uif;
   useRegistryVersion(registry);
   const state = useSyncExternalStore(store.subscribe, store.get, store.get);
-  const open = !!state.shown;
-  const setOpen = (v: boolean | ((o: boolean) => boolean)) => store.set(s => ({ ...s, shown: typeof v === 'function' ? v(!!s.shown) : v }));
+  const [peek, setPeek] = useState(false);
+  const open = !!state.shown || peek;
+  const setOpen = (v: boolean | ((o: boolean) => boolean)) => store.set(s => {
+    const on = typeof v === 'function' ? v(!!s.shown) : v;
+    return { ...s, shown: on, shelved: on ? false : s.shelved };
+  });
+  /** The toggle in the top-right corner: closed to the shelf (a tab on the left edge), not gone. */
+  const shelve = () => { setPeek(false); store.set(s => ({ ...s, shown: false, shelved: true })); };
+  // the right edge resizes the panel (kept)
+  const resize = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const x0 = e.clientX, w0 = state.width ?? 300;
+    const move = (m: PointerEvent) => store.set(s => ({ ...s, width: Math.max(240, Math.min(720, Math.round(w0 + m.clientX - x0))) }));
+    const up = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); };
+    document.addEventListener('pointermove', move); document.addEventListener('pointerup', up);
+  };
   const [adding, setAdding] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [ghost, setGhost] = useState<{ action: Action; x: number; y: number } | null>(null);
 
   // a button dragged off the field: the sidebar appears, to take it
-  useEffect(() => onDragOff(off => { if (off && !store.get().shown) store.set(s => ({ ...s, shown: true })); }), [store]);
+  useEffect(() => onDragOff(off => { if (off && !store.get().shown) store.set(s => ({ ...s, shown: true, shelved: false })); }), [store]);
   // the bar and floating buttons drop here
   useEffect(() => {
     setShelfDrop((id, shelf, index) => store.set(s => shelfPut(s, id, shelf, index) ?? s));
@@ -56,7 +70,7 @@ export function Shelves({ store, top }: { store: ShelvesStore; top?: ReactNode }
             st.get().shelves.forEach(sh => ctx.print(`${sh.id} (${sh.title}): ${sh.ids.map(id => reg.get(id)?.command ?? id).join(' ') || 'empty'}`));
             return;
           case 'open': setOpen(true); return;
-          case 'close': setOpen(false); return;
+          case 'close': shelve(); return;
           case 'panel': {
             let made = '';
             st.set(s => { const r = addPanel(s, [a, ...rest].filter(Boolean).join(' ')); made = r.id; return r.state; });
@@ -148,13 +162,30 @@ export function Shelves({ store, top }: { store: ShelvesStore; top?: ReactNode }
 
   return (
     <>
-      <aside className={`uif-shelves ${open ? 'is-open' : ''}`} aria-label="Sidebar menu and button panels"
+      {!open && state.shelved && (
+        // the shelf: hover peeks the panel open, a press (or touch) pins it open
+        <button type="button" className="uif-shelves-tab" aria-label={`Open the ${title}`} title={`${title}: hover to look, press to open`}
+          onMouseEnter={() => setPeek(true)} onClick={() => setOpen(true)}>
+          <span>{title}</span>
+        </button>
+      )}
+      <aside className={`uif-shelves ${open ? 'is-open' : ''} ${peek && !state.shown ? 'is-peek' : ''}`} aria-label={title}
+        style={open ? { ['--uif-shelves-width' as string]: `${state.width ?? 300}px` } : undefined}
+        onMouseLeave={() => { if (peek && !state.shown) setPeek(false); }}
         data-uif-shelf-fallback={open ? SIDEBAR : undefined}>
         {open && (
-          <button type="button" className="uif-shelves-close" onClick={() => setOpen(false)} aria-label="Hide the sidebar"
-            title="hide the sidebar — it comes back when a button is dragged off the field (or: shelf open)">✕</button>
+          <div className="uif-shelves-head">
+            <b>{title}</b>
+            <button type="button" role="switch" aria-checked={!!state.shown} className={`uif-shelves-switch ${state.shown ? 'is-on' : ''}`}
+              onClick={() => (state.shown ? shelve() : setOpen(true))}
+              title={state.shown ? 'switch off: shelve it to the left edge (hover or touch the tab to open it again)' : 'switch on: keep it open'}>
+              <span />
+            </button>
+          </div>
         )}
-        {open && state.shelves.map((sh, i) => (
+        {open && <div className="uif-shelves-resize" onPointerDown={resize} role="separator" aria-orientation="vertical" aria-label="Resize the panel" title="drag to resize" />}
+        {open && top}
+        {open && state.shelves.map(sh => (
           <Fragment key={sh.id}>
           <section className={`uif-shelf ${sh.id === SIDEBAR ? 'is-menu' : 'is-panel'}`} data-uif-shelf={sh.id} aria-label={sh.title}>
             <header>
@@ -175,8 +206,6 @@ export function Shelves({ store, top }: { store: ShelvesStore; top?: ReactNode }
               {!sh.ids.length && <p className="uif-shelf-empty">drop buttons here</p>}
             </div>
           </section>
-          {/* the page's own content comes right after the menu (the menu stays a short drop strip at the top) */}
-          {i === 0 && top}
           </Fragment>
         ))}
         {open && <button type="button" className="uif-shelf-newpanel" onClick={() => store.set(s => addPanel(s).state)}>+ panel</button>}

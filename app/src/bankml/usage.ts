@@ -45,7 +45,10 @@ export interface AnswerRecord {
   memory: number;
 }
 
-export interface Usage { loads: LoadRecord[]; answers: AnswerRecord[] }
+/** The prompt cache: the system prompt read once and kept ('warmed'), or a kept slot restored ('restored'). */
+export interface WarmRecord { at: number; how: 'warmed' | 'restored'; tokens: number; bytes: number; ms: number; threads: number }
+
+export interface Usage { loads: LoadRecord[]; answers: AnswerRecord[]; warms?: WarmRecord[] }
 
 const KEY = 'browseml:usage';
 const KEEP = 50;
@@ -56,7 +59,7 @@ const store = {
   read(): Usage {
     try {
       const o = JSON.parse(globalThis.localStorage?.getItem(KEY) || 'null');
-      if (o && Array.isArray(o.loads) && Array.isArray(o.answers)) return { loads: o.loads.slice(-KEEP), answers: o.answers.slice(-KEEP) };
+      if (o && Array.isArray(o.loads) && Array.isArray(o.answers)) return { loads: o.loads.slice(-KEEP), answers: o.answers.slice(-KEEP), warms: Array.isArray(o.warms) ? o.warms.slice(-KEEP) : [] };
     } catch { /* storage off, or not ours */ }
     return { loads: [], answers: [] };
   },
@@ -76,7 +79,11 @@ export function recordAnswer(r: Omit<AnswerRecord, 'at'>) {
   const u = store.read();
   store.write({ ...u, answers: [...u.answers, { ...r, at: now() }].slice(-KEEP) });
 }
-export function clearUsage() { store.write({ loads: [], answers: [] }); }
+export function recordWarm(r: Omit<WarmRecord, 'at'>) {
+  const u = store.read();
+  store.write({ ...u, warms: [...(u.warms ?? []), { ...r, at: now() }].slice(-KEEP) });
+}
+export function clearUsage() { store.write({ loads: [], answers: [], warms: [] }); }
 /** Tests only: a fixed clock. */
 export function setClock(f: () => number) { now = f; }
 
@@ -134,7 +141,7 @@ export interface Now {
 /** What to change, worked out from what was measured here: the worst first. */
 export function advise(u: Usage, n: Now): Verdict[] {
   const s = summarize(u);
-  if (!u.loads.length && !u.answers.length) {
+  if (!u.loads.length && !u.answers.length && !(u.warms ?? []).length) {
     return [{ level: 'ok', text: 'nothing measured yet: load browseML and ask — every number here is what ran in this browser, never an estimate' }];
   }
   const out: Verdict[] = [];
@@ -174,6 +181,10 @@ export function advise(u: Usage, n: Now): Verdict[] {
   if (n.cacheRam > 0 && withCache.length >= 3 && !withCache.some(a => a.cached > 0)) {
     out.push({ level: 'warn', text: `the ${n.cacheRam} MiB prompt cache reused nothing in ${withCache.length} answers: set it to 0 to give that memory back` });
   }
+  // the prompt cache: what a kept slot saved, measured (a restore against the last time the prompt was read)
+  const warms = u.warms ?? [], read = [...warms].reverse().find(w => w.how === 'warmed'), back = [...warms].reverse().find(w => w.how === 'restored');
+  if (read && back) out.push({ level: 'ok', text: `the prompt cache: ${back.tokens} prompt tokens restored in ${(back.ms / 1000).toFixed(1)} s, where reading them took ${(read.ms / 1000).toFixed(0)} s` });
+  else if (read) out.push({ level: 'ok', text: `the prompt was read once (${read.tokens} tokens, ${(read.ms / 1000).toFixed(0)} s) and kept: the next visit restores it in a moment` });
   if (s.retries) out.push({ level: 'ok', text: `the connection cut ${s.retries} piece${s.retries === 1 ? '' : 's'} of the download; each was asked for again from where it stopped` });
   const order = { bad: 0, warn: 1, ok: 2 } as const;
   return out.sort((a, b) => order[a.level] - order[b.level]);

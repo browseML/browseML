@@ -8,7 +8,8 @@ import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import type { UIFContextValue } from '../components/UIFContext';
 import type { ReplyMarks, SendMeta } from '../types';
 import { slackWindow, type Turn, type Verdict } from '../bankml/engine';
-import { askBrowse, browseCached, browseState, loadBrowse, sessionCleanup } from '../bankml/free';
+import { askBrowse, browseCached, browseState, download, downloadState, loadBrowse, sessionCleanup, warmBrowse } from '../bankml/free';
+import { getLimits } from './limits';
 import { deliver, type DeliveryHooks, type Outcome } from '../bankml/deliver';
 
 /** Said in place of an answer while browseML is not ready; the card under it offers the import. */
@@ -26,9 +27,23 @@ export function useBrowseML(uif: MutableRefObject<UIFContextValue | null>) {
   const held = useRef<Held | null>(null);
   useEffect(() => { sessionCleanup(); }, []);
 
-  /** browseML verified (the card's import, or a model already kept): the held question is asked in its window. */
-  const ready = () => {
+  /** The prompt cache: the page's system prompt read into the engine now (or its slot restored from an earlier
+   *  visit), so the next question reads only itself. The field composes it as it will for a question (forSend). */
+  const warm = async () => {
+    const f = uif.current;
+    if (!f || !browseState() || !getLimits().warm) return;
+    await warmBrowse(f.context.forSend('', '').system);
+  };
+  /** The page opened with the model already kept here: started and warmed in the background (nothing is downloaded). */
+  const preload = async () => {
+    if (browseState() || !getLimits().warm || !(await browseCached())) return;
+    try { await loadBrowse(); tick(n => n + 1); await warm(); } catch { /* the card says so when asked */ }
+  };
+
+  /** browseML verified (the card's import, or a model already kept): warmed, then the held question is asked. */
+  const ready = async () => {
     tick(n => n + 1);
+    await warm();
     const q = held.current;
     held.current = null;
     const f = uif.current;
@@ -68,17 +83,35 @@ export function useBrowseML(uif: MutableRefObject<UIFContextValue | null>) {
       annotate({ engine: 'browseml', model: browseState()?.model ?? 'Bonsai-1.7B-Q1_0.gguf', receipt: v.receipt ?? null, verified: v.ok, ...(v.usage ? { usage: v.usage } : {}) });
       done(v);
     };
-    return deliver(done => askBrowse(context.system, turnsOf(outputId), text, settle(done)), hooks, {
+    return deliver(done => askBrowse(context.system, turnsOf(outputId), text, settle(done), undefined, signal), hooks, {
       where: WHERE, receipts: true, signal,
       prepare: async progress => {
         if (browseState()) return null;
         // kept in this browser already: started (bankML checks it) without asking anything of the visitor
-        if (await browseCached()) { await loadBrowse(progress); tick(n => n + 1); return null; }
-        held.current = { text, outputId };
-        return { note: NOT_READY, widget: WIDGET };
+        if (await browseCached()) {
+          await loadBrowse(progress);
+          tick(n => n + 1);
+          progress('reading browseML\'s prompt once — kept in this browser for next time…');
+          await warm();
+          return null;
+        }
+        // asked first (the limiter, or a browser saving data): the card's button starts it
+        if (getLimits().askFirst) { held.current = { text, outputId }; return { note: NOT_READY, widget: WIDGET }; }
+        // asking is the go-ahead: the model is loaded now, in the background, its progress in the window's card
+        uif.current?.outputs.append(outputId, { role: 'system', text: '', widget: WIDGET });
+        progress('Loading the model in your browser…');
+        const v = await download();
+        if (!v) {
+          held.current = { text, outputId };
+          return { note: `The model could not be loaded (${downloadState().error ?? downloadState().phase}). Try again below.`, widget: WIDGET };
+        }
+        tick(n => n + 1);
+        progress('reading browseML\'s prompt once — kept in this browser for next time…');
+        await warm();
+        return null;
       },
     });
   };
 
-  return { onSend, ready, live, outcome, last, isReady: !!browseState() };
+  return { onSend, ready, preload, warm, live, outcome, last, isReady: !!browseState() };
 }

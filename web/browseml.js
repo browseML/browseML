@@ -13,7 +13,7 @@ export const MODEL = {
 };
 const CACHE = "browseml-models";
 
-let worker = null, ready = null, busy = null;
+let worker = null, ready = null, busy = null, stopFlag = null, ending = null;
 /** The engine's WebAssembly memory after its last open or answer, in bytes (0 when not loaded). */
 export let memoryBytes = 0;
 
@@ -110,7 +110,7 @@ export function unload() {
 /** The model's bytes in this browser's cache, or 0. */
 export async function cachedBytes() { try { const r = await (await caches.open(CACHE)).match(MODEL.url); return r ? +(r.headers.get("Content-Length") || MODEL.bytes) : 0; } catch { return 0; } }
 export async function isCached() { try { return !!(await (await caches.open(CACHE)).match(MODEL.url)); } catch { return false; } }
-export async function forget() { try { await caches.delete(CACHE); } catch {} }
+export async function forget() { try { await caches.delete(CACHE); await caches.delete(SLOTS); } catch {} }
 
 /**
  * Load bankML in this browser: the model (downloaded or cached), the engine, and bankML's verification.
@@ -150,27 +150,37 @@ async function loadOnce(progress, log, { threads: want, ctx = 4096, cacheRam = 0
       else if (m.type === "opened") { memoryBytes = m.memory || 0; m.rc === 0 ? resolve({ ...JSON.parse(m.out), threads: m.threads, ctx, build: m.build }) : reject(new Error(m.out)); }
     };
     worker.onerror = (e) => reject(new Error(e.message || "the engine could not start"));
-    worker.postMessage({ type: "open", name: MODEL.name, bytes, fork, threads: Math.max(1, Math.min(threads(), want || threads())), ctx, cacheRam }, [bytes]);
+    // the STOP flag: shared memory where the page is cross-origin isolated (else stop() ends the engine)
+    stopFlag = typeof SharedArrayBuffer !== "undefined" && globalThis.crossOriginIsolated ? new Int32Array(new SharedArrayBuffer(4)) : null;
+    worker.postMessage({ type: "open", name: MODEL.name, bytes, fork, threads: Math.max(1, Math.min(threads(), want || threads())), ctx, cacheRam, stop: stopFlag && stopFlag.buffer }, [bytes]);
   });
   loadStats = { ...st, openMs: Math.round(performance.now() - t0) - st.modelMs, totalMs: Math.round(performance.now() - t0), memory: memoryBytes, threads: verified.threads, ctx, cacheRam, build: verified.build };
   ready = verified;
   return verified;
 }
 
+/** The engine's work in order: an answer, a warm-up or a slot waits for the one before it (one engine, one slot). */
+let lane = Promise.resolve();
+const inLane = (job) => { const run = lane.then(job); lane = run.catch(() => {}); return run; };
+
 /**
  * One answer: an OpenAI-shaped request (messages, max_tokens, …), the pieces as they are written, and the
- * `/v1/chat/completions` object at the end (usage, timings, bankml_receipt).
+ * `/v1/chat/completions` object at the end (usage, timings, bankml_receipt). Asked while the engine is busy (an answer,
+ * a warm-up), it waits its turn.
  */
 export function chat(request, onPiece, log = () => {}) {
   if (!ready) return Promise.reject(new Error("browseML is not loaded"));
-  if (busy) return Promise.reject(new Error("browseML is still writing the last answer"));
-  busy = new Promise((resolve, reject) => {
+  const job = () => new Promise((resolve, reject) => {
+    if (!worker) return reject(new Error("browseML is not loaded"));
+    busy = true;
+    if (stopFlag) Atomics.store(stopFlag, 0, 0);
+    ending = () => { busy = null; ending = null; reject(new Error("stopped: the engine was ended (load it again to ask)")); };
     worker.onmessage = (e) => {
       const m = e.data;
       if (m.type === "piece") onPiece(m.text);
       else if (m.type === "log") log(m.level, m.text);
       else if (m.type === "done") {
-        busy = null;
+        busy = null; ending = null;
         memoryBytes = m.memory || memoryBytes;
         if (m.rc === -99) { ready = null; worker.terminate(); worker = null; }  // the engine trapped: load it again
         const j = (() => { try { return JSON.parse(m.out); } catch { return { error: { message: m.out } }; } })();
@@ -179,5 +189,76 @@ export function chat(request, onPiece, log = () => {}) {
     };
     worker.postMessage({ type: "chat", request });
   });
-  return busy;
+  return inLane(job);
+}
+
+/**
+ * STOP: the answer being written ends at its next piece, and comes back as written so far, with its receipt. Where
+ * the page is not cross-origin isolated (no shared memory to reach the busy engine), the engine itself is ended: the
+ * model stays in this browser and the next question loads it again.
+ * @returns {"stopped"|"ended"|"idle"}
+ */
+export function stop() {
+  if (!busy) return "idle";
+  if (stopFlag) { Atomics.store(stopFlag, 0, 1); return "stopped"; }
+  if (worker) worker.terminate();
+  worker = null; ready = null; memoryBytes = 0;
+  if (ending) ending();
+  return "ended";
+}
+
+/** The engine's slot to or from bytes: "save" resolves to the slot file, "restore" to {tokens, bytes}. */
+function slot(action, bytes) {
+  return inLane(() => new Promise((resolve, reject) => {
+    if (!worker) return reject(new Error("browseML is not loaded"));
+    busy = true;
+    worker.onmessage = (e) => {
+      const m = e.data;
+      if (m.type !== "slotted") return;
+      busy = null;
+      const j = (() => { try { return JSON.parse(m.out); } catch { return { error: { message: m.out } }; } })();
+      if (m.rc !== 0) return reject(new Error(j.error ? j.error.message : m.out));
+      resolve(action === "save" ? { ...j, file: new Uint8Array(m.bytes) } : j);
+    };
+    worker.postMessage({ type: "slot", action, name: "warm.slot", bytes }, bytes ? [bytes] : []);
+  }));
+}
+
+/** Warm slots, kept in this browser beside the model: one, the last (a new prompt, context or model replaces it). */
+const SLOTS = "browseml-slots";
+const hex = async (text) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)))].map((b) => b.toString(16).padStart(2, "0")).join("");
+
+/**
+ * The prompt cache, across visits: read `system` once and keep the engine's slot, so a question that starts with it
+ * reads only what is new. A slot kept from an earlier visit (same model, context and system prompt — its key is their
+ * sha256) is restored in a moment; otherwise the system prompt is read now (in the background, before the first
+ * question; a question asked meanwhile waits and reuses it), then the slot is saved and kept. bankML checks a restored
+ * slot: its own sha256, and the model it was read with.
+ * @returns {Promise<{how: "restored"|"warmed"|"failed", tokens?: number, bytes?: number, ms: number, error?: string}>}
+ */
+export async function warm(system, { log = () => {} } = {}) {
+  if (!ready) throw new Error("browseML is not loaded");
+  const t0 = performance.now(), ms = () => Math.round(performance.now() - t0);
+  const key = `https://browseml.invalid/slot/${await hex(`${ready.sha256}\n${ready.ctx}\n${system}`)}`;
+  let c = null;
+  try { c = await caches.open(SLOTS); } catch { /* no Cache Storage: warm for this visit only */ }
+  try {
+    const kept = c && (await c.match(key));
+    if (kept) {
+      const r = await slot("restore", await kept.arrayBuffer());
+      return { how: "restored", tokens: r.tokens, bytes: r.bytes, ms: ms() };
+    }
+  } catch (e) { log(1, `the kept slot was not used (${e.message || e}): reading the prompt again`); }
+  try {
+    // the system prompt and an empty question, one token written and thrown away: what stays is the slot
+    await chat({ messages: [{ role: "system", content: system }, { role: "user", content: "" }], max_tokens: 0, temperature: 0 }, () => {});
+    const saved = await slot("save");
+    if (c) {
+      try { for (const r of await c.keys()) await c.delete(r); await c.put(key, new Response(saved.file, { headers: { "Content-Type": "application/octet-stream" } })); }
+      catch { /* storage full: warm for this visit only */ }
+    }
+    return { how: "warmed", tokens: saved.tokens, bytes: saved.bytes, ms: ms() };
+  } catch (e) {
+    return { how: "failed", ms: ms(), error: String(e.message || e) };
+  }
 }

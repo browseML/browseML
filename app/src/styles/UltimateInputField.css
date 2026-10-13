@@ -1518,3 +1518,23 @@
 /* while its tray is open the field (even docked in the page) is in front of response windows, below floating buttons */
 .ultimate-input-field.has-tools-open { z-index: 1800 !important; }
 @media (hover: none) and (pointer: coarse) { .uif-tools-toggle { width: 44px; height: 44px; } }
+
+/* the panel's head: its title and the switch that shelves it; the shelf tab; the resize edge */
+.uif-shelves.is-open { padding-top: 0; }
+.uif-shelves-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin: 0 -10px 10px; padding: 10px 12px; background: rgba(11, 15, 20, .92); border-bottom: 1px solid #263241;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.uif-shelves-head b { font: 700 12px ui-monospace, monospace; letter-spacing: .14em; text-transform: uppercase; color: #f8fafc; }
+.uif-shelves-switch { position: relative; width: 40px; height: 22px; border-radius: 999px; border: 1px solid #334155; background: #1f2937; cursor: pointer; padding: 0; }
+.uif-shelves-switch span { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #94a3b8; transition: left .15s ease, background .15s ease; }
+.uif-shelves-switch.is-on { background: rgba(14, 203, 129, .25); border-color: var(--candle-green, #0ECB81); }
+.uif-shelves-switch.is-on span { left: 20px; background: var(--candle-green, #0ECB81); }
+@media (hover: none) and (pointer: coarse) { .uif-shelves-switch { width: 52px; height: 30px; } .uif-shelves-switch span { width: 24px; height: 24px; } .uif-shelves-switch.is-on span { left: 24px; } }
+.uif-shelves.is-peek { box-shadow: 8px 0 32px rgba(0, 0, 0, .55); }
+.uif-shelves-tab { position: fixed; left: 0; top: 50%; transform: translateY(-50%); z-index: 991; width: 22px; min-height: 120px; padding: 8px 0;
+  border: 1px solid #334155; border-left: 0; border-radius: 0 10px 10px 0; background: rgba(13, 17, 23, .92); color: #cbd5e1; cursor: pointer; }
+.uif-shelves-tab span { writing-mode: vertical-rl; transform: rotate(180deg); font: 700 10px ui-monospace, monospace; letter-spacing: .16em; text-transform: uppercase; }
+.uif-shelves-tab:hover, .uif-shelves-tab:focus-visible { border-color: var(--btc-orange, #F7931A); color: #fff; }
+@media (hover: none) and (pointer: coarse) { .uif-shelves-tab { width: 32px; } }
+.uif-shelves-resize { position: absolute; top: 0; right: 0; bottom: 0; width: 7px; cursor: ew-resize; z-index: 3; }
+.uif-shelves-resize:hover, .uif-shelves-resize:active { background: linear-gradient(90deg, transparent, var(--btc-orange, #F7931A) 45%, transparent); opacity: .7; }

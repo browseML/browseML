@@ -6,7 +6,7 @@
 import type { Turn, Verdict } from './engine';
 import { sha256hex } from './engine';
 import { ctxCapFor } from './caps';
-import { recordAnswer, recordLoad } from './usage';
+import { recordAnswer, recordLoad, recordWarm } from './usage';
 
 const esm = (url: string): Promise<any> => import(/* @vite-ignore */ url);
 const MAX_TOKENS = 384;
@@ -138,6 +138,8 @@ export async function unloadBrowse(): Promise<void> {
   const b = await mod();
   b.unload();
   browsed = null;
+  warmedFor = '';
+  setWarm({ phase: 'cold' });
 }
 
 // ── the download, under the visitor's control ─────────────────────────────────────────────────────────────────
@@ -371,19 +373,67 @@ export function sessionCleanup() {
   if (fresh && settings.removeAfterSession) dropCaches();
 }
 
-export async function* askBrowse(composed: string, turns: Turn[], message: string, done: (v: Verdict) => void, maxTokens = settings.maxTokens): AsyncGenerator<string> {
+/** The system prompt browseML is asked with: the page's (persona, memory) and where it runs. The same text is warmed
+ *  (warmBrowse), so a question finds it already read. */
+export function systemFor(composed: string, v: Browsed): string {
+  const where = `WHERE YOU ARE RUNNING (measured by bankML just now): ${v.model} (sha256 ${v.sha256.slice(0, 16)}…), verified by bankML ${v.version}, ` +
+    // no thread count here: it never changes an answer's bits, and Brave varies the cores it reports from one visit to
+    // the next, which would make a new prompt (and a new warm slot) every time
+    `in the visitor's own web browser, compiled to WebAssembly (browseML), on the visitor's CPU; nothing is sent anywhere.`;
+  return composed + '\n\n' + where;
+}
+
+// ── the prompt cache across visits: the system prompt read once, its slot kept ───────────────────────────────────
+export type WarmState =
+  | { phase: 'cold' }
+  | { phase: 'warming'; since: number }
+  | { phase: 'restored' | 'warmed'; tokens: number; bytes: number; ms: number }
+  | { phase: 'failed'; error: string };
+let warmState: WarmState = { phase: 'cold' };
+let warmedFor = '';
+const warmFns = new Set<() => void>();
+export const browseWarm = () => warmState;
+export function onBrowseWarm(f: () => void) { warmFns.add(f); return () => { warmFns.delete(f); }; }
+const setWarm = (w: WarmState) => { warmState = w; warmFns.forEach(f => f()); };
+
+/** Read `composed` (the page's system prompt) into the engine now, or restore it from a slot kept on an earlier visit,
+ *  so the next question reads only itself. Once per prompt and engine; a question asked meanwhile waits its turn. */
+export async function warmBrowse(composed: string): Promise<WarmState> {
   const b = await mod();
+  if (!b.isReady() || !browsed) return warmState;
+  const system = systemFor(composed, browsed);
+  const key = `${browsed.sha256}|${browsed.ctx}|${system}`;
+  if (key === warmedFor && warmState.phase !== 'failed') return warmState;
+  warmedFor = key;
+  setWarm({ phase: 'warming', since: Date.now() });
+  const r = await b.warm(system);
+  setWarm(r.how === 'failed' ? { phase: 'failed', error: r.error ?? 'unknown' } : { phase: r.how, tokens: r.tokens, bytes: r.bytes, ms: r.ms });
+  if (r.how !== 'failed') recordWarm({ how: r.how, tokens: r.tokens, bytes: r.bytes, ms: r.ms, threads: browsed?.threads ?? 1 });
+  return warmState;
+}
+
+/** STOP the answer being written: it ends at its next piece (shared memory), or the engine is ended (no shared
+ *  memory here; the next question loads the kept model again). */
+export async function stopBrowse(): Promise<'stopped' | 'ended' | 'idle'> {
+  const b = await mod();
+  const how = b.stop();
+  if (how === 'ended') { browsed = null; warmedFor = ''; setWarm({ phase: 'cold' }); }
+  return how;
+}
+
+export async function* askBrowse(composed: string, turns: Turn[], message: string, done: (v: Verdict) => void, maxTokens = settings.maxTokens, signal?: AbortSignal): AsyncGenerator<string> {
+  const b = await mod();
+  // the field's Stop reaches the engine
+  signal?.addEventListener('abort', () => { void stopBrowse(); }, { once: true });
   if (!b.isReady()) {
     // nothing is downloaded unasked: the response window's card offers the import
     if (!(await browseCached())) throw new Error('browseML is not imported yet: press "Import browseML" (248 MB once)');
     await loadBrowse();
   }
   const v = browsed!;
-  const where = `WHERE YOU ARE RUNNING (measured by bankML just now): ${v.model} (sha256 ${v.sha256.slice(0, 16)}…), verified by bankML ${v.version}, ` +
-    `in the visitor's own web browser, compiled to WebAssembly (browseML), on ${v.threads} CPU thread${v.threads > 1 ? 's' : ''}; nothing is sent anywhere.`;
   const pieces: string[] = [];
   let wake: (() => void) | null = null, end = false, err: unknown = null, result: any = null;
-  b.chat({ messages: [{ role: 'system', content: composed + '\n\n' + where }, ...turns, { role: 'user', content: message }], max_tokens: maxTokens },
+  b.chat({ messages: [{ role: 'system', content: systemFor(composed, v) }, ...turns, { role: 'user', content: message }], max_tokens: maxTokens },
     (p: string) => { pieces.push(p); wake?.(); }, () => {})
     .then((r: any) => { result = r; end = true; wake?.(); }, (e: unknown) => { err = e; end = true; wake?.(); });
   let text = '';
