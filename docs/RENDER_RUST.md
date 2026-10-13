@@ -469,17 +469,39 @@ proposed. That change would be opt-in: a setting, off by default.
 
 | bar | status | evidence |
 |---|---|---|
-| A · exactness per stage, x86-64 | **pass** (ported stages) | E0 0 bits, events identical, E1 ≥ 280 dB; golden + 6-sentence corpus |
+| A · exactness per stage, x86-64 | **pass** (ported stages), **also on production** | E0 0 bits, events identical, E1 ≥ 280 dB; golden + 6-sentence corpus; on the VPS the ctypes build against its live `overlord_dsp.py` gives E0 0 bits on all 6 sentences |
 | A · exactness per stage, wasm32 (+simd128, none, +relaxed-simd) | **pass** (ported stages) | the same 17 tests; xmath proven against glibc natively |
-| A · end to end, int16 | **partial** | sentence mix → int16: 0 samples differ on all 6 sentences. `finish_document` (hall, compressor, int16) is not ported, so the document's int16 is untested |
+| A · end to end, int16 | **partial** | sentence mix → int16: 0 samples differ on all 6 sentences, locally and on production. `finish_document` (hall, compressor, int16) is not ported, so the document's int16 is untested |
 | A · decoded Opus / bytes | **not started** | no encoder in the crate |
-| A · speed ≤ 0.5× CPU per audio-s, production host | **not measured on production.** Locally: like for like **0.48–0.60× (median 0.55×) — fails**; with diagnostics sampled 1 in 8, 0.36–0.50× (median 0.40×) — passes if the operator accepts sampled diagnostics (§5 q10); wasm32 0.58–0.71× (wall) | §3.4.3 |
+| A · speed ≤ 0.5× CPU per audio-s, production host | **measured on production (2026-10-13): like for like median 0.57× (0.55–0.85×) — fails; diagnostics sampled 1 in 8, median 0.42× (0.40–0.79×) — passes if the operator accepts sampled diagnostics (§5 q10); diagnostics off 0.38×.** 3 interleaved rounds × median of 2, not yet the ≥ 5 the bar asks; out of the speak slice (see §4.4) | §4.4 |
 | A · reproducibility | **partial** | goldens from the reference with its sha256 recorded, test log in this file; the fixed corpus of 3 rage articles is not built (local corpus: 6 sentences of one open voice) |
 | B · no interruption (browser, server) | **untested** (specified in §4.2) | not measured |
 
 **Verdict: Gate A is not passed and Gate B is untested, so browseML does not adopt it.** The crate is exact on
-every target that would ship; what remains is speed on production like-for-like, the document finish, and the
-corpus.
+every target that would ship and on the production host; production confirms the local speed (like for like fails,
+sampled passes), so what remains is the q10 decision, the document finish, the corpus, and Gate B.
+
+### 4.4 Production measurement (2026-10-13, read-only)
+
+Host: mindx.pythai.net, AMD EPYC 7543P, 2 vCPU (avx2), glibc 2.39, numpy 2.2.6, numba 0.61.2. The release build, the
+C library and the corpus were copied to `/tmp/odsp` (owned by the service user); nothing was written into the
+production tree, nothing was wired.
+
+| check | result |
+|---|---|
+| `xmath` against glibc 2.39 (incl. the exhaustive test) | 3/3 pass: the table measured on glibc 2.35 holds unchanged (§5 q9 closed) |
+| ctypes vs the live `overlord_dsp.py`, golden sentence | E0 stages 0 bits differ; int16 0 of 113,722 samples differ |
+| `corpus.py check`, 6 sentences | every sentence: E0 0 bits, lags and offsets identical, mix ≥ 301 dB, int16 0 differ |
+| `corpus.py bench` (thread CPU s per audio s, 28.26 s of audio) | reference 0.0683; Rust diag every 0.0377 (**0.57×**); diag 1/8 0.0277 (**0.42×**); diag off 0.0265 (0.38×) |
+| `overlord-bench --corpus` (pure Rust) | diag every 0.0372, 1/8 0.0270, off 0.0253 |
+
+**Not under the speak slice, and why.** The bar asks for both under the same slice. Run there at nice 15 beside the
+live OVERLORD render of post 1618 (piper at nice 10, load average 10–14 on 2 vCPU), the xmath test got 13 s of CPU in
+23 min and the bench 12 s in 1 h 44 min; both were stopped. The figures above were taken out of the slice at nice 19.
+The unit is the thread's own CPU time, so the ratio is valid; what it does not show is cache and frequency effects of
+sharing a slice. That a second job in the speak slice starves while a render runs is itself a Gate B fact: the slice
+already holds its quota, and the DSP would only replace work inside it, never add a neighbour.
+
 
 ## 5. Open questions
 
@@ -498,17 +520,17 @@ corpus.
    both. A Rust path needs one named reference.
 8. **A browser "OVERLORD-open"** from public-domain voices (bryce/john/norman + kristin/cori) is technically possible.
    It needs a name and an operator decision. It is not OVERLORD.
-9. **Production's glibc.** `src/glibc_tables.rs` was measured on glibc 2.35 (this box). If the VPS runs a different
-   glibc, run `cargo test --release --test xmath -- --include-ignored` there (seconds); if it fails, regenerate the
-   table there (`gen-tables`) — the table must describe the glibc the reference actually runs on.
+9. ~~**Production's glibc.**~~ Closed 2026-10-13: `src/glibc_tables.rs` was measured on glibc 2.35 and the xmath
+   test passes unchanged on the VPS's glibc 2.39 (§4.4). On any other host, run
+   `cargo test --release --test xmath -- --include-ignored` there; if it fails, regenerate the table there (`gen-tables`).
 10. **Is like-for-like the right speed bar?** The diagnostics (`residual_lag_ms`, `offset_samples` ×3) are manifest
    figures. With them sampled 1 in 8 the crate is at or under 0.5×; computing them every sentence it is not. Whether
    the gate compares the reference's DSP or the DSP the render needs is an operator call.
 
 ## 6. Next steps (after iteration 2)
 
-1. **Measure on production** (read-only, no wiring): copy the crate's release build and the corpus there, run
-   `python/corpus.py bench` and `overlord-bench --corpus` inside the speak slice; and the `xmath` test against its glibc.
+1. ~~**Measure on production**~~ Done 2026-10-13 (§4.4). Outstanding: ≥ 5 rounds, and inside the speak slice at a
+   moment when no render is running.
 2. **Port `finish_document`** (hall overlap-add, hop compressor, int16) and test the document's int16 end to end
    (≤ 1 LSB in ≤ 0.1% of samples).
 3. **Build the gate's corpus** (3 rage articles + the golden sentence) as the fixed input of every figure.
