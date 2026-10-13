@@ -118,11 +118,12 @@ export async function sensors(): Promise<Sensors> {
 }
 
 export interface Available { reported: number | null; available: number; claim: number; totals: number[]; ms: number }
-/** How much processor this computer has free right now, measured: bursts of 1, 2, 3 … workers (up to `cap`); each
- *  worker that adds real throughput (≥ 12% more in total) is a thread available, and the count stops where adding one
- *  gains nothing (all cores busy, or another program has them). Past the cores the browser reports, too (Brave reports
- *  fewer). The claim leaves room for the unexpected: one thread when four or more are free. */
-export async function availableThreads(cap = 8, ms = 220): Promise<Available> {
+/** How much processor this computer has free right now, measured: bursts of 1 to `cap` workers (each twice, the
+ *  better kept, so one noisy burst does not decide), and the smallest count that reaches 90% of the best total is what
+ *  is free — past the cores the browser reports, too (Brave reports fewer). When that is under half of what the browser
+ *  reports, the computer may have been busy for a moment: measured once more, and the higher kept. The claim leaves
+ *  room for the unexpected (`claimOf`). */
+export async function availableThreads(cap = 8, ms = 160): Promise<Available> {
   const url = URL.createObjectURL(new Blob([CPU_WORKER], { type: 'text/javascript' }));
   const t0 = performance.now();
   const run = (n: number) => Promise.all(Array.from({ length: n }, () => new Promise<number>(ok => {
@@ -130,17 +131,24 @@ export async function availableThreads(cap = 8, ms = 220): Promise<Available> {
     w.onmessage = e => { ok(e.data.ops); w.terminate(); };
     w.postMessage({ ms });
   }))).then(v => v.reduce((a, b) => a + b, 0));
+  const sweep = async () => { const t: number[] = []; for (let n = 1; n <= cap; n++) t.push(Math.max(await run(n), await run(n))); return t; };
   try {
-    const totals = [await run(1)];
-    let available = 1;
-    for (let n = 2; n <= cap; n++) {
-      const t = await run(n);
-      totals.push(t);
-      if (t < totals[n - 2] * 1.12) break;
-      available = n;
+    let totals = await sweep();
+    let available = availableFrom(totals);
+    const reported = navigator.hardwareConcurrency || null;
+    if (reported && available < reported / 2) {
+      await new Promise(r => setTimeout(r, 400));
+      const again = await sweep();
+      if (availableFrom(again) > available) { totals = again; available = availableFrom(again); }
     }
-    return { reported: navigator.hardwareConcurrency || null, available, claim: claimOf(available), totals, ms: Math.round(performance.now() - t0) };
+    return { reported, available, claim: claimOf(available), totals, ms: Math.round(performance.now() - t0) };
   } finally { URL.revokeObjectURL(url); }
+}
+/** Threads free, from the total work done by 1, 2, 3 … workers: the fewest that reach 90% of the best (pure, so
+ *  tested). */
+export function availableFrom(totals: number[]): number {
+  const best = Math.max(...totals);
+  return Math.max(1, totals.findIndex(t => t >= best * 0.9) + 1);
 }
 /** What browseML takes of `available` threads: all of them up to three, one fewer from four (room for the page and
  *  for anything unexpected). Pure, so tested. */

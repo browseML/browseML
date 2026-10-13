@@ -10,7 +10,11 @@
 - **The processor, measured:** at the first interaction browseML measures how many threads are free right now (bursts
   of 1, 2, 3 … workers; a thread counts when it adds real throughput), past the cores the browser reports, and claims
   them with room: one left for the unexpected from four. The engine waits for the measure, so it starts with it. The
-  CPU slider shows it (free, reported, the claim), with AUTO and RE-MEASURE; a count you choose wins.
+  CPU slider shows it (free, reported, the claim), with AUTO and RE-MEASURE; a count you choose wins. Robust to a
+  busy moment: every count from 1 to 8 measured twice (about 2.6 s, once a visit), the fewest workers reaching 90% of
+  the best total taken, and measured again when that is under half of what the browser reports.
+- Fixed: switching persona now reads and keeps the new persona's prompt (it used the context from before the switch).
+  Found by the browser checks.
 - **Prompts kept per persona:** each prompt (a persona, a `.prompt`, a context size) keeps its own read slot, up to a
   number you set (1–8, default 4), the least recently used removed first; switching back is a restore in a moment,
   not minutes of reading. CACHE lists them by name (tokens, size, context, last used), forgets any one, READ NOW,
