@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.6 — in progress — speed, measured to the kernel
+
+- **Cheaper sign lanes** (bankML `1c3c16c`): the relaxed WebAssembly kernels make each block's 0/1 lanes in three
+  operations instead of five. A/B, 4 threads, alternating runs: prompt reading 6.72 → 7.13 tok/s (+6%); writing
+  unchanged; every answer identical. The WASM test now also holds the per-token kernel to the reference.
+- **Where a token's time goes**, profiled: the per-token kernel 55%, the prefill tile 21%, attention 6.5%; writing is
+  bound by arithmetic, not memory. Recorded in `docs/TODO.md` with the next steps (the GPU in the forward pass, exact
+  speculative decoding, attention).
+- **Measured and not kept:** a 2-row tile for writing on WebAssembly, bit-exact but no faster (2.97 → 2.88 tok/s),
+  as bankML had found on x86.
+
 ## 0.6.5 — 2026-10-13 — faster prompt reading, the processor measured, prompts kept per persona
 
 - **Prompt reading +34% in the browser** (bankML `1781a17`, branch `browseml`): WebAssembly now has bankML's prefill

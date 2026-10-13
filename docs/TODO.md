@@ -25,6 +25,24 @@ the second source, not the first. GitHub Release assets are not metered the same
 | **Origin Private File System** | the model and warm slots in OPFS (faster than Cache Storage for large files) | read back and hashed |
 | **More models** | Ternary-Bonsai, SmolLM2 in `browseML/models`, each with its pin and `verify.mjs --source` | the oracle per model, as bankML |
 
+## Speed — in bankML, each change bit-exact ([efficiency](efficiency.md))
+
+**Where a token's time goes** (profile, `browseml-mt-relaxed.wasm`, 2 threads, one recorded turn, 2026-10-13): the
+per-token Q1_0 kernel (`vec_dot_act`, writing) **55%**, the prefill tile (`mat_mul_act_rows`, reading the prompt)
+**21%**, kernel work inlined in the pool's workers 8.8%, attention 6.5%, the model's sha256 at open 2.5%. Writing
+streams ~0.85 GB/s of weights against ~10 GB/s of memory: it is bound by arithmetic, not memory.
+
+| step | what | measured | checked by |
+|---|---|---|---|
+| WebAssembly prefill tile | **done** (bankML `1781a17`): one row decoded once for four prompt tokens | reading +34% (5.08 → 6.82 tok/s, 4 threads) | `wasm_act_tile_bit_exact`, the oracle |
+| cheaper sign lanes | **done** (bankML `1c3c16c`): 0/1 lanes in 3 operations, not 5 | reading +6% (6.72 → 7.13); writing unchanged | the same test, now also per-token, the oracle |
+| GPU in the forward pass | the 1-bit matmuls handed to the GPU kernel already bit-exact on WebGPU; the biggest lever for writing | — | the oracle's answers identical with the GPU on |
+| exact speculative decoding | a few tokens drafted (n-gram from the prompt, or a smaller model), checked in one batch through the prefill tile; greedy and seeded sampling give the same tokens, only faster when drafts are accepted | — | the oracle, token for token |
+| 2-row tile for writing on WebAssembly | **measured, not kept**: two rows against one activation, bit-exact, but no faster (writing 2.97 → 2.88 tok/s, 4 threads, two alternating runs) — as on x86; the per-row arithmetic, not the activation's loads, is the cost | 2.97 → 2.88 | `wasm_act_tile_bit_exact` (with the tile) |
+| attention | f16 K·Q and V with the tile's ideas; 6.5% today, more at long contexts | — | the attention kernels' references, the oracle |
+| the sha256 at open | 2.5% of a short session: hash the pieces as they download (overlapped, not after); a kept copy is still hashed in full at every open | — | the whole file's sha256 against the pin, unchanged |
+| threads | **done** (browseML 0.6.5): the free threads measured, claimed with one spare | 4 free / 3 claimed where Brave reported 2 | `availableFrom`, the browser checks |
+
 ## GPU — WebGPU, exactly ([browseML/webgpu](https://github.com/browseML/webgpu))
 
 | module | what | checked by |
