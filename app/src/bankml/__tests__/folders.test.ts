@@ -19,10 +19,10 @@ describe('what a file on this computer is', () => {
     expect(classify({ size: PIN.bytes, named: '00'.repeat(32) }, PIN)).toBe('size');      // the right size, another name: hashed when used
     expect(classify({ size: 1_160_000_000, named: PIN.sha256 }, PIN)).toBe('other');       // a name that lies about its size
   });
-  it("a folder input's files, with their paths", () => {
+  it("a folder input's files, with their paths inside the folder (as a granted folder's scan gives them)", () => {
     const f = Object.assign(new File([new Uint8Array(1)], 'Bonsai-1.7B-Q1_0.gguf'), { webkitRelativePath: 'models/Bonsai-1.7B-Q1_0.gguf' });
     Object.defineProperty(f, 'size', { value: PIN.bytes });
-    expect(fromFileList([f])).toMatchObject([{ path: ['models', 'Bonsai-1.7B-Q1_0.gguf'], kind: 'gguf', size: PIN.bytes }]);
+    expect(fromFileList([f])).toMatchObject([{ path: ['Bonsai-1.7B-Q1_0.gguf'], kind: 'gguf', size: PIN.bytes }]);
   });
 });
 

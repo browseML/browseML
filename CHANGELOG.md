@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.6.2 — 2026-10-13 — the page just loads; the panel opens on the first interaction; HARD DRIVE; a release gate
+
+- **The page just loads.** Nothing starts until the visitor's first interaction (a press or a key anywhere): then the
+  control panel pops out on the left and browseML starts from a model already on this computer (kept in the browser,
+  or a remembered folder; nothing is downloaded by this). Shelved by the visitor, the panel stays shelved for the
+  visit; on a phone it is not opened for them (T opens it). A download starting also brings it out.
+- **START, STOP, CLEAR** in the panel's TOOLS: START starts browseML from what is here, else imports it (pulled once,
+  checked against its pin).
+- **The panel opening moves the field and windows clear of it**: a dropped field and the windows on its side shift
+  right of the panel instead of lying over it.
+- **HARD DRIVE** in the control panel: the browser's storage (used of what the site may use), whether the browser
+  keeps it under pressure (KEEP STORAGE asks), the model kept here, CLEAR (with a confirm), "remove the model after
+  the session", and **keep a copy of the model on this computer's disk**: written into a folder the visitor chooses
+  (File System Access, its size checked; with persistent access on, the folder is remembered and the next visit
+  starts from that copy) or, where the browser cannot write folders, saved to the downloads.
+- **The response window does not ask:** a question loads the model straight away, the window showing its progress;
+  the "Import browseML" button appears only with the *ask before downloading* limiter, now off by default (it used to
+  follow the browser's data-saver hint). A remembered folder's model is tried before any download.
+- **The control panel opens with the response window** (each new one, on a desktop), the field dropping beside it.
+  Each visit starts with the page alone, whatever the panel was last time.
+- **Room before the download:** the browser's quota for the site is checked before 248 MB are pulled, with what is
+  left and what to do, instead of failing after the download.
+- **HARD DRIVE knows the disk:** the room left for the site; when the model is on the disk twice (a remembered folder's
+  copy and the browser's), FREE THE BROWSER'S COPY.
+- **Measured** (`docs/efficiency.md`, `testing/results/measure-v0.6.2.txt`): 1, 2 and 4 threads, relaxed against
+  plain SIMD, peak memory, the prompt cache, and the usage diagnostics run on those records. Relaxed SIMD: +51%
+  reading, +33% writing at 4 threads; 2 threads: 83% of 4 threads' speed for 35% less CPU time on a 2-core machine.
+- **Usage diagnostics:** new advice when half the threads give most of the speed (≥ 80%) — cores that share in pairs.
+- Fixed: a folder read through the folder input showed its name twice (`my-models/my-models/…`).
+- Fixed: the response window's card crashed (React #300) when browseML became ready while it was showing.
+- **The release gate** (`testing/release.sh <version>`): every check that needs no browser, in order — the three
+  engines built and their sha256, the kernels under Node's WASI (SIMD, relaxed SIMD), the download (pieces, cuts, two
+  sources), the oracle's 9 conversations on `browseml.wasm` and on `browseml-mt-relaxed.wasm` with 2 threads, the
+  prompt cache (save, restore, the cold engine's answer), the app's typecheck, unit tests and build, the model copy
+  against its pin — kept as the release's record in `testing/results/v<version>.txt`.
+- **The browser checks** (`app/tests/browser.mjs`, run by `testing/browser.sh`, appended to the same record): headless
+  Brave on a throwaway profile, the built page served cross-origin isolated — the page and FAQ, T opening the control
+  panel with its sections, the tool suite (MEMORY, CPU, STORAGE, SENSORS, EXACT), a model found in a folder and used
+  with no download, a FAQ answer with its receipt a closed accordion, kept in `.history` and `.memory`, the RECEIPTS
+  fold and its toggle, the prompt cache restored on the next visit, `gpu-exact.html`, and a question with no model
+  going straight to loading it. `playwright-core` is a dev dependency (it drives the installed browser; no download).
+- `testing/bench.mjs`: with an oracle record, an answer that differs now fails the run.
+- Versions aligned: the crate and the app are 0.6.2 (the crate said 0.1.0). Each release from here: +0.0.1.
+
 ## 0.6.1 — 2026-10-13 — receipts in closed accordions, kept in .history and .memory
 
 - **Each answer's receipt is a closed accordion** (`Receipt.tsx`): one line — ✓ receipt, prompt → completion tokens,

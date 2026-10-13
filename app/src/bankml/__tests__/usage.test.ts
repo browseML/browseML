@@ -73,6 +73,14 @@ describe('advise: only from what was measured', () => {
     expect(advise({ loads: [], answers: [a(2, 2.5), a(4, 2.7)] }, now).map(v => v.text).join('\n')).toMatch(/2 threads wrote 2\.50 tok\/s, within 10% of 4/);
     expect(advise({ loads: [], answers: [a(4, 2.7)] }, now).map(v => v.text).join('\n')).toMatch(/measured at 4 threads only/);
   });
+  it('half the threads for most of the speed (measured on a 2-core, 4-thread Ryzen 3 3200U: 2.82 against 3.42 tok/s)', () => {
+    const a = (threads: number, genPerSec: number) => ({ ...answer({ threads, genPerSec }), at: 1 });
+    const v = advise({ loads: [], answers: [a(1, 1.41), a(2, 2.82), a(4, 3.42)] }, now).find(x => /share in pairs/.test(x.text));
+    expect(v?.level).toBe('warn');
+    expect(v?.text).toMatch(/^2 threads wrote 2\.82 tok\/s, 82% of 4 \(3\.42\) with half the threads/);
+    // far from it (60%): not offered
+    expect(advise({ loads: [], answers: [a(2, 1.6), a(4, 2.7)] }, now).some(x => /share in pairs/.test(x.text))).toBe(false);
+  });
   it('a prompt cache that reused nothing gives its memory back', () => {
     const u = { loads: [], answers: [1, 2, 3].map(at => ({ ...answer({ cacheRam: 64 }), at })) };
     expect(advise(u, { ...now, cacheRam: 64 }).map(v => v.text).join('\n')).toMatch(/64 MiB prompt cache reused nothing in 3 answers/);

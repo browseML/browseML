@@ -65,7 +65,7 @@ browseML's state: what was verified, threads, context, the memory it holds, the 
 | **HELD** | gauge | the memory the engine holds right now |
 | **LOAD / APPLY · UNLOAD · CLEAR CACHE · MEASURE** | buttons | reload with the dials · free the engine's memory · remove the kept model · measure the whole tab |
 | **⧉** | in the field | dock the field in the page, or pop it out (drag, resize, dock to an edge) |
-| **the sidebar** | left edge | appears the first time you drag a button off the field; holds the menu, the same dials and diagnostics, and button panels (**+ panel**) |
+| **the control panel** | left edge | pops out with your first interaction (the page itself just loads; on a phone, T opens it); **START · STOP · CLEAR** at its top, then receipts, models on this computer, HARD DRIVE, the dials, diagnostics, the tool suite and limiters; the switch at its top right shelves it; also holds the menu and button panels (**+ panel**) when you drag buttons there |
 
 The diagnostics record every load and answer **in your browser only** (the last 50 of each) and work out their advice
 from those records: the thread count that measured fastest, a smaller context when conversations use little of it,
@@ -76,6 +76,12 @@ in the response window's card): choose a folder, read-only. browseML lists every
 Hugging Face blobs (recognised by their sha256 names) — and USE starts its own with no download. *Persistent access*
 remembers the folders for the next visit; *keep a copy* off reads the model from its folder each time. In Brave, turn
 on `brave://flags/#file-system-access-api` to remember folders; without it a folder is read for that visit.
+
+**HARD DRIVE.** In the control panel: how much of the browser's storage browseML uses, whether the browser keeps it
+(KEEP STORAGE asks), CLEAR, *remove the model after the session*, and *keep a copy of the model on this computer's
+disk* — SAVE A COPY writes it into a folder you choose (its size checked; with persistent access on, the next visit
+starts from it, even after the browser's storage is cleared), or to your downloads where the browser cannot write
+folders (Brave until `brave://flags/#file-system-access-api` is on, Firefox, Safari).
 
 Slash commands in the field: `/client threads|ram|cache|answer <n>`, `/client apply|unload|measure`,
 `/client clear yes`, `/usage`, `/receipt`, `/shelf`.

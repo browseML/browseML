@@ -1,0 +1,53 @@
+browseML v0.6.2 — efficiency measurements, 2026-10-13T03:05:53Z
+machine: AMD Ryzen 3 3200U with Radeon Vega Mobile Gfx · 4 threads (2 cores × 2) · 5842 MB RAM · node v24.20.0
+each: 3 recorded turns of the oracle (testing/bench.mjs), /usr/bin/time -v for the process
+
+== t1
+open in 2.1 s · 1 thread
+prompt 53 tok 1.91 tok/s · write 64 tok 1.50 tok/s · identical
+prompt 85 tok 2.04 tok/s · write 64 tok 1.41 tok/s · identical
+prompt 82 tok 1.96 tok/s · write 64 tok 1.30 tok/s · identical
+3 of 3 identical to the record
+User time (seconds): 249.38
+Percent of CPU this job got: 99%
+Elapsed (wall clock) time (h:mm:ss or m:ss): 4:11.52
+Maximum resident set size (kbytes): 621288
+
+== t2
+open in 2.2 s · 2 threads
+prompt 53 tok 4.73 tok/s · write 64 tok 2.99 tok/s · identical
+prompt 85 tok 5.18 tok/s · write 64 tok 2.82 tok/s · identical
+prompt 82 tok 5.15 tok/s · write 64 tok 2.57 tok/s · identical
+3 of 3 identical to the record
+User time (seconds): 215.88
+Percent of CPU this job got: 187%
+Elapsed (wall clock) time (h:mm:ss or m:ss): 1:55.62
+Maximum resident set size (kbytes): 888652
+
+== t4
+open in 2.2 s · 4 threads
+prompt 53 tok 5.67 tok/s · write 64 tok 2.94 tok/s · identical
+prompt 85 tok 5.51 tok/s · write 64 tok 3.71 tok/s · identical
+prompt 82 tok 5.71 tok/s · write 64 tok 3.42 tok/s · identical
+3 of 3 identical to the record
+User time (seconds): 331.49
+Percent of CPU this job got: 334%
+Elapsed (wall clock) time (h:mm:ss or m:ss): 1:39.54
+Maximum resident set size (kbytes): 920496
+
+== t4-plain
+open in 2.2 s · 4 threads
+prompt 53 tok 3.80 tok/s · write 64 tok 2.44 tok/s · identical
+prompt 85 tok 3.81 tok/s · write 64 tok 2.64 tok/s · identical
+prompt 82 tok 3.60 tok/s · write 64 tok 2.48 tok/s · identical
+3 of 3 identical to the record
+User time (seconds): 480.14
+Percent of CPU this job got: 348%
+Elapsed (wall clock) time (h:mm:ss or m:ss): 2:18.07
+Maximum resident set size (kbytes): 916192
+
+== usage diagnostics (app/src/bankml/usage.ts advise) on these records
+warn 2 threads wrote 2.82 tok/s, 82% of 4 (3.42) with half the threads: this computer's cores likely share in pairs — 2 leave it free for the rest, 4 for the most speed
+ok   the engine took 317 MB at most, 8% of the 4 GB this device reports
+ok   the longest exchange held 149 of 4096 tokens: a 1024-token context would hold it with room, and cap the keys and values at 117 MB instead of 470 MB
+ok   the prompt cache: 397 prompt tokens restored in 0.6 s, where reading them took 203 s

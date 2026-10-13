@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-// browseML's state, in the response window (the 'browseml' widget): not here yet → "Import browseML" (the model is
-// pulled in the background from its pinned source, checked against its sha256 pin, kept in this browser); on its
-// way → the download's progress, pause and cancel, then the verification; ready → one diagnostic line (what was
+// browseML's state, in the response window (the 'browseml' widget): not here yet → the model loading, with no question
+// asked (pulled in the background from its pinned source, checked against its sha256 pin, kept in this browser; only
+// with the "ask before downloading" limiter on does it wait for "Import browseML"); on its way → the download's progress, pause and cancel, then the verification; ready → one diagnostic line (what was
 // verified, threads, context, the memory the engine holds, the last answer's speed). When it becomes ready, the
 // question waiting in the window is asked.
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -24,6 +24,8 @@ export function BrowseCard({ onReady }: { onReady(): void }) {
   const [, rewarm] = useState(0);
   useEffect(() => onBrowseWarm(() => rewarm(n => n + 1)), []);
   const w = browseWarm();
+  const pick = useRef<HTMLInputElement>(null);
+  const [local, setLocal] = useState<{ text: string; tone?: 'ok' | 'bad' | 'working' } | null>(null);
 
   const v = browseState();
   if (v) {
@@ -44,8 +46,6 @@ export function BrowseCard({ onReady }: { onReady(): void }) {
     if (await download()) onReady();
   };
   // a model file already on this computer: recognised by its sha256 against the pin, then used without a download
-  const pick = useRef<HTMLInputElement>(null);
-  const [local, setLocal] = useState<{ text: string; tone?: 'ok' | 'bad' | 'working' } | null>(null);
   const useFile = async (f: File | undefined) => {
     if (!f) return;
     setLocal({ text: `checking ${f.name}…`, tone: 'working' });
@@ -76,7 +76,10 @@ export function BrowseCard({ onReady }: { onReady(): void }) {
       {local && <span className={`cs-card-local ${local.tone ? `is-${local.tone}` : ''}`}>{local.text}</span>}
     </>
   );
-  const busy = s.phase === 'downloading' || s.phase === 'paused' || s.phase === 'saving' || s.phase === 'verifying' || s.phase === 'failed';
+  // the window does not ask: unless the visitor turned on "ask before downloading", the card shows the model loading
+  // from the moment the question is asked (the download starts beside it)
+  const asks = getLimits().askFirst;
+  const busy = s.phase === 'downloading' || s.phase === 'paused' || s.phase === 'saving' || s.phase === 'verifying' || s.phase === 'failed' || !asks;
   const blocked = browseVerdicts(caps, { ctx: settings.ctx }).filter(x => x.level === 'bad');
   return (
     <div className="cs-card">

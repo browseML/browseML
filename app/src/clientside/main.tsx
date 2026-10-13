@@ -21,7 +21,7 @@ import type { SendMeta } from '../types';
 import { loadPersonaText } from '../bankml/engine';
 import {
   CACHE_CHOICES, CTX_CHOICES, MAXTOK_CHOICES, browseDiag, browseMaxThreads, browseSettings, browseState, clearBrowseCache,
-  download, downloadState, loadBrowse, setBrowseSettings, unloadBrowse,
+  download, downloadState, loadBrowse, onDownload, setBrowseSettings, unloadBrowse,
 } from '../bankml/free';
 import { mb, ramEstimate, readCaps } from '../bankml/caps';
 import { advise, summarize, usageLog } from '../bankml/usage';
@@ -41,10 +41,24 @@ const PHONE = '(max-width: 640px)';
  *  controls and the diagnostics; the commands stay reachable as /client, /usage, /receipt. */
 const RACK = { chat: ['bankml-load', 'dock-page', 'spawn'] };
 /** T in the field: the control panel (opens it on the left; again, shelves it). */
-const togglePanel = () => shelves.set(s => (s.shown ? { ...s, shown: false, shelved: true } : { ...s, shown: true, shelved: false }));
+const togglePanel = () => { panelOpened = true; shelves.set(s => (s.shown ? { ...s, shown: false, shelved: true } : { ...s, shown: true, shelved: false })); };
+/** The control panel opens with the visitor's first question of a visit, and when the model starts downloading, so its
+ *  controls and diagnostics are in view while it does; shelved by the visitor, it stays shelved for the visit. Not on
+ *  a phone, where it would cover the answer (T opens it there). */
+let panelOpened = false;
+const openPanelOnce = () => {
+  if (panelOpened) return;
+  panelOpened = true;
+  if (window.innerWidth > 640 && !shelves.get().shown) shelves.set(s => ({ ...s, shown: true, shelved: false }));
+};
+/** The panel's width on screen (it may not be drawn yet in the frame it opens). */
+const panelSide = () => (shelves.get().shown && window.innerWidth > 640
+  ? (document.querySelector('.uif-shelves.is-open')?.getBoundingClientRect().width ?? shelves.get().width ?? 340) : 0);
 
 /** The sidebar menu and the button panels, kept in this browser. */
 const shelves = createShelves(`${KEY}:shelves`);
+// each visit starts with the page alone: the panel (kept open last time or not) comes out with the first interaction
+if (shelves.get().shown) shelves.set(s => ({ ...s, shown: false }));
 
 function Bridge({ into, onReady }: { into: { current: UIFContextValue | null }; onReady(): void }) {
   const uif = useUIF();
@@ -71,12 +85,59 @@ function Page() {
   const panel = useSyncExternalStore(shelves.subscribe, shelves.get, shelves.get);
   const A = useRef(a); A.current = a;
   useEffect(() => trackKeyboard(), []);
+  // the model downloading (from the load button or a question): the panel with it
+  useEffect(() => onDownload(d => { if (d.phase === 'downloading') openPanelOnce(); }), []);
 
   const onReady = () => {
     const field = uif.current!;
     // browseML's persona first (the prompt it answers from), then, if the model is already here, started and warmed
     const persona = field.context.personaText.trim() ? Promise.resolve() : loadPersonaText('browseml.persona').then(t => field.context.setPersonaText(t)).catch(() => {});
-    void persona.then(() => new Promise(r => setTimeout(r, 0))).then(() => A.current.preload());
+    // the page just loads: browseML starts with the visitor's first interaction (below), not before
+    void persona;
+  };
+
+  // the first interaction (a press or a key, anywhere): the control panel pops out on the left, and browseML starts
+  // from a model already on this computer (kept here, or a remembered folder; nothing is downloaded by this)
+  useEffect(() => {
+    const first = (e: Event) => {
+      document.removeEventListener('pointerdown', first, true);
+      document.removeEventListener('keydown', first, true);
+      // a press on T or in the panel itself is the visitor opening or shelving it: left to them
+      if (!(e.target as Element | null)?.closest?.('.uif-tools-toggle, .uif-shelves')) openPanelOnce();
+      void A.current.preload();
+    };
+    document.addEventListener('pointerdown', first, true);
+    document.addEventListener('keydown', first, true);
+    return () => { document.removeEventListener('pointerdown', first, true); document.removeEventListener('keydown', first, true); };
+  }, []);
+
+  // the panel opening: a free field and the windows on its side move clear of it
+  useEffect(() => shelves.subscribe(() => {
+    if (!shelves.get().shown || window.innerWidth <= 640) return;
+    requestAnimationFrame(() => {
+      const f = uif.current, side = panelSide();
+      if (!f || !side) return;
+      const hub = f.hubLayout(), h = hub?.get();
+      if (hub && h && !h.docked && h.x < side + 8) hub.set({ ...h, x: side + 16, width: Math.min(h.width, window.innerWidth - side - 32) });
+      for (const w of f.outputs.list()) {
+        if (w.placement !== 'inline' || w.maximized || w.rect.x >= side + 8) continue;
+        f.setRect(w.id, { ...w.rect, x: side + 16, width: Math.max(280, Math.min(w.rect.width, window.innerWidth - side - 32)) });
+      }
+    });
+  }), []);
+
+  /** START in the panel: browseML from a model already here, else imported (downloaded once, checked). */
+  const start = async (say: (t: string, tone?: 'ok' | 'bad' | 'working') => void) => {
+    if (browseState()) return say(`browseML is running: ${browseState()!.model}`, 'ok');
+    say('starting browseML…', 'working');
+    await A.current.preload();
+    if (!browseState()) {
+      say('importing browseML: the model is pulled once, then checked against its sha256 pin…', 'working');
+      if (!(await download())) return say(`browseML did not start: ${downloadState().error ?? downloadState().phase}`, 'bad');
+      await A.current.ready();
+    }
+    const v = browseState();
+    say(v ? `✓ browseML started: ${v.model} · ${v.threads} thread${v.threads === 1 ? '' : 's'}` : 'browseML did not start', v ? 'ok' : 'bad');
   };
 
   /** An inquiry: a field still docked in the page drops to the bottom left (clear of the sidebar), and a window
@@ -85,9 +146,12 @@ function Page() {
   const onSend = (text: string, meta: SendMeta) => {
     const f = uif.current;
     const fresh = (f?.outputs.list().find(w => w.id === meta.outputId)?.messages.filter(m => m.role !== 'system').length ?? 0) <= 1;
+    panelOpened = true;
+    // the control panel opens with the response window (on a phone, T opens it); the field drops beside it
+    if (fresh && window.innerWidth > 640 && !shelves.get().shown) shelves.set(s => ({ ...s, shown: true, shelved: false }));
     const hub = f?.hubLayout(), h = hub?.get();
     if (hub && h && h.docked === 'page') {
-      const side = shelves.get().shown && window.innerWidth > 640 ? (document.querySelector('.uif-shelves.is-open')?.getBoundingClientRect().width ?? 0) : 0;
+      const side = panelSide();
       const width = Math.max(300, Math.min(560, window.innerWidth - side - 32));
       hub.set({ ...h, docked: null, width, x: side + 16, y: window.innerHeight - h.height - 16 });
     }
@@ -233,7 +297,7 @@ function Page() {
           initialDock={phone ? undefined : 'page'}
           outputArea={() => {
             // response windows open beside the sidebar when it is shown (on a phone it overlays: no room)
-            const side = shelves.get().shown && window.innerWidth > 640 ? (document.querySelector('.uif-shelves.is-open')?.getBoundingClientRect().width ?? 0) : 0;
+            const side = panelSide();
             return { left: side, right: window.innerWidth };
           }}
           terminalMode={false}
@@ -242,7 +306,7 @@ function Page() {
           right={mine ? <span className={'cs-pill ' + (mine.tone ? `is-${mine.tone}` : '')}>{mine.text}</span> : <span className="cs-pill is-working">streaming · {a.live}</span>}
         >
           <Bridge into={uif} onReady={onReady} />
-          <Shelves store={shelves} title="control panel" top={<ControlPanel uif={uif} onModelReady={() => void A.current.ready()} />} />
+          <Shelves store={shelves} title="control panel" top={<ControlPanel uif={uif} onModelReady={() => void A.current.ready()} onStart={start} />} />
         </UltimateBar>
       </div>
       <Faq uif={uif} />

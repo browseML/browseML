@@ -213,6 +213,12 @@ export async function download(): Promise<Browsed | null> {
   const b = await mod();
   const M = b.MODEL;
   if (await b.isCached()) return verifyKept();
+  // room for it first: a full disk (the browser's quota for this site) found before 248 MB are pulled, not after
+  const room = await storageEstimate();
+  if (room && room.quota - room.usage < M.bytes - (partial ? dl.got : 0) + (16 << 20)) {
+    setDl({ phase: 'failed', error: `not enough room on this computer for the model: the browser lets this site keep ${mb(Math.max(0, room.quota - room.usage))} more, the model needs ${mb(M.bytes)}. Free disk space (or CLEAR old copies in HARD DRIVE), or use a copy you already have.`, resumable: false, rate: null, eta: null });
+    return null;
+  }
   abort = new AbortController();
   const from = partial && (dl.phase === 'paused' || (dl.phase === 'failed' && dl.resumable)) ? dl.got : 0;
   setDl({ phase: 'downloading', error: undefined, resumable: false, rate: null, eta: null, total: M.bytes, got: from, retries: 0 });
@@ -434,6 +440,16 @@ export async function clearBrowseCache(): Promise<number> {
   try { for (const n of await caches.keys()) if (n.startsWith('browseml')) await caches.delete(n); } catch { /* off */ }
   if (!browsed) setDl({ phase: 'idle', got: 0, verified: undefined });
   return freed;
+}
+/** The model kept in this browser (Cache Storage), to copy to the disk: its file name, size and bytes (null: none). */
+export async function keptModel(): Promise<{ name: string; bytes: number; response: Response } | null> {
+  try {
+    const b = await mod();
+    const r = await (await caches.open(CACHE)).match(b.MODEL.url);
+    if (!r) return null;
+    const name = decodeURIComponent(String(b.MODEL.url).split('?')[0].split('/').pop() || 'model.gguf');
+    return { name, bytes: Number(r.headers.get('Content-Length')) || Number(b.MODEL.bytes), response: r };
+  } catch { return null; }
 }
 /** Whether this browser keeps the site's storage under pressure (persisted), and asking it to. */
 export async function persisted(): Promise<boolean | null> {

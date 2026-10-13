@@ -170,7 +170,10 @@ export function advise(u: Usage, n: Now): Verdict[] {
   if (s.byThreads.length >= 2) {
     const best = s.byThreads.reduce((a, b) => (b.gen > a.gen ? b : a));
     const fewer = s.byThreads.filter(r => r.threads < best.threads && r.gen >= best.gen * 0.9).sort((a, b) => a.threads - b.threads)[0];
+    // efficiency: half the threads (or fewer) for most of the speed — cores that share in pairs add little
+    const thrifty = s.byThreads.filter(r => r.threads * 2 <= best.threads && r.gen >= best.gen * 0.8).sort((a, b) => a.threads - b.threads)[0];
     if (fewer) out.push({ level: 'ok', text: `${fewer.threads} thread${fewer.threads === 1 ? '' : 's'} wrote ${fewer.gen.toFixed(2)} tok/s, within 10% of ${best.threads} (${best.gen.toFixed(2)}): fewer threads leave this computer free for little cost` });
+    else if (thrifty) out.push({ level: 'warn', text: `${thrifty.threads} thread${thrifty.threads === 1 ? '' : 's'} wrote ${thrifty.gen.toFixed(2)} tok/s, ${Math.round(thrifty.gen / best.gen * 100)}% of ${best.threads} (${best.gen.toFixed(2)}) with ${thrifty.threads * 2 === best.threads ? 'half' : `${thrifty.threads} of ${best.threads}`} the threads: this computer's cores likely share in pairs — ${thrifty.threads} leave${thrifty.threads === 1 ? 's' : ''} it free for the rest, ${best.threads} for the most speed` });
     else if (best.threads !== n.threads) out.push({ level: 'warn', text: `${best.threads} threads measured fastest here (${best.gen.toFixed(2)} tok/s writing); ${n.threads} are chosen now` });
     else out.push({ level: 'ok', text: `${best.threads} threads, chosen now, measured fastest here (${best.gen.toFixed(2)} tok/s writing)` });
   } else if (s.byThreads.length === 1) {

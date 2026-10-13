@@ -4,7 +4,8 @@
 // developer-tooling libraries (Blueprint's drawer, collapses and callouts; Tweakpane's monitors; stats.js's strip;
 // uPlot's sparklines), all re-made here:
 //   · the strip    — the engine's state, writing speed and memory held, live, with sparklines
-//   · TOOLS        — STOP the answer, CLEAR the active window, LOAD/APPLY, UNLOAD
+//   · TOOLS        — START browseML, STOP the answer, CLEAR the active window
+//   · HARD DRIVE   — browser storage, the files kept, a copy of the model on the disk, removing them
 //   · DIALS        — the DreamKnob rack: threads, memory, prompt cache, answer length; the warm stage
 //   · DIAGNOSTICS  — network, CPU, RAM, GPU, as this browser reports and as measured here
 //   · TOOL SUITE   — PING, SPEED, CPU, MEMORY, STORAGE, GPU, SENSORS: each with its DreamKnob dial and RUN
@@ -19,6 +20,7 @@ import { mb, readCaps } from '../bankml/caps';
 import { summarize } from '../bankml/usage';
 import { UsagePanel } from './UsagePanel';
 import { Folders } from './Folders';
+import { Disk } from './Disk';
 import { ReceiptsSection } from './Receipt';
 import { gpuVerdict, probeGpu, readGpu, KEY_FEATURES, type GpuExact, type GpuProbe, type GpuReport } from '../bankml/gpu';
 import { ClientRack, useTick, useUsage } from './ClientRack';
@@ -70,7 +72,8 @@ function useLimits() {
   return l;
 }
 
-export function ControlPanel({ uif, onModelReady = () => {} }: { uif: MutableRefObject<UIFContextValue | null>; onModelReady?(): void }) {
+type Say = (text: string, tone?: 'ok' | 'bad' | 'working') => void;
+export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: MutableRefObject<UIFContextValue | null>; onModelReady?(): void; onStart?(say: Say): Promise<void> }) {
   useTick(1000);
   const usage = useUsage();
   const limits = useLimits();
@@ -83,6 +86,7 @@ export function ControlPanel({ uif, onModelReady = () => {} }: { uif: MutableRef
   const memHist = useHistory(() => browseDiag().memoryBytes / 1e6);
   const speedHist = useMemo(() => usage.answers.slice(-30).map(a => a.genPerSec), [usage]);
   const busy = d.loading || w.phase === 'warming';
+  const starting = d.loading || ['downloading', 'saving', 'verifying'].includes(dl.phase);
 
   // ── tools ────────────────────────────────────────────────────────────────────────────────────────────────────
   const stop = async () => { const how = await stopBrowse(); say(how === 'idle' ? 'nothing is being written' : how === 'stopped' ? 'stopped: the answer ends here, with its receipt' : 'stopped: the engine was ended; the next question loads it again', how === 'idle' ? undefined : 'ok'); };
@@ -150,6 +154,7 @@ export function ControlPanel({ uif, onModelReady = () => {} }: { uif: MutableRef
 
       <Fold id="tools" title="TOOLS">
         <div className="cp-buttons">
+          <Button onClick={() => void onStart?.(say)} color={GREEN} disabled={!!v || starting}>{v ? 'STARTED' : starting ? 'STARTING…' : 'START'}</Button>
           <Button onClick={stop} color={RED}>STOP</Button>
           <Button onClick={clear}>CLEAR</Button>
         </div>
@@ -159,6 +164,8 @@ export function ControlPanel({ uif, onModelReady = () => {} }: { uif: MutableRef
       <Fold id="receipts" title="RECEIPTS" open={false}><ReceiptsSection uif={uif} /></Fold>
 
       <Fold id="folders" title="MODELS ON THIS COMPUTER" open={false}><Folders onReady={onModelReady} say={say} /></Fold>
+
+      <Fold id="disk" title="HARD DRIVE"><Disk say={say} /></Fold>
 
       <Fold id="dials" title="DIALS"><ClientRack onSaid={say} /></Fold>
 

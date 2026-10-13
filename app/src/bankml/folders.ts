@@ -73,8 +73,9 @@ export function fromFileList(files: FileList | File[]): FoundFile[] {
   const out: FoundFile[] = [];
   for (const f of Array.from(files)) {
     const m = asModel(f.name, f.size);
-    const rel = (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name;
-    if (m) out.push({ path: rel.split('/'), name: f.name, size: f.size, ...m, file: f });
+    // webkitRelativePath starts with the chosen folder's name: the path is kept inside it, as scan() gives it
+    const rel = (f as File & { webkitRelativePath?: string }).webkitRelativePath;
+    if (m) out.push({ path: rel ? rel.split('/').slice(1) : [f.name], name: f.name, size: f.size, ...m, file: f });
   }
   return out;
 }

@@ -126,7 +126,16 @@ export function useBrowseML(uif: MutableRefObject<UIFContextValue | null>) {
           await warm();
           return null;
         }
-        // asked first (the limiter, or a browser saving data): the card's button starts it
+        // a remembered folder (persistent access) whose model was used: read from there, no download
+        if (getLimits().rememberFolders) {
+          const r = await rememberedModel().catch(() => null);
+          if (r) {
+            progress(`reading the model from ${r.from}…`);
+            const u = await useLocalModel(r.file, progress, { keep: getLimits().keepCopy, named: r.named });
+            if (u.ok && browseState()) { tick(n => n + 1); await warm(); return null; }
+          }
+        }
+        // asked first (the visitor's limiter): the card's button starts it
         if (getLimits().askFirst) { held.current = { text, outputId }; return { note: NOT_READY, widget: WIDGET }; }
         // asking is the go-ahead: the model is loaded now, in the background, its progress in the window's card
         uif.current?.outputs.append(outputId, { role: 'system', text: '', widget: WIDGET });

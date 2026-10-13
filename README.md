@@ -118,7 +118,7 @@ How it works and why: verification, receipts, exactness, threads, the model.
 
 **[Technical →](docs/technical.md)**
 
-The kernels, the three builds, measurements, where the time goes, limits.
+The kernels, the three builds, measurements, where the time goes, limits. [Efficiency →](docs/efficiency.md)
 
 </td>
 <td width="25%" valign="top">
