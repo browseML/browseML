@@ -31,10 +31,10 @@ browseML takes a model from any source, and the sha256 pin decides. Two verified
 | repository | what it holds | first step |
 |---|---|---|
 | [browseML/models](https://github.com/browseML/models) | verified model copies, pins, `verify.mjs --source` | **done** |
-| [browseML/persona](https://github.com/browseML/persona) | browseML's personas (`.persona` v1), validation, the facts the FAQ is answered from | the persona and its validator |
-| [browseML/voaices](https://github.com/browseML/voaices) | voice in the browser: speaking only verified answers, listening | Web Speech output gated on the receipt |
-| [browseML/embeddings](https://github.com/browseML/embeddings) | search in the browser: BM25 now, an embedding model on WebGPU next | BM25 + RRF, tested |
-| [browseML/webgpu](https://github.com/browseML/webgpu) | the exact WGSL kernels and their tests | the Q1_0 kernel and `gpu-exact.html` |
+| [browseML/persona](https://github.com/browseML/persona) | browseML's personas (`.persona` v1), the validator, the facts the FAQ is answered from | **started**: the persona, a 600-token budget, 4 tests |
+| browseML/voaices (private) | voice in the browser: only verified answers spoken, on-device voices only | **started**, private as a reminder; continued at [cryptoAGI](https://github.com/cryptoAGI) |
+| [browseML/embeddings](https://github.com/browseML/embeddings) | search in the browser: BM25 as Savante scores it, RRF; an embedding model next | **started**: BM25 equal to Savante's to 1e-12, 4 tests |
+| [browseML/webgpu](https://github.com/browseML/webgpu) | the exact WGSL kernels and their tests | **started**: the Q1_0 kernel, bit-exact, and its test page |
 
 ## The page
 
