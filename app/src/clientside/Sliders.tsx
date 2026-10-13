@@ -10,8 +10,12 @@ import { useEffect, useState } from 'react';
 import { Button, LEDFader, SegmentSwitch, ToggleSwitch } from 'dreamknob';
 import {
   CACHE_CHOICES, CTX_CHOICES, browseDiag, browseMaxThreads, browseSettings, browseState, browseWarm, clearWarmSlot, loadBrowse,
-  onBrowseSettings, onBrowseWarm, setBrowseSettings, unloadBrowse,
+  forgetPrompt, keptPrompts, measuredThreads, onBrowseSettings, onBrowseWarm, setBrowseSettings, unloadBrowse, warmBrowse, type KeptPrompt,
 } from '../bankml/free';
+import type { MutableRefObject } from 'react';
+import type { UIFContextValue } from '../components/UIFContext';
+import { personaName } from '../core/context';
+import { lastMeasure, measureCores, onMeasure } from './cores';
 import { mb, ramEstimate, readCaps } from '../bankml/caps';
 import { summarize, type Usage } from '../bankml/usage';
 import { getLimits, onLimits, setLimits } from './limits';
@@ -20,25 +24,46 @@ const GREEN = '#0ECB81', ORANGE = '#F7931A', RED = '#F6465D';
 type Say = (text: string, tone?: 'ok' | 'bad' | 'working') => void;
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 
-export function Sliders({ usage, say, gpu }: { usage: Usage; say: Say; gpu: string }) {
+const ago = (t: number) => { const s = (Date.now() - t) / 1000; return s < 90 ? 'just now' : s < 5400 ? `${Math.round(s / 60)} min ago` : s < 129600 ? `${Math.round(s / 3600)} h ago` : `${Math.round(s / 86400)} d ago`; };
+
+export function Sliders({ usage, say, gpu, uif }: { usage: Usage; say: Say; gpu: string; uif: MutableRefObject<UIFContextValue | null> }) {
+  const [kept, setKept] = useState<KeptPrompt[]>([]);
+  const refreshKept = () => keptPrompts().then(setKept);
   const [, tick] = useState(0);
   const [cap, setCap] = useState(8);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     void browseMaxThreads().then(l => setCap(l.isolated ? l.cap : 1));
-    const a = onBrowseSettings(() => tick(n => n + 1)), b = onLimits(() => tick(n => n + 1)), c = onBrowseWarm(() => tick(n => n + 1));
-    return () => { a(); b(); c(); };
+    void refreshKept();
+    const a = onBrowseSettings(() => tick(n => n + 1)), b = onLimits(() => tick(n => n + 1)), c = onBrowseWarm(() => { tick(n => n + 1); void refreshKept(); }), m = onMeasure(() => tick(n => n + 1));
+    return () => { a(); b(); c(); m(); };
   }, []);
   const s = browseSettings(), lim = getLimits(), caps = readCaps(), v = browseState(), d = browseDiag(), w = browseWarm();
   const sum = summarize(usage), last = sum.lastAnswer;
   const reported = Math.max(1, Math.min(cap, caps.cores ?? 1));
-  const threads = Math.max(1, Math.min(cap, s.threads ?? reported));
+  const meas = lastMeasure(), free = meas?.available ?? reported;
+  const threads = Math.max(1, Math.min(cap, s.threads ?? measuredThreads() ?? reported));
+  const [measuring, setMeasuring] = useState(false);
+  const remeasure = async () => {
+    setMeasuring(true);
+    const r = await measureCores(true);
+    setMeasuring(false);
+    if (r) say(`${r.available} thread${r.available === 1 ? '' : 's'} free now (${r.reported ?? '?'} reported): auto claims ${r.claim}${v && s.threads === null && v.threads !== r.claim ? ' — APPLY restarts with it' : ''}`, 'ok');
+  };
   const ctxI = Math.max(0, CTX_CHOICES.indexOf(s.ctx as never));
   const cacheI = Math.max(0, CACHE_CHOICES.indexOf(s.cacheRam as never));
   const ram = ramEstimate(s.ctx, s.cacheRam), device = caps.memoryGB ? caps.memoryGB * 1e9 : null;
   const gpuI = !lim.gpuProbe ? 0 : lim.power === 'low-power' ? 1 : 2;
   const stale = !!v && (v.threads !== threads || (v.ctx ?? s.ctx) !== s.ctx || (v.cacheRam ?? 0) !== s.cacheRam);
 
+  /** READ NOW: the prompt questions are asked with now, read once and kept (or restored, if it is kept). */
+  const readNow = async () => {
+    const f = uif.current;
+    if (!f || !v) return;
+    const r = await warmBrowse(f.context.forSend('', '').system, f.context.promptSource === 'prompt' ? '.prompt' : (personaName(f.context.persona) ?? 'browseML'));
+    say(r.phase === 'restored' ? `restored ${r.tokens} tokens in ${(r.ms / 1000).toFixed(1)} s` : r.phase === 'warmed' ? `read ${r.tokens} tokens in ${(r.ms / 1000).toFixed(0)} s and kept` : r.phase === 'failed' ? `not kept: ${r.error}` : 'already kept', r.phase === 'failed' ? 'bad' : 'ok');
+    void refreshKept();
+  };
   const apply = async () => {
     if (busy) return;
     setBusy(true);
@@ -54,12 +79,20 @@ export function Sliders({ usage, say, gpu }: { usage: Usage; say: Say; gpu: stri
   return (
     <div className="cp-sliders">
       <div className="cp-slider">
-        <div className="cp-slider-head"><b>CPU</b><span>{threads} thread{threads === 1 ? '' : 's'} · {pct(threads / cap)}</span></div>
+        <div className="cp-slider-head"><b>CPU</b><span>{threads} thread{threads === 1 ? '' : 's'} · {pct(threads / cap)} · {s.threads === null ? 'auto' : 'chosen'}</span></div>
         <LEDFader orientation="horizontal" length={220} breadth={14} segments={cap} min={1} max={cap} step={1} value={threads} disabled={cap <= 1}
-          zones={[{ upTo: reported / cap, color: GREEN }, { upTo: 1, color: ORANGE }]} aria-label="Threads for bankML"
+          zones={[{ upTo: Math.min(1, free / cap), color: GREEN }, { upTo: 1, color: ORANGE }]} aria-label="Threads for bankML"
           onChange={x => setBrowseSettings({ threads: Math.round(x) })} />
-        <p className="cp-fine">{cap <= 1 ? 'one thread: this page is not cross-origin isolated' : `${caps.cores ?? '?'} cores reported${threads > reported ? ' — past them (orange): Brave reports fewer cores than a computer has; measure with the speed below' : ''}`}
+        <p className="cp-fine">{cap <= 1 ? 'one thread: this page is not cross-origin isolated'
+          : meas ? `${meas.available} free, measured (${meas.reported ?? '?'} reported) · auto claims ${meas.claim}${meas.claim < meas.available ? ', one left for the unexpected' : ''}${threads > meas.available ? ' · past what is free (orange): slower, not faster' : ''}`
+          : `${caps.cores ?? '?'} cores reported · measured at the first interaction`}
           {' · '}{v ? `running ${v.threads}` : 'off'}{last ? ` · last answer: reading ${last.promptPerSec.toFixed(2)}, writing ${last.genPerSec.toFixed(2)} tok/s at ${last.threads}` : ''}</p>
+        {cap > 1 && (
+          <div className="cp-presets">
+            <button type="button" className={s.threads === null ? 'is-on' : ''} onClick={() => setBrowseSettings({ threads: null })}>AUTO</button>
+            <button type="button" onClick={() => void remeasure()} disabled={measuring}>{measuring ? 'MEASURING…' : 'RE-MEASURE'}</button>
+          </div>
+        )}
       </div>
 
       <div className="cp-slider">
@@ -78,17 +111,34 @@ export function Sliders({ usage, say, gpu }: { usage: Usage; say: Say; gpu: stri
       </div>
 
       <div className="cp-slider">
-        <div className="cp-slider-head"><b>CACHE</b><span>{s.cacheRam} MiB in RAM · {w.phase === 'restored' || w.phase === 'warmed' ? `prompt ${w.tokens} tokens, ${mb(w.bytes ?? 0)} kept` : w.phase === 'warming' ? 'reading the prompt…' : 'prompt not kept yet'}</span></div>
+        <div className="cp-slider-head"><b>CACHE</b><span>{kept.length} prompt{kept.length === 1 ? '' : 's'} kept · {mb(kept.reduce((n, k) => n + k.bytes, 0))} · {s.cacheRam} MiB RAM</span></div>
+        <p className="cp-fine">{w.phase === 'restored' ? `this prompt restored in ${(w.ms / 1000).toFixed(1)} s instead of read again` : w.phase === 'warmed' ? `this prompt read once in ${(w.ms / 1000).toFixed(0)} s; restored in a moment from now on` : w.phase === 'warming' ? 'reading this prompt once…' : 'each prompt (persona, .prompt, context) is read once, then kept here'}</p>
+        {kept.length > 0 && (
+          <ul className="cp-kept">
+            {kept.map(k => (
+              <li key={k.key} className={'key' in w && w.key === k.key ? 'is-on' : ''}>
+                <b title={k.label || 'a prompt'}>{k.label || 'a prompt'}</b>
+                <span>{k.tokens} tok · {mb(k.bytes)} · ctx {k.ctx} · {ago(k.used)}</span>
+                <button type="button" aria-label={`forget ${k.label || 'this prompt'}`} title="forget: read again when next used" onClick={() => void forgetPrompt(k.key).then(refreshKept)}>✕</button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="cp-slider-head"><span>keep up to</span><span>{s.keptPrompts} prompt{s.keptPrompts === 1 ? '' : 's'} (≈ {mb(s.keptPrompts * (kept[0]?.bytes ?? 45e6))})</span></div>
+        <LEDFader orientation="horizontal" length={220} breadth={14} segments={8} min={1} max={8} step={1} value={s.keptPrompts}
+          zones={[{ upTo: 0.5, color: GREEN }, { upTo: 1, color: ORANGE }]} aria-label="Prompts kept read"
+          onChange={x => setBrowseSettings({ keptPrompts: Math.round(x) })} />
+        <div className="cp-slider-head"><span>RAM cache</span><span>{s.cacheRam} MiB</span></div>
         <LEDFader orientation="horizontal" length={220} breadth={14} segments={CACHE_CHOICES.length} min={0} max={CACHE_CHOICES.length - 1} step={1} value={cacheI}
           zones={[{ upTo: 0.5, color: GREEN }, { upTo: 1, color: ORANGE }]} aria-label="Prompt cache in RAM"
           onChange={x => setBrowseSettings({ cacheRam: CACHE_CHOICES[Math.round(x)] })} />
+        <p className="cp-fine">The RAM cache keeps other windows' conversations read, so going back to one does not read it again (0: off; applies on restart){last?.cached ? ` · the last answer reused ${last.cached} of ${last.prompt} prompt tokens` : ''}.</p>
         <div className="cp-limits">
-          <ToggleSwitch on={lim.warm} color={ORANGE} label="keep browseML's prompt for the next visit (warm)" onChange={on => setLimits({ warm: on })} />
+          <ToggleSwitch on={lim.warm} color={ORANGE} label="read and keep the prompt as soon as browseML starts" onChange={on => setLimits({ warm: on })} />
         </div>
-        <p className="cp-fine">{w.phase === 'restored' ? `restored in ${((w.ms ?? 0) / 1000).toFixed(1)} s instead of reading it again` : w.phase === 'warmed' ? `read once in ${((w.ms ?? 0) / 1000).toFixed(0)} s; the next visit restores it in a moment` : 'the prompt is read once after browseML starts, then kept in this browser'}
-          {' · '}the RAM cache reuses what earlier answers read (0: none)</p>
         <div className="cp-buttons">
-          <Button onClick={() => void clearWarmSlot().then(n => say(`the kept prompt removed${n ? ` (${mb(n)})` : ''}: the next start reads it again`, 'ok'))}>CLEAR CACHE</Button>
+          <Button onClick={() => void readNow()} disabled={!v || w.phase === 'warming'}>{w.phase === 'warming' ? 'READING…' : 'READ NOW'}</Button>
+          <Button onClick={() => void clearWarmSlot().then(n => { void refreshKept(); say(`the kept prompts removed${n ? ` (${mb(n)})` : ''}: each is read again when next used`, 'ok'); })} disabled={!kept.length}>CLEAR CACHE</Button>
         </div>
       </div>
 

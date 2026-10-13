@@ -330,3 +330,12 @@ details.cs-card.is-ready > p { margin: 0; padding: 0 12px 10px; color: #a7f3d0; 
 .cp-arrange-foot { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .cp-arrange-foot button { padding: 4px 10px; border-radius: 999px; border: 1px solid #334155; background: transparent; color: #94a3b8; font-size: 11px; cursor: pointer; }
 .cp-arrange-foot button:hover { border-color: var(--btc-orange, #F7931A); color: var(--btc-orange, #F7931A); }
+
+/* CACHE: the prompts kept */
+.cp-kept { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.cp-kept li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 6px; align-items: center; padding: 6px 8px; border-radius: 8px; background: rgba(148, 163, 184, .06); border: 1px solid transparent; font-size: 12px; }
+.cp-kept li.is-on { border-color: rgba(14, 203, 129, .5); }
+.cp-kept li b { color: #f8fafc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cp-kept li span { grid-column: 1; color: #94a3b8; font-size: 11px; font-variant-numeric: tabular-nums; }
+.cp-kept li button { grid-column: 2; grid-row: 1 / span 2; border: 0; background: transparent; color: #64748b; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+.cp-kept li button:hover { color: var(--stop-red, #F6465D); }

@@ -116,3 +116,32 @@ export async function sensors(): Promise<Sensors> {
     isolated: typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated, heapMB: heap ? heap / 1e6 : null,
   };
 }
+
+export interface Available { reported: number | null; available: number; claim: number; totals: number[]; ms: number }
+/** How much processor this computer has free right now, measured: bursts of 1, 2, 3 … workers (up to `cap`); each
+ *  worker that adds real throughput (≥ 12% more in total) is a thread available, and the count stops where adding one
+ *  gains nothing (all cores busy, or another program has them). Past the cores the browser reports, too (Brave reports
+ *  fewer). The claim leaves room for the unexpected: one thread when four or more are free. */
+export async function availableThreads(cap = 8, ms = 220): Promise<Available> {
+  const url = URL.createObjectURL(new Blob([CPU_WORKER], { type: 'text/javascript' }));
+  const t0 = performance.now();
+  const run = (n: number) => Promise.all(Array.from({ length: n }, () => new Promise<number>(ok => {
+    const w = new Worker(url);
+    w.onmessage = e => { ok(e.data.ops); w.terminate(); };
+    w.postMessage({ ms });
+  }))).then(v => v.reduce((a, b) => a + b, 0));
+  try {
+    const totals = [await run(1)];
+    let available = 1;
+    for (let n = 2; n <= cap; n++) {
+      const t = await run(n);
+      totals.push(t);
+      if (t < totals[n - 2] * 1.12) break;
+      available = n;
+    }
+    return { reported: navigator.hardwareConcurrency || null, available, claim: claimOf(available), totals, ms: Math.round(performance.now() - t0) };
+  } finally { URL.revokeObjectURL(url); }
+}
+/** What browseML takes of `available` threads: all of them up to three, one fewer from four (room for the page and
+ *  for anything unexpected). Pure, so tested. */
+export function claimOf(available: number): number { return Math.max(1, available >= 4 ? available - 1 : available); }

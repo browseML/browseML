@@ -190,7 +190,7 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
         <Status usage={usage} gpu={gpuName} />
       </Fold>
 
-      <Fold id="sliders" title="CPU · RAM · GPU · CACHE"><Sliders usage={usage} say={say} gpu={gpuName} /></Fold>
+      <Fold id="sliders" title="CPU · RAM · GPU · CACHE"><Sliders usage={usage} say={say} gpu={gpuName} uif={uif} /></Fold>
 
       <Fold id="persona" title="PERSONA" open={false}><PersonaSection uif={uif} say={say} /></Fold>
 

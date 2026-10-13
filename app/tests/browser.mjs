@@ -152,6 +152,24 @@ try {
   await page.waitForFunction(() => [...document.querySelectorAll(".cp-row")].some((r) => /prompt cache/.test(r.textContent) && /restored|read \d+ tokens once|not warm:/.test(r.textContent)), null, { timeout: 300000 });
   const pc = (await page.locator(".cp-row", { hasText: "prompt cache" }).innerText()).replace(/\s+/g, " ");
   check("visit 2: the prompt cache restored", /restored \d+ tokens/.test(pc), pc);
+  // the processor: measured at the first interaction, claimed with room
+  const cpuLine = (await page.locator(".cp-slider", { hasText: "CPU" }).first().innerText()).replace(/\s+/g, " ");
+  check("the processor measured: threads free, the claim with room", /\d+ free, measured .* auto claims \d+/.test(cpuLine), cpuLine.slice(0, 160));
+  // CACHE: the kept prompt by name; a new persona keeps its own beside it
+  const kept = () => page.locator(".cp-kept li").allInnerTexts();
+  check("CACHE lists the kept prompt, named", (await kept()).some((t) => /browseML/.test(t) && /\d+ tok/.test(t)), (await kept()).join(" | ").replace(/\s+/g, " "));
+  await page.locator(".cp-fold-head", { hasText: "PERSONA" }).click(); await wait(300);
+  await page.locator(".cp-persona").getByRole("button", { name: "NEW" }).click();
+  const edit = page.locator(".cp-persona-edit");
+  await edit.locator("input").fill("Tester");
+  await edit.locator("textarea").nth(0).fill("Ready.");
+  await edit.locator("textarea").nth(1).fill("You are Tester, in the visitor's browser. Answer in one word.");
+  await edit.getByRole("button", { name: "SAVE" }).click(); await wait(300);
+  await page.locator(".cp-persona-list").getByRole("radio", { name: "Tester" }).click();
+  await page.waitForFunction(() => [...document.querySelectorAll(".cp-kept li")].some((li) => /Tester/.test(li.textContent)), null, { timeout: 600000 });
+  const both = await kept();
+  check("a second persona keeps its own prompt beside the first", both.length >= 2 && both.some((t) => /Tester/.test(t)) && both.some((t) => /browseML/.test(t)), both.map((t) => t.split("\n")[0]).join(" · "));
+  check("its opening message, in a window of its own", (await page.locator(".uif-output", { hasText: "Ready." }).count()) >= 1);
   await ctx.close();
 
   // ── the GPU kernel's own page ─────────────────────────────────────────────────────────────────────────────────
@@ -186,6 +204,8 @@ try {
   try { await ctxNow?.pages()[0]?.screenshot({ path: process.env.SHOT || join(tmpdir(), "browseml-browser-fail.png") }); } catch {}
   check("the browser checks ran to the end", false, String(e.message || e).split("\n")[0]);
 } finally {
+  // the browser always closes (the last check leaves a download running): no headless Brave left behind
+  try { await Promise.race([ctxNow?.close(), wait(15000)]); } catch {}
   try { process.kill(-server.pid); } catch {}
   rmSync(tmp, { recursive: true, force: true });
 }

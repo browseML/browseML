@@ -30,6 +30,7 @@ import { BrowseCard } from './BrowseCard';
 import { trackKeyboard } from '../core/keyboard';
 import { ControlPanel } from './ControlPanel';
 import { activePersona, applyPersona } from './Persona';
+import { measureCores } from './cores';
 import { Faq } from './Faq';
 import { measureTab } from './memory';
 import '../styles/UltimateInputField.css';
@@ -104,7 +105,7 @@ function Page() {
       document.removeEventListener('pointerdown', first, true);
       document.removeEventListener('keydown', first, true);
       // a press on T or in the panel itself is the visitor opening or shelving it: left to them
-      if ((e.target as Element | null)?.closest?.('.uif-tools-toggle, .uif-shelves')) { panelOpened = true; void A.current.preload(); return; }
+      if ((e.target as Element | null)?.closest?.('.uif-tools-toggle, .uif-shelves')) { panelOpened = true; void measureCores().then(() => A.current.preload()); return; }
       // after the press lands: opening the panel moves the page, and a click must not lose its target
       if (e.type === 'pointerdown') {
         let done = false;
@@ -112,7 +113,8 @@ function Page() {
         window.addEventListener('click', go);
         window.setTimeout(go, 700);
       } else openPanelOnce();
-      void A.current.preload();
+      // how much processor is free, measured before the engine starts (it waits for this), then started from what is here
+      void measureCores().then(() => A.current.preload());
     };
     document.addEventListener('pointerdown', first, true);
     document.addEventListener('keydown', first, true);

@@ -10,6 +10,7 @@ import type { ReplyMarks, SendMeta } from '../types';
 import { slackWindow, type Turn, type Verdict } from '../bankml/engine';
 import { askBrowse, browseCached, browseState, download, downloadState, loadBrowse, markKeptBad, sessionCleanup, useLocalModel, warmBrowse } from '../bankml/free';
 import { getLimits } from './limits';
+import { personaName } from '../core/context';
 import { rememberedModel } from './Folders';
 import { deliver, type DeliveryHooks, type Outcome } from '../bankml/deliver';
 
@@ -34,7 +35,8 @@ export function useBrowseML(uif: MutableRefObject<UIFContextValue | null>) {
   const warm = async () => {
     const f = uif.current;
     if (!f || !browseState() || !getLimits().warm) return;
-    await warmBrowse(f.context.forSend('', '').system);
+    // the kept prompt is named after who answers (PERSONA), or the .prompt when that is what questions are asked with
+    await warmBrowse(f.context.forSend('', '').system, f.context.promptSource === 'prompt' ? '.prompt' : (personaName(f.context.persona) ?? 'browseML'));
   };
   /** The page opened with the model already kept here: started and warmed in the background (nothing is downloaded). */
   const preload = async () => {

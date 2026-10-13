@@ -60,9 +60,17 @@ ok   the prompt cache: 397 prompt tokens restored in 0.6 s, where reading them t
 The first line is new in 0.6.2. Before, the advice offered fewer threads only within 10% of the fastest, so it said
 "4 threads, fastest" and nothing about what they cost.
 
+## 0.6.5: the prefill tile
+
+bankML `1781a17` gives WebAssembly the tile x86 already had: a weight row decoded once for four prompt tokens, the
+same bits. A/B on the same machine (`browseml-mt-relaxed.wasm`, 4 threads, three recorded turns, two alternating runs
+each): reading **5.08 → 6.82 tok/s (+34%)**; writing unchanged (2.80–3.08 tok/s, noise); all answers identical.
+
 ## What to optimise next, by what it would save
 
-1. **Read the prompt in batches (bankML).** Reading runs at only 1.4–1.8× the writing speed. Batched engines read
+1. **Read the prompt in bigger tiles (bankML).** Done for four tokens per row in 0.6.5 (+34%); wider tiles and
+   sharing the activation scales are next.
+   *Earlier finding:* **read the prompt in batches.** Reading runs at only 1.4–1.8× the writing speed. Batched engines read
    many times faster than they write, because a batch reuses each weight row across many tokens. A batched Q1_0
    matrix–matrix kernel, bit-exact like the rest, would cut the first answer of a visit the most; it is the one
    number users wait on.

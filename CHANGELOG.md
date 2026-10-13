@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.6.5 — 2026-10-13 — faster prompt reading, the processor measured, prompts kept per persona
+
+- **Prompt reading +34% in the browser** (bankML `1781a17`, branch `browseml`): WebAssembly now has bankML's prefill
+  tile — one weight row's sign bits decoded once for four prompt tokens (relaxed SIMD, and plain SIMD for any value),
+  each result the per-token kernel's bits. Measured A/B on a Ryzen 3 3200U, `browseml-mt-relaxed.wasm`, 4 threads,
+  alternating runs: 5.08 → 6.82 tok/s reading; writing unchanged; every answer identical to llama.cpp's record. New
+  test `wasm_act_tile_bit_exact` (600 random tiles with and without −128, and whole matrices) passes on both builds.
+- **The processor, measured:** at the first interaction browseML measures how many threads are free right now (bursts
+  of 1, 2, 3 … workers; a thread counts when it adds real throughput), past the cores the browser reports, and claims
+  them with room: one left for the unexpected from four. The engine waits for the measure, so it starts with it. The
+  CPU slider shows it (free, reported, the claim), with AUTO and RE-MEASURE; a count you choose wins.
+- **Prompts kept per persona:** each prompt (a persona, a `.prompt`, a context size) keeps its own read slot, up to a
+  number you set (1–8, default 4), the least recently used removed first; switching back is a restore in a moment,
+  not minutes of reading. CACHE lists them by name (tokens, size, context, last used), forgets any one, READ NOW,
+  CLEAR CACHE, the RAM cache with what the last answer reused. A slot kept by 0.6.4 is removed on the next save.
+- Fixed: the browser test left a headless Brave running after its last check (a download in progress); it now
+  always closes it.
+- Browser test: the processor measured; CACHE naming its prompt; a new persona keeping its own beside it, and its
+  opening message.
+
 ## 0.6.4 — 2026-10-13 — out of the input field; the panel arranged by you; tok/s you can read
 
 - **Out of the input field:** a new response window grows out of the field, and so does the control panel when it

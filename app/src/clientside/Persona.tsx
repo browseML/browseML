@@ -53,7 +53,7 @@ export async function applyPersona(f: UIFContextValue, p: Persona) {
   setActive(p.id);
   savedFns.forEach(f => f());
   await new Promise(r => setTimeout(r, 0));
-  if (browseState()) void warmBrowse(f.context.forSend('', '').system);
+  if (browseState()) void warmBrowse(f.context.forSend('', '').system, p.name);
 }
 
 export function PersonaSection({ uif, say }: { uif: MutableRefObject<UIFContextValue | null>; say: Say }) {

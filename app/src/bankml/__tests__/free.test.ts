@@ -6,10 +6,13 @@ import { parseSettings, rateOf, DEFAULT_SETTINGS, NO_SAMPLING } from '../free';
 describe('browseML settings and download measures', () => {
   it('keeps only valid values', () => {
     expect(parseSettings({})).toEqual(DEFAULT_SETTINGS);
-    expect(parseSettings({ threads: 4, ctx: 2048, maxTokens: 1024, removeAfterSession: true, cacheRam: 64 })).toEqual({ threads: 4, ctx: 2048, maxTokens: 1024, removeAfterSession: true, cacheRam: 64, sampling: NO_SAMPLING });
+    expect(parseSettings({ threads: 4, ctx: 2048, maxTokens: 1024, removeAfterSession: true, cacheRam: 64 })).toEqual({ threads: 4, ctx: 2048, maxTokens: 1024, removeAfterSession: true, cacheRam: 64, sampling: NO_SAMPLING, keptPrompts: 4 });
     // any answer length from 1 (the single-token proof) to 2048
     expect(parseSettings({ maxTokens: 1 }).maxTokens).toBe(1);
     expect(parseSettings({ maxTokens: 2049 }).maxTokens).toBe(DEFAULT_SETTINGS.maxTokens);
+    // prompts kept read: 1 to 8
+    expect(parseSettings({ keptPrompts: 8 }).keptPrompts).toBe(8);
+    expect(parseSettings({ keptPrompts: 0 }).keptPrompts).toBe(4);
   });
   it("keeps sampling within Savante's ranges; anything else is the engine's default", () => {
     expect(parseSettings({ sampling: { temperature: 0, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.1, seed: 7 } }).sampling)

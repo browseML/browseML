@@ -27,6 +27,8 @@ export interface BrowseSettings {
   /** Sampling, as Savante's dials set it (bankML's request fields); null: the engine's default. Applied to the next
    *  question. */
   sampling: Sampling;
+  /** Prompts kept read (warm slots in this browser), each persona's or prompt's own; the least recently used go first. */
+  keptPrompts: number;
 }
 export interface Sampling { temperature: number | null; top_p: number | null; top_k: number | null; min_p: number | null; repeat_penalty: number | null; seed: number | null }
 export const NO_SAMPLING: Sampling = { temperature: null, top_p: null, top_k: null, min_p: null, repeat_penalty: null, seed: null };
@@ -38,7 +40,7 @@ const SETTINGS = 'browseml:settings';
 export const CTX_CHOICES = [1024, 2048, 4096, 8192] as const;
 export const MAXTOK_CHOICES = [128, 256, 384, 512, 1024, 2048] as const;
 export const CACHE_CHOICES = [0, 16, 32, 64, 128, 256] as const;
-export const DEFAULT_SETTINGS: BrowseSettings = { threads: null, ctx: 4096, maxTokens: MAX_TOKENS, removeAfterSession: false, cacheRam: 0, sampling: NO_SAMPLING };
+export const DEFAULT_SETTINGS: BrowseSettings = { threads: null, ctx: 4096, maxTokens: MAX_TOKENS, removeAfterSession: false, cacheRam: 0, sampling: NO_SAMPLING, keptPrompts: 4 };
 /** Settings as stored, each value checked (a stored value out of range falls back to the default). */
 export function parseSettings(raw: unknown, memoryGB: number | null = null): BrowseSettings {
   const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
@@ -53,6 +55,7 @@ export function parseSettings(raw: unknown, memoryGB: number | null = null): Bro
     maxTokens: (() => { const m = int(o.maxTokens); return m !== null && m >= 1 && m <= 2048 ? m : DEFAULT_SETTINGS.maxTokens; })(),
     removeAfterSession: o.removeAfterSession === true,
     cacheRam: (CACHE_CHOICES as readonly number[]).includes(int(o.cacheRam) ?? -1) ? (o.cacheRam as number) : DEFAULT_SETTINGS.cacheRam,
+    keptPrompts: (() => { const k = int(o.keptPrompts); return k !== null && k >= 1 && k <= 8 ? k : DEFAULT_SETTINGS.keptPrompts; })(),
     sampling: (() => {
       const r = (o.sampling && typeof o.sampling === 'object' ? o.sampling : {}) as Record<string, unknown>;
       const out = { ...NO_SAMPLING };
@@ -86,6 +89,14 @@ let browsed: Browsed | null = null;
 const mod = async () => (browseml ??= await esm(new URL('browseml.js', location.href).href));
 const CACHE = 'browseml-models';
 const MBs = (n: number) => `${(n / 1e6).toFixed(1)} MB`;
+
+// ── threads, when the visitor has not chosen: what was measured free on this computer (`availableThreads`) ─────
+let autoThreads: number | null = null;
+export const measuredThreads = () => autoThreads;
+export function setMeasuredThreads(n: number | null) { autoThreads = n; settingsFns.forEach(f => f()); }
+/** A measure under way: the engine waits for it before it starts (so it starts with the threads found free). */
+let pendingMeasure: Promise<unknown> | null = null;
+export function setPendingMeasure(p: Promise<unknown> | null) { pendingMeasure = p; }
 
 // ── the engine log: bankML's own lines (its log levels) and the page's steps, the last 300, for the control panel ──
 export interface LogLine { at: number; kind: 'error' | 'warn' | 'engine' | 'ok' | 'step'; text: string }
@@ -152,9 +163,10 @@ export async function loadBrowse(progress: (line: string, phase?: string) => voi
   const b = await mod();
   if (b.isReady() && browsed) return browsed;
   const MB = (n: number) => `${(n / 1e6).toFixed(0)} MB`;
+  if (pendingMeasure) await pendingMeasure.catch(() => {});
   const s = settings;
   let lastLogged = '';
-  engineLog('step', `starting bankML: ${s.threads ?? 'default'} threads, context ${s.ctx}, cache ${s.cacheRam} MiB`);
+  engineLog('step', `starting bankML: ${s.threads ?? (autoThreads ? `${autoThreads} (measured free)` : 'default')} threads, context ${s.ctx}, cache ${s.cacheRam} MiB`);
   browsed = await b.load((got: number, total: number, phase: string) => {
     lastProgress = { phase, got, total };
     if (phase !== 'download' && phase !== lastLogged) { lastLogged = phase; engineLog('step', phase === 'cache' ? `the model from this browser (${MB(got)}): no download` : phase === 'verify' ? 'bankML: the guard, then the sha256 of the whole model against its pin' : phase === 'folder' ? `the model from this computer: ${from?.name ?? 'a folder'}` : `${phase}: ${MB(got)} of ${MB(total)}`); }
@@ -163,7 +175,7 @@ export async function loadBrowse(progress: (line: string, phase?: string) => voi
     else if (phase === 'verify') progress('checking sha256… (bankML checks the model against its pin)', phase);
     else if (phase === 'retry') progress(`the connection dropped at ${MB(got)}: asking for that piece again`, phase);
     else if (phase === 'folder') progress(`the model from this computer (${from?.name ?? 'a folder'}): no download`, phase);
-  }, fromEngine, { threads: s.threads ?? undefined, ctx: s.ctx, cacheRam: s.cacheRam, ...(from ? { bytes: from.bytes, from: 'folder' } : {}) });
+  }, fromEngine, { threads: s.threads ?? autoThreads ?? undefined, ctx: s.ctx, cacheRam: s.cacheRam, ...(from ? { bytes: from.bytes, from: 'folder' } : {}) });
   browsed = { ...browsed!, cacheRam: s.cacheRam };
   engineLog('ok', `verified ${browsed.model} · sha256 ${browsed.sha256} · guard ${browsed.guard ?? '?'} · bankML ${browsed.version} · ${browsed.threads} thread(s) · ${browsed.build ?? 'browseml.wasm'} · context ${browsed.ctx}`);
   // an import (download()) put the model in the cache first: the record says it was downloaded
@@ -488,6 +500,15 @@ export async function clearBrowseCache(): Promise<number> {
   if (!browsed) setDl({ phase: 'idle', got: 0, verified: undefined });
   return freed;
 }
+/** A prompt kept read in this browser (a warm slot): whose, its size, when it was read and last used. */
+export interface KeptPrompt { key: string; label: string; tokens: number; bytes: number; ctx: number; created: number; used: number }
+export async function keptPrompts(): Promise<KeptPrompt[]> { try { return await (await mod()).slots(); } catch { return []; } }
+/** One kept prompt removed (the one in use stays loaded in the engine; the next visit reads it again). */
+export async function forgetPrompt(key: string): Promise<void> {
+  try { await (await mod()).forgetSlot(key); } catch { /* off */ }
+  if (warmState.phase !== 'cold' && 'key' in warmState && warmState.key === key) { warmedFor = ''; }
+  engineLog('step', 'a kept prompt removed');
+}
 /** The prompt cache's kept slot removed (the next start reads browseML's prompt again): the bytes freed. */
 export async function clearWarmSlot(): Promise<number> {
   let n = 0;
@@ -548,7 +569,7 @@ export function systemFor(composed: string, v: Browsed): string {
 export type WarmState =
   | { phase: 'cold' }
   | { phase: 'warming'; since: number }
-  | { phase: 'restored' | 'warmed'; tokens: number; bytes: number; ms: number }
+  | { phase: 'restored' | 'warmed'; tokens: number; bytes: number; ms: number; key?: string }
   | { phase: 'failed'; error: string };
 let warmState: WarmState = { phase: 'cold' };
 let warmedFor = '';
@@ -559,7 +580,7 @@ const setWarm = (w: WarmState) => { warmState = w; warmFns.forEach(f => f()); };
 
 /** Read `composed` (the page's system prompt) into the engine now, or restore it from a slot kept on an earlier visit,
  *  so the next question reads only itself. Once per prompt and engine; a question asked meanwhile waits its turn. */
-export async function warmBrowse(composed: string): Promise<WarmState> {
+export async function warmBrowse(composed: string, label = ''): Promise<WarmState> {
   const b = await mod();
   if (!b.isReady() || !browsed) return warmState;
   const system = systemFor(composed, browsed);
@@ -568,9 +589,9 @@ export async function warmBrowse(composed: string): Promise<WarmState> {
   warmedFor = key;
   setWarm({ phase: 'warming', since: Date.now() });
   engineLog('step', 'the prompt cache: restoring the kept slot, or reading browseML\'s prompt once');
-  const r = await b.warm(system, { log: fromEngine });
+  const r = await b.warm(system, { log: fromEngine, label, keep: settings.keptPrompts });
   engineLog(r.how === 'failed' ? 'warn' : 'ok', r.how === 'failed' ? `prompt cache: ${r.error}` : `prompt cache ${r.how}: ${r.tokens} tokens, ${MBs(r.bytes)} in ${(r.ms / 1000).toFixed(1)} s`);
-  setWarm(r.how === 'failed' ? { phase: 'failed', error: r.error ?? 'unknown' } : { phase: r.how, tokens: r.tokens, bytes: r.bytes, ms: r.ms });
+  setWarm(r.how === 'failed' ? { phase: 'failed', error: r.error ?? 'unknown' } : { phase: r.how, tokens: r.tokens, bytes: r.bytes, ms: r.ms, key: r.key });
   if (r.how !== 'failed') recordWarm({ how: r.how, tokens: r.tokens, bytes: r.bytes, ms: r.ms, threads: browsed?.threads ?? 1 });
   return warmState;
 }

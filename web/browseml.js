@@ -242,19 +242,35 @@ function slot(action, bytes) {
   }));
 }
 
-/** Warm slots, kept in this browser beside the model: one, the last (a new prompt, context or model replaces it). */
+/** Warm slots, kept in this browser beside the model: one per prompt (each system prompt, context and model has its
+ *  own), up to `keep` of them, the least recently used removed first. An index beside them names each one. */
 const SLOTS = "browseml-slots";
+const INDEX = "https://browseml.invalid/slots-index";
 const hex = async (text) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)))].map((b) => b.toString(16).padStart(2, "0")).join("");
+async function readIndex(c) { try { const r = await c.match(INDEX); return r ? await r.json() : {}; } catch { return {}; } }
+async function writeIndex(c, ix) { try { await c.put(INDEX, new Response(JSON.stringify(ix), { headers: { "Content-Type": "application/json" } })); } catch { /* full */ } }
+/** The prompts kept, most recently used first: {key, label, tokens, bytes, ctx, created, used}. */
+export async function slots() {
+  try {
+    const c = await caches.open(SLOTS), ix = await readIndex(c), keys = new Set((await c.keys()).map((r) => r.url));
+    return Object.entries(ix).filter(([k]) => keys.has(k)).map(([key, v]) => ({ key, ...v })).sort((a, b) => b.used - a.used);
+  } catch { return []; }
+}
+/** Remove one kept prompt (its slot and its line in the index). */
+export async function forgetSlot(key) {
+  try { const c = await caches.open(SLOTS); await c.delete(key); const ix = await readIndex(c); delete ix[key]; await writeIndex(c, ix); } catch { /* off */ }
+}
+/** Keep at most `keep` prompts (the least recently used go first; `spare` is never removed). */
+async function prune(c, keep, spare) {
+  const ix = await readIndex(c);
+  // a slot kept before the index (one prompt, browseML ≤ 0.6.4) is not named in it: removed
+  for (const r of await c.keys()) if (r.url !== INDEX && r.url !== spare && !ix[r.url]) await c.delete(r);
+  const old = Object.entries(ix).filter(([k]) => k !== spare).sort((a, b) => a[1].used - b[1].used);
+  while (old.length && old.length + 1 > keep) { const [k] = old.shift(); await c.delete(k); delete ix[k]; }
+  await writeIndex(c, ix);
+}
 
-/**
- * The prompt cache, across visits: read `system` once and keep the engine's slot, so a question that starts with it
- * reads only what is new. A slot kept from an earlier visit (same model, context and system prompt — its key is their
- * sha256) is restored in a moment; otherwise the system prompt is read now (in the background, before the first
- * question; a question asked meanwhile waits and reuses it), then the slot is saved and kept. bankML checks a restored
- * slot: its own sha256, and the model it was read with.
- * @returns {Promise<{how: "restored"|"warmed"|"failed", tokens?: number, bytes?: number, ms: number, error?: string}>}
- */
-export async function warm(system, { log = () => {} } = {}) {
+export async function warm(system, { log = () => {}, label = "", keep = 4 } = {}) {
   if (!ready) throw new Error("browseML is not loaded");
   const t0 = performance.now(), ms = () => Math.round(performance.now() - t0);
   const key = `https://browseml.invalid/slot/${await hex(`${ready.sha256}\n${ready.ctx}\n${system}`)}`;
@@ -264,7 +280,10 @@ export async function warm(system, { log = () => {} } = {}) {
     const kept = c && (await c.match(key));
     if (kept) {
       const r = await slot("restore", await kept.arrayBuffer());
-      return { how: "restored", tokens: r.tokens, bytes: r.bytes, ms: ms() };
+      const ix = await readIndex(c);
+      ix[key] = { ...(ix[key] || { label, tokens: r.tokens, bytes: r.bytes, ctx: ready.ctx, created: Date.now() }), label: label || ix[key]?.label || "", used: Date.now() };
+      await writeIndex(c, ix);
+      return { how: "restored", tokens: r.tokens, bytes: r.bytes, ms: ms(), key };
     }
   } catch (e) { log(1, `the kept slot was not used (${e.message || e}): reading the prompt again`); }
   try {
@@ -272,10 +291,15 @@ export async function warm(system, { log = () => {} } = {}) {
     await chat({ messages: [{ role: "system", content: system }, { role: "user", content: "" }], max_tokens: 0, temperature: 0 }, () => {});
     const saved = await slot("save");
     if (c) {
-      try { for (const r of await c.keys()) await c.delete(r); await c.put(key, new Response(saved.file, { headers: { "Content-Type": "application/octet-stream" } })); }
-      catch { /* storage full: warm for this visit only */ }
+      try {
+        await prune(c, Math.max(1, keep), key);
+        await c.put(key, new Response(saved.file, { headers: { "Content-Type": "application/octet-stream" } }));
+        const ix = await readIndex(c);
+        ix[key] = { label, tokens: saved.tokens, bytes: saved.bytes, ctx: ready.ctx, created: Date.now(), used: Date.now() };
+        await writeIndex(c, ix);
+      } catch { /* storage full: warm for this visit only */ }
     }
-    return { how: "warmed", tokens: saved.tokens, bytes: saved.bytes, ms: ms() };
+    return { how: "warmed", tokens: saved.tokens, bytes: saved.bytes, ms: ms(), key };
   } catch (e) {
     return { how: "failed", ms: ms(), error: String(e.message || e) };
   }
