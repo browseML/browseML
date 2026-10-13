@@ -155,7 +155,7 @@ try {
   });
   check("the first interaction pops the control panel out, HARD DRIVE in it", side.open && side.hd);
   const tools = await page.locator(".cp-fold", { hasText: "TOOLS" }).first().locator("button").allInnerTexts();
-  check("ON, OFF and CLEAR in the panel's TOOLS", ["ON", "OFF", "CLEAR"].every((b) => tools.includes(b)), tools.join(" · "));
+  check("ON, OFF and CLEAR in the panel's TOOLS", ["OFF", "CLEAR"].every((b) => tools.includes(b)) && tools.some((b) => /^ON(…)?$/.test(b)), tools.join(" · "));
   check("the field drops beside the panel, not under it", side.field >= side.right, `panel ends at ${side.right}px, field starts at ${side.field}px`);
   await page.waitForFunction(() => /Loading the model in your browser/.test(document.querySelector(".uif-output")?.textContent || ""), null, { timeout: 60000 });
   await wait(4000);

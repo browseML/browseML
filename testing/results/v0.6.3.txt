@@ -222,3 +222,85 @@ models/Bonsai-1.7B-Q1_0.gguf matches the pin
 -- model copy: the pin: pass (3s)
 
 release gate v0.6.3: every step passed
+
+== browser: Brave Browser 152.1.94.117 , headless, a throwaway profile
+ok   the page: title and logo
+ok   the FAQ: eight questions
+ok   no panel at first, T in the field
+ok   T opens the control panel with its sections — TOOLS, CPU · RAM · GPU · CACHE, PERSONA, BUILDER, SAMPLING, ENGINE LOG, RECEIPTS, MODELS ON THIS COMPUTER, HARD DRIVE, DIALS, DIAGNOSTICS, TOOL SUITE, LIMITERS, ADVICE AND RECORDS
+ok   the panel's content fits its width
+ok   tool MEMORY — copy 2.0 GB/s · triad 1.3 GB/s
+ok   tool CPU — 328 Mops/s on one · 351 on 3 (×1.07)
+ok   tool STORAGE — write 25 MB/s · read 53 MB/s
+ok   tool SENSORS — online · battery 100% charging
+ok   tool EXACT — 256/256 rows bit-exact (n 2048) · GPU 545 ms
+ok   EXACT: every row bit-exact on this GPU — 256/256 rows bit-exact (n 2048) · GPU 545 ms
+ok   the folder's models listed with their verdicts — the right size: checked when used | another model (not run in the browser yet)
+ok   the model from the folder: recognised by sha256, used with no download — ✓ Bonsai-1.7B · 1-bit (Q1_0) from my-models/Bonsai-1.7B-Q1_0.gguf — no download
+ok   HARD DRIVE: the browser's storage and the model kept — browser 248 MB of 2147 MB | room 1899 MB | kept may be evicted | model 248 MB in browser | disk copy none
+ok   HARD DRIVE: keep a copy on the disk — the model saved, its sha256 the pin — Bonsai-1.7B-Q1_0.gguf · 248302272 bytes · 3d7c6c90dd98717a…
+ok   HARD DRIVE: the copy recorded
+ok   HARD DRIVE: SAVE FOR bankML — the model and its FORK.json (pinned to the sha256) — Bonsai-1.7B-Q1_0.gguf + Bonsai-1.7B-Q1_0.gguf.FORK.json
+ok   the receipt under the answer: a closed accordion — ✓ receipt · 584 → 52 tokens · 1.29 tok/s
+ok   the receipt verified (✓)
+ok   opened: the response's sha256 in the receipt
+ok   the receipt kept in .history — 1 exchange(s) with a receipt
+ok   the receipt kept in .memory as a delivery record — 1 delivery record(s)
+ok   the control panel opened with the response window
+ok   the panel's RECEIPTS lists it
+ok   view receipts off: hidden under answers
+ok   visit 2: the page just loads — nothing started before an interaction
+ok   visit 2: the prompt cache restored — prompt cache restored 635 tokens in 1.8 s
+ok   gpu-exact.html: every shape bit-exact — 256 rows × 2048: 256/256 bit-exact · GPU 135 ms · google · swiftshader | 64 rows × 6144: 64/64 bit-exact · GPU 133 ms · google · swiftshader | 512 rows × 128: 512/512 bit-exact · GPU 104 ms · google · swiftshader
+ok   gpu-exact.html: both controls differ
+ok   fresh visit: the page just loads, no panel before an interaction
+ok   the first interaction pops the control panel out, HARD DRIVE in it
+FAIL ON, OFF and CLEAR in the panel's TOOLS — ▾
+TOOLS · ON… · OFF · CLEAR · PAUSE · CANCEL
+ok   the field drops beside the panel, not under it — panel ends at 340px, field starts at 356px
+ok   the response window does not ask: no Import button
+ok   no model: asking starts loading it
+
+1 browser check(s) failed
+-- browser checks: FAIL (352s)
+
+== browser: Brave Browser 152.1.94.117 , headless, a throwaway profile
+ok   the page: title and logo
+ok   the FAQ: eight questions
+ok   no panel at first, T in the field
+ok   T opens the control panel with its sections — TOOLS, CPU · RAM · GPU · CACHE, PERSONA, BUILDER, SAMPLING, ENGINE LOG, RECEIPTS, MODELS ON THIS COMPUTER, HARD DRIVE, DIALS, DIAGNOSTICS, TOOL SUITE, LIMITERS, ADVICE AND RECORDS
+ok   the panel's content fits its width
+ok   tool MEMORY — copy 6.4 GB/s · triad 4.8 GB/s
+ok   tool CPU — 140 Mops/s on one · 190 on 2 (×1.36)
+ok   tool STORAGE — write 25 MB/s · read 47 MB/s
+ok   tool SENSORS — online · battery 100% charging
+ok   tool EXACT — 256/256 rows bit-exact (n 2048) · GPU 1649 ms
+ok   EXACT: every row bit-exact on this GPU — 256/256 rows bit-exact (n 2048) · GPU 1649 ms
+ok   the folder's models listed with their verdicts — the right size: checked when used | another model (not run in the browser yet)
+ok   the model from the folder: recognised by sha256, used with no download — ✓ Bonsai-1.7B · 1-bit (Q1_0) from my-models/Bonsai-1.7B-Q1_0.gguf — no download
+ok   HARD DRIVE: the browser's storage and the model kept — browser 248 MB of 2147 MB | room 1899 MB | kept may be evicted | model 248 MB in browser | disk copy none
+ok   HARD DRIVE: keep a copy on the disk — the model saved, its sha256 the pin — Bonsai-1.7B-Q1_0.gguf · 248302272 bytes · 3d7c6c90dd98717a…
+ok   HARD DRIVE: the copy recorded
+ok   HARD DRIVE: SAVE FOR bankML — the model and its FORK.json (pinned to the sha256) — Bonsai-1.7B-Q1_0.gguf + Bonsai-1.7B-Q1_0.gguf.FORK.json
+ok   the receipt under the answer: a closed accordion — ✓ receipt · 584 → 47 tokens · 1.32 tok/s
+ok   the receipt verified (✓)
+ok   opened: the response's sha256 in the receipt
+ok   the receipt kept in .history — 1 exchange(s) with a receipt
+ok   the receipt kept in .memory as a delivery record — 1 delivery record(s)
+ok   the control panel opened with the response window
+ok   the panel's RECEIPTS lists it
+ok   view receipts off: hidden under answers
+ok   visit 2: the page just loads — nothing started before an interaction
+ok   visit 2: the prompt cache restored — prompt cache restored 630 tokens in 2.9 s
+ok   gpu-exact.html: every shape bit-exact — 256 rows × 2048: 256/256 bit-exact · GPU 193 ms · google · swiftshader | 64 rows × 6144: 64/64 bit-exact · GPU 186 ms · google · swiftshader | 512 rows × 128: 512/512 bit-exact · GPU 178 ms · google · swiftshader
+ok   gpu-exact.html: both controls differ
+ok   fresh visit: the page just loads, no panel before an interaction
+ok   the first interaction pops the control panel out, HARD DRIVE in it
+ok   ON, OFF and CLEAR in the panel's TOOLS — ▾
+TOOLS · ON… · OFF · CLEAR · PAUSE · CANCEL
+ok   the field drops beside the panel, not under it — panel ends at 340px, field starts at 356px
+ok   the response window does not ask: no Import button
+ok   no model: asking starts loading it
+
+every browser check passed
+-- browser checks: pass (634s)
