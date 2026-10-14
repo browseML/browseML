@@ -1,0 +1,231 @@
+browseML v0.6.10 — release gate, 2026-10-14T09:47:05Z
+commit 012cf44 · bankml/ 8f5e930
+machine: Linux x86_64 · 4 threads · 5842 MB RAM, 1954 MB available · load 6.07 5.18 4.76
+node v24.20.0 · rustc 1.99.0 (b940084d7 2026-09-28) · model /home/hacker/bML/bankml/.models
+
+== engines: build the three .wasm
+$ tools/build.sh
+   Compiling browseml v0.6.10 (/home/hacker/cryptoAGI/browseML)
+    Finished `release` profile [optimized] target(s) in 24.40s
+   Compiling browseml v0.6.10 (/home/hacker/cryptoAGI/browseML)
+    Finished `release` profile [optimized] target(s) in 49.81s
+   Compiling browseml v0.6.10 (/home/hacker/cryptoAGI/browseML)
+    Finished `release` profile [optimized] target(s) in 28.74s
+web/browseml.wasm: 927331 bytes, sha256 9a4f11375e16c232…
+web/browseml-mt.wasm: 938979 bytes, sha256 419b6204ece3a765…
+web/browseml-mt-relaxed.wasm: 941375 bytes, sha256 a3e959e28908ce66…
+-- engines: build the three .wasm: pass (106s)
+
+== engines: sha256 of what was built
+$ sh -c sha256sum web/browseml.wasm web/browseml-mt.wasm web/browseml-mt-relaxed.wasm
+9a4f11375e16c2328565d930940a55a8831ec28d565846e307d90b163bdf49d3  web/browseml.wasm
+419b6204ece3a765c040eb231423752cebd18b957a0522e527e499c3c40e2444  web/browseml-mt.wasm
+a3e959e28908ce6631005ac6442864b04af3355cce638ddf642b90da29cb5ccd  web/browseml-mt-relaxed.wasm
+-- engines: sha256 of what was built: pass (0s)
+
+== kernels: wasm_simd, f16, q1_0 under Node's WASI (SIMD, relaxed SIMD)
+$ tools/build.sh test
+   Compiling bankml v0.4.2 (/home/hacker/cryptoAGI/browseML/bankml)
+    Finished `release` profile [optimized] target(s) in 2m 13s
+     Running unittests bankML/bankml.rs (/home/hacker/cryptoAGI/browseML/target/wasm-test/wasm32-wasip1/release/deps/bankml-81c7fb3b4661126e.wasm)
+
+running 18 tests
+test f16::tests::mad_and_scale_match_the_scalar_definitions ... ok
+test f16::tests::the_two_reductions_differ ... ok
+test q1_0::tests::ab_vs_ggml ... ignored, needs BANKML_GGML_LIB (llama.cpp b11192 ubuntu-x64 release dir)
+test q1_0::tests::act_path_bit_exact_with_vec_dot ... ok
+test q1_0::tests::bench_q1_0 ... ignored, benchmark; run with --release --nocapture
+test q1_0::tests::bench_q1_0_prefill ... ignored, benchmark; run with --release --nocapture
+test q1_0::tests::decode_budget_q1_0 ... ignored, needs BANKML_GGML_LIB + .models/Bonsai-8B-Q1_0.gguf; ~1 min
+test q1_0::tests::dequantize_layout_scale_first_lsb_first ... ok
+test q1_0::tests::f16_roundtrip_all_65536 ... ok
+test q1_0::tests::generic_matches_dequantized_math ... ok
+test q1_0::tests::mat_mul_bit_exact_with_per_pair_vec_dot ... ok
+test q1_0::tests::mat_vec_bit_exact_with_vec_dot ... ok
+test q1_0::tests::q8_0_matches_avx2_semantics ... ok
+test q1_0::tests::wasm_act_tile_bit_exact ... ok
+test wasm_simd::tests::f16_vec_dot_is_the_reference ... ok
+test wasm_simd::tests::fma_chain_is_the_scalar_chain ... ok
+test wasm_simd::tests::fmadd_is_mul_add ... ok
+test wasm_simd::tests::widen4_is_f16_to_f32_on_every_value ... ok
+
+test result: ok. 14 passed; 0 failed; 4 ignored; 0 measured; 156 filtered out; finished in 0.87s
+
+   Compiling bankml v0.4.2 (/home/hacker/cryptoAGI/browseML/bankml)
+    Finished `release` profile [optimized] target(s) in 2m 12s
+     Running unittests bankML/bankml.rs (/home/hacker/cryptoAGI/browseML/target/wasm-test/wasm32-wasip1/release/deps/bankml-db21128fb51c1917.wasm)
+
+running 18 tests
+test f16::tests::mad_and_scale_match_the_scalar_definitions ... ok
+test f16::tests::the_two_reductions_differ ... ok
+test q1_0::tests::ab_vs_ggml ... ignored, needs BANKML_GGML_LIB (llama.cpp b11192 ubuntu-x64 release dir)
+test q1_0::tests::act_path_bit_exact_with_vec_dot ... ok
+test q1_0::tests::bench_q1_0 ... ignored, benchmark; run with --release --nocapture
+test q1_0::tests::bench_q1_0_prefill ... ignored, benchmark; run with --release --nocapture
+test q1_0::tests::decode_budget_q1_0 ... ignored, needs BANKML_GGML_LIB + .models/Bonsai-8B-Q1_0.gguf; ~1 min
+test q1_0::tests::dequantize_layout_scale_first_lsb_first ... ok
+test q1_0::tests::f16_roundtrip_all_65536 ... ok
+test q1_0::tests::generic_matches_dequantized_math ... ok
+test q1_0::tests::mat_mul_bit_exact_with_per_pair_vec_dot ... ok
+test q1_0::tests::mat_vec_bit_exact_with_vec_dot ... ok
+test q1_0::tests::q8_0_matches_avx2_semantics ... ok
+test q1_0::tests::wasm_act_tile_bit_exact ... ok
+test wasm_simd::tests::f16_vec_dot_is_the_reference ... ok
+test wasm_simd::tests::fma_chain_is_the_scalar_chain ... ok
+test wasm_simd::tests::fmadd_is_mul_add ... ok
+test wasm_simd::tests::widen4_is_f16_to_f32_on_every_value ... ok
+
+test result: ok. 14 passed; 0 failed; 4 ignored; 0 measured; 156 filtered out; finished in 0.56s
+
+-- kernels: wasm_simd, f16, q1_0 under Node's WASI (SIMD, relaxed SIMD): pass (268s)
+
+== download: pieces, cuts, two sources
+$ node testing/download.mjs
+ok   cut responses: the file arrives whole — 2 cuts, 2 retries
+ok   each cut is asked for again from the byte where it was cut — 2621440, 4718592
+ok   a server that ignores Range: one stream
+ok   a 404 stops at once (no retries) — the model could not be downloaded: HTTP 404
+ok   one source down: the other serves every piece, the file whole — 1 asked of the source that is down, 6 of the other
+-- download: pieces, cuts, two sources: pass (1s)
+
+== oracle: browseml.wasm, 9 conversations
+$ node testing/oracle.mjs web/browseml.wasm /home/hacker/bML/bankml/.models Bonsai-1.7B-Q1_0 web/browseML/Bonsai-1.7B-Q1_0.gguf.FORK.json
+instantiated; opening (the guard, then the sha256 of the whole file, then the forward pass)…
+open 0 in 7.3 s: {"model": "Bonsai-1.7B-Q1_0.gguf", "sha256": "3d7c6c90dd98717a203adb22d5eacd2581850e40aa5327e144b97766cae5f7e3", "guard": "play", "engine": "bankML 0.4.2 native: its own forward pass, token-identical to llama.cpp b11192 on its oracle", "arch": "qwen3", "version": "0.4.2", "host": "browseml 0.6.10", "side": "client"}
+memory after open: 317 MB in the module
+  first piece after 69.8 s (prompt read)
+  16 pieces, 0.49 pieces/s
+  32 pieces, 0.48 pieces/s
+  48 pieces, 0.46 pieces/s
+  64 pieces, 0.44 pieces/s
+turn 0.0: identical — 64 tokens in 211.7 s (0.30 tok/s); receipt response_sha256 377f6be9bf615e74
+  first piece after 114.4 s (prompt read)
+  16 pieces, 0.38 pieces/s
+  32 pieces, 0.41 pieces/s
+  48 pieces, 0.41 pieces/s
+  64 pieces, 0.40 pieces/s
+turn 0.1: identical — 64 tokens in 271.5 s (0.24 tok/s); receipt response_sha256 007b533a453030db
+  first piece after 124.4 s (prompt read)
+  16 pieces, 0.36 pieces/s
+  32 pieces, 0.39 pieces/s
+  48 pieces, 0.39 pieces/s
+  64 pieces, 0.38 pieces/s
+turn 0.2: identical — 64 tokens in 289.5 s (0.22 tok/s); receipt response_sha256 e9d7106c485ee163
+  first piece after 20.4 s (prompt read)
+  16 pieces, 0.45 pieces/s
+  32 pieces, 0.48 pieces/s
+turn 1.0: identical — 38 tokens in 97.7 s (0.39 tok/s); receipt response_sha256 02db700a000a9d09
+  first piece after 86.5 s (prompt read)
+  16 pieces, 0.49 pieces/s
+  32 pieces, 0.50 pieces/s
+turn 1.1: identical — 36 tokens in 157.4 s (0.23 tok/s); receipt response_sha256 043c17b644feb5c8
+  first piece after 80.2 s (prompt read)
+  16 pieces, 0.47 pieces/s
+  32 pieces, 0.48 pieces/s
+turn 1.2: identical — 33 tokens in 147.1 s (0.22 tok/s); receipt response_sha256 cdfd25ec8495b4e7
+  first piece after 18.4 s (prompt read)
+turn 2.0: identical — 3 tokens in 22.5 s (0.13 tok/s); receipt response_sha256 bc7444869484dd1e
+  first piece after 27.5 s (prompt read)
+turn 2.1: identical — 4 tokens in 33.5 s (0.12 tok/s); receipt response_sha256 ffb948556a252fec
+  first piece after 46.9 s (prompt read)
+  16 pieces, 0.49 pieces/s
+  32 pieces, 0.46 pieces/s
+turn 2.2: identical — 47 tokens in 145.7 s (0.32 tok/s); receipt response_sha256 8bd64eec4b263e2f
+browseML oracle (Bonsai-1.7B-Q1_0): 9 of 9 answers identical to llama-server b11192's record
+browseml: Bonsai-1.7B-Q1_0.gguf verified (sha256 3d7c6c90dd98717a203adb22d5eacd2581850e40aa5327e144b97766cae5f7e3); open in bankML's forward pass, context 4096
+-- oracle: browseml.wasm, 9 conversations: pass (1386s)
+
+== oracle: browseml-mt-relaxed.wasm, 2 threads, 9 conversations
+$ node testing/bench.mjs web/browseml-mt-relaxed.wasm /home/hacker/bML/bankml/.models/Bonsai-1.7B-Q1_0.gguf web/browseML/Bonsai-1.7B-Q1_0.gguf.FORK.json 2 /home/hacker/bML/bankml/.models/oracle-forward/serve-Bonsai-1.7B-Q1_0.jsonl 9
+open in 6.5 s · 2 threads
+prompt 53 tok 2.18 tok/s · write 64 tok 0.88 tok/s · identical
+prompt 85 tok 1.96 tok/s · write 64 tok 0.77 tok/s · identical
+prompt 82 tok 1.71 tok/s · write 64 tok 0.66 tok/s · identical
+prompt 14 tok 1.87 tok/s · write 38 tok 0.95 tok/s · identical
+prompt 57 tok 1.90 tok/s · write 36 tok 0.93 tok/s · identical
+prompt 52 tok 1.86 tok/s · write 33 tok 0.90 tok/s · identical
+prompt 14 tok 1.98 tok/s · write 3 tok 1.16 tok/s · identical
+prompt 20 tok 1.46 tok/s · write 4 tok 0.98 tok/s · identical
+prompt 31 tok 1.47 tok/s · write 47 tok 0.82 tok/s · identical
+9 of 9 identical to the record
+-- oracle: browseml-mt-relaxed.wasm, 2 threads, 9 conversations: pass (666s)
+
+== prompt cache: save, restore, the cold engine's answer
+$ node testing/slot.mjs web/browseml.wasm /home/hacker/bML/bankml/.models/Bonsai-1.7B-Q1_0.gguf web/browseML/Bonsai-1.7B-Q1_0.gguf.FORK.json
+ok   the slot saves — 509 tokens, 58.4 MB, warmed in 744.0 s
+ok   the slot restores in a new engine — 509 tokens
+ok   the restored prefix is reused — cache_n 500 of 517 prompt tokens
+ok   the answer is the cold engine's — "No, nothing you type leaves your computer. browseML runs in your web browser, compiled to WebAssembly, and processes you"
+cold 969.2 s (prompt 820.5 s) · warm slot 173.6 s (prompt 42.3 s)
+ok   a damaged slot is refused — {"error": {"code": -4, "message": "Unable to restore slot: the slot file is damaged (its sha256 does
+-- prompt cache: save, restore, the cold engine's answer: pass (1911s)
+
+== app: typecheck
+$ sh -c cd app && npx tsc --noEmit
+-- app: typecheck: pass (18s)
+
+== app: unit tests
+$ sh -c cd app && npx vitest run
+
+ RUN  v2.1.9 /home/hacker/cryptoAGI/browseML/app
+
+ ✓ src/core/__tests__/context.test.ts (20 tests) 109ms
+ ✓ src/bankml/__tests__/deliver.test.ts (10 tests) 92ms
+ ✓ src/bankml/__tests__/usage.test.ts (11 tests) 113ms
+ ✓ src/core/__tests__/core.test.ts (14 tests) 100ms
+ ✓ src/core/__tests__/layout.test.ts (11 tests) 114ms
+ ✓ src/bankml/__tests__/free.test.ts (7 tests) 48ms
+ ✓ src/bankml/__tests__/folders.test.ts (5 tests) 32ms
+ ✓ src/bankml/__tests__/pulse.test.ts (5 tests) 64ms
+ ✓ src/core/__tests__/rack.test.ts (7 tests) 54ms
+ ✓ src/core/__tests__/shelves.test.ts (4 tests) 52ms
+ ✓ src/bankml/__tests__/caps.test.ts (7 tests) 48ms
+3:59:50 a.m. [vite] Failed to load source map for /home/hacker/cryptoAGI/browseML/app/vendor/dreamknob/dist/index.js.
+Error: An error occurred while trying to read the map file at index.js.map
+Error: ENOENT: no such file or directory, open '/home/hacker/cryptoAGI/browseML/app/vendor/dreamknob/dist/index.js.map'
+    at async open (node:internal/fs/promises:1345:25)
+    at async Object.readFile (node:internal/fs/promises:1996:14)
+    at async extractSourcemapFromFile (file:///home/hacker/cryptoAGI/browseML/app/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:21002:53)
+    at async loadAndTransform (file:///home/hacker/cryptoAGI/browseML/app/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51941:27)
+    at async ViteNodeServer._transformRequest (file:///home/hacker/cryptoAGI/browseML/app/node_modules/vite-node/dist/server.mjs:542:16)
+    at async ViteNodeServer._fetchModule (file:///home/hacker/cryptoAGI/browseML/app/node_modules/vite-node/dist/server.mjs:504:17)
+    at async Proxy.fetch (file:///home/hacker/cryptoAGI/browseML/app/node_modules/vitest/dist/chunks/resolveConfig.rBxzbVsl.js:6617:22)
+    at async EventEmitter.onMessage (file:///home/hacker/cryptoAGI/browseML/app/node_modules/vitest/dist/chunks/index.68735LiX.js:91:20)
+ ✓ src/core/__tests__/links.test.ts (2 tests) 34ms
+ ✓ src/bankml/__tests__/wording.test.ts (1 test) 132ms
+ ✓ src/clientside/__tests__/persona.test.ts (2 tests) 59ms
+ ✓ src/core/__tests__/dock.test.ts (5 tests) 12ms
+ ✓ src/clientside/__tests__/cores.test.ts (2 tests) 37ms
+ ✓ src/bankml/__tests__/engine.test.ts (2 tests) 26ms
+ ✓ src/clientside/__tests__/arrange.test.ts (2 tests) 40ms
+ ✓ src/clientside/__tests__/builder.test.ts (2 tests) 14ms
+
+ Test Files  19 passed (19)
+      Tests  119 passed (119)
+   Start at  03:59:43
+   Duration  10.39s (transform 2.79s, setup 0ms, collect 6.25s, tests 1.18s, environment 18ms, prepare 7.51s)
+
+-- app: unit tests: pass (13s)
+
+== app: build
+$ sh -c cd app && npx vite build
+vite v5.4.21 building for production...
+transforming...
+✓ 103 modules transformed.
+[plugin:vite:reporter] [plugin vite:reporter] 
+(!) /home/hacker/cryptoAGI/browseML/app/src/bankml/folders.ts is dynamically imported by /home/hacker/cryptoAGI/browseML/app/src/clientside/Folders.tsx but also statically imported by /home/hacker/cryptoAGI/browseML/app/src/clientside/BrowseCard.tsx, /home/hacker/cryptoAGI/browseML/app/src/clientside/Disk.tsx, /home/hacker/cryptoAGI/browseML/app/src/clientside/Folders.tsx, dynamic import will not move module into another chunk.
+
+rendering chunks...
+computing gzip size...
+dist/app.html                   1.46 kB │ gzip:   0.72 kB
+dist/assets/app-B8JZAhod.css   71.59 kB │ gzip:  14.25 kB
+dist/assets/app-D4DabkXa.js   492.61 kB │ gzip: 163.26 kB
+✓ built in 6.92s
+-- app: build: pass (10s)
+
+== model copy: the pin
+$ sh -c sha256sum models/Bonsai-1.7B-Q1_0.gguf | grep -q $(node -e 'console.log(require("./web/browseML/Bonsai-1.7B-Q1_0.gguf.FORK.json").files[0].sha256)') && echo 'models/Bonsai-1.7B-Q1_0.gguf matches the pin'
+models/Bonsai-1.7B-Q1_0.gguf matches the pin
+-- model copy: the pin: pass (4s)
+
+release gate v0.6.10: every step passed
