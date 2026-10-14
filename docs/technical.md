@@ -25,7 +25,7 @@ State at **0.6.8** (2026-10-13), engine bankML `f618309` (branch `browseml`).
 | **server and client** | bankML's host registry (`host.rs`) names browseML a client host — the visitor's machine, nothing leaves it — and `bankml serve` a server host; engine work lands in bankML first and is pinned here |
 | **checked by** | `testing/release.sh` (engines, kernels under Node's WASI, the download, both oracles, the prompt cache, the app, the model's pin) and `testing/browser.sh` (headless Brave), recorded in `testing/results/v<version>.txt` |
 
-## Versions, from the first experiments to 0.6.8
+## Versions, from the first experiments to 0.6.12
 
 Before this repository, browseML lived in bankML (`browseML/`, from `9c63fa1`, 2026-10-08) and was shown on Hugging
 Face Spaces; [HISTORY.md](../HISTORY.md) maps each experiment to its code. The details of each release are in the
@@ -48,6 +48,10 @@ Face Spaces; [HISTORY.md](../HISTORY.md) maps each experiment to its code. The d
 | 0.6.6 | 2026-10-13 | cheaper sign lanes (reading +6%); the time profiled; WebGPU exact on a real AMD card; the fast eight-lane kernel | `1c3c16c` |
 | 0.6.7 | 2026-10-13 | the visitor's GPU in the forward pass, exactly; the GPU switch chooses it; bankML owns the kernel and knows its hosts | `a32f81c` |
 | 0.6.8 | 2026-10-13 | the GPU measured on a quiet machine; the same lessons in bankML's Vulkan backend (the token dimension, grouped submissions) | `f618309` |
+| 0.6.9 | 2026-10-13 | SAMPLING deeper: DRY, XTC and dynamic temperature; glass sliders; depth on borders | `f618309` |
+| 0.6.10 | 2026-10-14 | the processor's fire across the page; prompts read on the GPU four tokens per invocation (the kernel 1.14–1.18×, the engine within the noise) | `8f5e930` |
+| 0.6.11 | 2026-10-14 | the GPU's time, a slider to 100% | `51ec905` |
+| 0.6.12 | 2026-10-14 | 0.6.11's speed claim corrected with the GPU share held fixed; the fire measures its own cost | `dab9771` |
 
 ## The pieces
 
@@ -171,11 +175,12 @@ on it, and keeps a matrix shape only where it measured the card faster.
   for bit at open; then each shape timed on the card and on the CPU, decided per shape; the card's share of rows set
   by the limiter (the heap's limit where there is no `/proc`, as in a browser — before 0.6.7 an integrated card was
   never given a matrix for lack of it).
-- **Prompt reading** (`begin_many` / `finish_many`): a micro-batch's tokens in one dispatch. **Grouped submissions**
+- **Prompt reading** (`begin_many` / `finish_many`): a micro-batch's tokens in one dispatch, four tokens per
+  invocation (`Q1_0_MM4`, 0.6.10: each weight word decoded once for four tokens, the bits unchanged). **Grouped submissions**
   (`begin_group` / `finish_group`): Q/K/V and gate/up submitted together, the CPU's rows of all of them in one wake of
   the pool, one wait — each wait is a round trip to the GPU worker.
-- **The GPU switch** (OFF · LOW · HIGH, the panel's GPU slider) chooses the adapter's power preference or no card;
-  APPLY restarts the engine. The panel and the engine log show the card, its share and the shapes on card and CPU.
+- **The GPU switch** (OFF · LOW · HIGH, the panel's GPU slider) chooses the adapter's power preference or no card,
+  and **its time** (25–100%, 0.6.11) is bankML's limiter, `BANKML_GPU_LIMIT`; APPLY restarts the engine. The panel and the engine log show the card, its share and the shapes on card and CPU.
 - **Back to the server:** the token dimension and grouped submissions are in bankML's Vulkan backend too
   (`q1_0_mat_mul8`, `Gpu::IN_FLIGHT`), bit-exact on the same card.
 
@@ -214,6 +219,14 @@ answer identical to the record. The raw numbers are in `testing/results/` and [e
 | 0.6.6 | cheaper sign lanes (bankML `1c3c16c`) | 4 | 6.72 → 7.13 (+6%) | unchanged |
 | 0.6.8 | the GPU on, AMD Radeon Vega 3 through Dawn, quiet machine | 3 | 6.70–7.53 → 7.30–7.74 | 2.88–3.34 → 3.14–3.41 |
 
+**Measuring the GPU is mostly measuring noise** (0.6.10–0.6.12). bankML calibrates the card's share at every open, and
+on this machine that calibration moves 38–56% from run to run — more than any change measured since. Comparisons
+of GPU changes therefore hold the share fixed (`BANKML_GPU_SHARE=0.42` through `testing/bench.mjs`) and alternate
+three rounds. Held fixed, the GPU's time at 80% or 100%, a separate share for reading prompts, and the duty cycle as
+fewer rows all landed within a few percent of each other (reading 5.6–6.3 tok/s, writing 2.2–2.5, 3 threads, every
+answer identical). The tiled kernel is faster on the card alone (1.14–1.18× at 64–512 tokens); on a 3-compute-unit
+integrated card the CPU's share of the rows, not the kernel, sets the speed.
+
 The GPU row is the best measured so far for a card: an integrated GPU with 3 compute units, which bankML gives about
 38% of the rows of the shapes it decided for the card (5 of 9 shapes). The prompt cache matters more than any of
 these for the first answer of a visit: 397 prompt tokens restored in 0.6 s where reading them took 203 s.
@@ -245,7 +258,7 @@ Nothing is a silent wait. In the browseML app:
 
 ## Limitations
 
-What browseML does not do, or does only under conditions, at 0.6.8.
+What browseML does not do, or does only under conditions, at 0.6.12.
 
 **Where it runs**
 - **Threads need cross-origin isolation** (COOP `same-origin`, COEP `credentialless` or `require-corp`). Without it,
@@ -272,7 +285,8 @@ What browseML does not do, or does only under conditions, at 0.6.8.
 **Speed**
 - **The CPU decides it.** About 7 tok/s reading and 3 writing on a 2-core laptop; writing is bound by arithmetic.
 - **The GPU's gain is small and measured on one card.** An integrated AMD Radeon Vega 3 (3 compute units): reading
-  +5–10%, writing +3–9% (medians of two rounds), through Dawn in Node. Discrete AMD and NVIDIA cards have not been measured; the headless
+  +5–10%, writing +3–9% (medians of two rounds), through Dawn in Node. Its share is calibrated at each open and moves
+  38–56% run to run on that card, which is larger than any tuning measured since. Discrete AMD and NVIDIA cards have not been measured; the headless
   browser checks run WebGPU on SwiftShader (software), which checks exactness, not speed.
 - **Attention, norms and RoPE stay on the CPU;** only the 1-bit matrix products go to the card.
 
