@@ -7,6 +7,7 @@ import type { Turn, Verdict } from './engine';
 import { sha256hex } from './engine';
 import { ctxCapFor, mb } from './caps';
 import { recordAnswer, recordLoad, recordWarm } from './usage';
+import { activity, noteRate, setActivity, setReady, surge, token } from './pulse';
 import { getLimits } from '../clientside/limits';
 
 const esm = (url: string): Promise<any> => import(/* @vite-ignore */ url);
@@ -129,7 +130,8 @@ export function engineLog(kind: LogLine['kind'], text: string) {
 }
 /** bankML's log callback: level 0 error, 1 warning, else the engine's own line. */
 const fromEngine = (level: number, text: string) => {
-  if (/\bGPU\b|WebGPU/.test(text) && !/^\(thread\)/.test(text)) gpuNote = text.replace(/^bankml:\s*/, '');
+  if (/\bGPU\b|WebGPU/.test(text) && !/^\(thread\)/.test(text)) { gpuNote = text.replace(/^bankml:\s*/, ''); if (/verified/.test(text)) surge('gpu', 1); }
+  if (level === 0) surge('error', 0.9);
   engineLog(level === 0 ? 'error' : level === 1 ? 'warn' : 'engine', text);
 };
 export const engineLogLines = () => logLines;
@@ -201,6 +203,7 @@ export async function loadBrowse(progress: (line: string, phase?: string) => voi
     else if (phase === 'retry') progress(`the connection dropped at ${MB(got)}: asking for that piece again`, phase);
     else if (phase === 'folder') progress(`the model from this computer (${from?.name ?? 'a folder'}): no download`, phase);
   }, fromEngine, { threads: s.threads ?? autoThreads ?? undefined, ctx: s.ctx, cacheRam: s.cacheRam, gpu, ...(from ? { bytes: from.bytes, from: 'folder' } : {}) });
+  setReady(true);
   browsed = { ...browsed!, cacheRam: s.cacheRam, gpu, gpuNote: gpuNote || (gpu === 'off' ? 'GPU off: the CPU computes everything' : browsed!.threads > 1 ? 'no WebGPU device here: the CPU computes everything' : 'one thread (not cross-origin isolated): the CPU computes everything') };
   engineLog('ok', `verified ${browsed.model} · sha256 ${browsed.sha256} · guard ${browsed.guard ?? '?'} · bankML ${browsed.version} · ${browsed.threads} thread(s) · ${browsed.build ?? 'browseml.wasm'} · context ${browsed.ctx}${browsed.host ? ` · host ${browsed.host}, ${browsed.side ?? 'client'} side` : ''}`);
   engineLog(browsed.gpuNote && /computes \d+%/.test(browsed.gpuNote) ? 'ok' : 'step', `GPU: ${browsed.gpuNote}`);
@@ -243,7 +246,13 @@ export interface DownloadState {
 }
 let dl: DownloadState = { phase: 'idle', got: 0, total: 248_302_272, rate: null, eta: null };
 const dlFns = new Set<(s: DownloadState) => void>();
-const setDl = (patch: Partial<DownloadState>) => { dl = { ...dl, ...patch }; dlFns.forEach(f => f(dl)); };
+const setDl = (patch: Partial<DownloadState>) => {
+  dl = { ...dl, ...patch }; dlFns.forEach(f => f(dl));
+  // the pulse: the download and the verification heat the fire; anything after them lets it cool
+  if (dl.phase === 'downloading' || dl.phase === 'saving') { if (activity() !== 'loading') { setActivity('loading'); surge('load', 0.5); } }
+  else if (dl.phase === 'verifying') setActivity('verifying');
+  else if (activity() === 'loading' || activity() === 'verifying') { setActivity('idle'); if (dl.phase === 'failed') surge('error', 0.8); }
+};
 export const downloadState = () => dl;
 export function onDownload(f: (s: DownloadState) => void) { dlFns.add(f); return () => { dlFns.delete(f); }; }
 
@@ -602,7 +611,11 @@ let warmedFor = '';
 const warmFns = new Set<() => void>();
 export const browseWarm = () => warmState;
 export function onBrowseWarm(f: () => void) { warmFns.add(f); return () => { warmFns.delete(f); }; }
-const setWarm = (w: WarmState) => { warmState = w; warmFns.forEach(f => f()); };
+const setWarm = (w: WarmState) => {
+  warmState = w; warmFns.forEach(f => f());
+  if (w.phase === 'warming') setActivity('warming'); else if (activity() === 'warming') setActivity('idle');
+  if (w.phase === 'cold') setReady(false);
+};
 
 /** Read `composed` (the page's system prompt) into the engine now, or restore it from a slot kept on an earlier visit,
  *  so the next question reads only itself. Once per prompt and engine; a question asked meanwhile waits its turn. */
@@ -627,6 +640,7 @@ export async function warmBrowse(composed: string, label = ''): Promise<WarmStat
 export async function stopBrowse(): Promise<'stopped' | 'ended' | 'idle'> {
   const b = await mod();
   const how = b.stop();
+  if (how !== 'idle') { surge('stop', 1); setActivity('idle'); }
   if (how === 'ended') { browsed = null; warmedFor = ''; setWarm({ phase: 'cold' }); }
   return how;
 }
@@ -645,9 +659,10 @@ export async function* askBrowse(composed: string, turns: Turn[], message: strin
   let wake: (() => void) | null = null, end = false, err: unknown = null, result: any = null;
   // sampling: only what the visitor set (the rest is the engine's default)
   const sampling = Object.fromEntries(Object.entries(settings.sampling).filter(([, x]) => x !== null));
+  setActivity('reading'); surge('ask', 0.7);
   engineLog('step', `asking: ${maxTokens} tokens at most${Object.keys(sampling).length ? ` · ${Object.entries(sampling).map(([k, x]) => `${k} ${x}`).join(' · ')}` : ' · the engine\'s sampling defaults'}`);
   b.chat({ messages: [{ role: 'system', content: systemFor(composed, v) }, ...turns, { role: 'user', content: message }], max_tokens: maxTokens, ...sampling },
-    (p: string) => { pieces.push(p); wake?.(); }, fromEngine)
+    (p: string) => { pieces.push(p); token(); wake?.(); }, fromEngine)
     .then((r: any) => { result = r; end = true; wake?.(); }, (e: unknown) => { err = e; end = true; wake?.(); });
   let text = '';
   for (;;) {
@@ -656,8 +671,10 @@ export async function* askBrowse(composed: string, turns: Turn[], message: strin
     await new Promise<void>(r => { wake = r; });
     wake = null;
   }
-  if (err) throw err;
+  setActivity('idle');
+  if (err) { surge('error', 0.9); throw err; }
   const receipt = result?.bankml_receipt ?? null, u = result?.usage ?? {}, tm = result?.timings ?? {};
+  noteRate(Number(tm.predicted_per_second) || 0);
   recordAnswer({
     threads: v.threads, ctx: v.ctx ?? 4096, cacheRam: v.cacheRam ?? 0, build: v.build ?? '',
     prompt: Number(u.prompt_tokens) || 0, completion: Number(u.completion_tokens) || 0, cached: Number(tm.cache_n) || 0,
@@ -665,6 +682,7 @@ export async function* askBrowse(composed: string, turns: Turn[], message: strin
     promptMs: Number(tm.prompt_ms) || 0, genMs: Number(tm.predicted_ms) || 0, memory: Number(b.memoryBytes) || 0,
   });
   const ok = !!receipt && (await sha256hex(text)) === receipt.response_sha256;
+  surge(ok ? 'receipt' : 'error', ok ? 0.5 : 0.9);
   engineLog(ok ? 'ok' : 'error', `${ok ? 'receipt ✓' : receipt ? 'receipt ✗ (the text does not match its sha256)' : 'no receipt'} · ${u.prompt_tokens ?? '?'} prompt (${tm.cache_n ?? 0} reused) + ${u.completion_tokens ?? '?'} tokens · reading ${Number(tm.prompt_per_second || 0).toFixed(2)}, writing ${Number(tm.predicted_per_second || 0).toFixed(2)} tok/s`);
   done({
     ok, receipt,

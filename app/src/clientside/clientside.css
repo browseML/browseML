@@ -417,3 +417,8 @@ details.cs-card.is-ready > p { margin: 0; padding: 0 12px 10px; color: #a7f3d0; 
 .cp-kept li span { grid-column: 1; color: #94a3b8; font-size: 11px; font-variant-numeric: tabular-nums; }
 .cp-kept li button { grid-column: 2; grid-row: 1 / span 2; border: 0; background: transparent; color: #64748b; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
 .cp-kept li button:hover { color: var(--stop-red, #F6465D); }
+
+/* the processor's fire across the page (Fire.tsx): above the page, under nothing it could hide — screen blending adds
+   light, black stays clear; never takes a click */
+.cs-fire { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 5; mix-blend-mode: screen; }
+@media print { .cs-fire { display: none; } }

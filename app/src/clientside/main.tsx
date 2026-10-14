@@ -29,6 +29,7 @@ import { ReceiptAccordion } from './Receipt';
 import { BrowseCard } from './BrowseCard';
 import { trackKeyboard } from '../core/keyboard';
 import { ControlPanel } from './ControlPanel';
+import { ProcessorFire } from './Fire';
 import { activePersona, applyPersona } from './Persona';
 import { measureCores } from './cores';
 import { Faq } from './Faq';
@@ -306,6 +307,7 @@ function Page() {
 
   return (
     <div className="cs-page">
+      <ProcessorFire />
       <header className="cs-head">
         <h1 className="cs-mark"><img src="browseML-logo.png" alt="browseML" width="132" height="132" /></h1>
         <p className="cs-line">machine learning in your browser</p>

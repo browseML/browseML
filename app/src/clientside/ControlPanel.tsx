@@ -18,6 +18,7 @@
 //   · LIMITERS     — toggles: spare a core, low memory, ask before downloading, warm in background, GPU probe
 //   · ADVICE       — what to change, from what actually ran
 // Sections fold and remember it (lil-gui's folders); results are written as text.
+import { surge, toolRunning } from '../bankml/pulse';
 import { useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
 import { Button, Gauge, IndicatorLamp, SegmentSwitch, SteppedKnob, ToggleSwitch } from 'dreamknob';
 import type { UIFContextValue } from '../components/UIFContext';
@@ -123,10 +124,10 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
   useEffect(() => { void readGpu(limits.power).then(setGpu); void sensors().then(setSens); }, [limits.power]);
   const tool = async (id: string, f: () => Promise<string>) => {
     if (running) return;
-    setRunning(id); say(`${id.toUpperCase()} running…`, 'working');
-    try { const r = await f(); setRes(x => ({ ...x, [id]: r })); say(`${id.toUpperCase()}: ${r}`, 'ok'); }
-    catch (e) { const r = `failed: ${String((e as Error).message || e)}`; setRes(x => ({ ...x, [id]: r })); say(`${id.toUpperCase()} ${r}`, 'bad'); }
-    setRunning('');
+    setRunning(id); say(`${id.toUpperCase()} running…`, 'working'); toolRunning(true);
+    try { const r = await f(); setRes(x => ({ ...x, [id]: r })); say(`${id.toUpperCase()}: ${r}`, 'ok'); if (id === 'exact' && /bit-exact/.test(r) && !/differ/.test(r)) surge('gpu', 0.8); }
+    catch (e) { const r = `failed: ${String((e as Error).message || e)}`; setRes(x => ({ ...x, [id]: r })); say(`${id.toUpperCase()} ${r}`, 'bad'); surge('error', 0.8); }
+    toolRunning(false); setRunning('');
   };
   const suite: { id: string; name: string; knob?: ReactNode; run: () => Promise<string> }[] = [
     { id: 'ping', name: 'PING', knob: <SteppedKnob size={56} positions={['3', '5', '10', '20']} value={[3, 5, 10, 20].indexOf(p.ping)} color={ORANGE} label="COUNT" onChange={i => setP({ ...p, ping: [3, 5, 10, 20][Math.round(i)] })} />,
@@ -267,6 +268,7 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
           <ToggleSwitch on={limits.askFirst} color={ORANGE} label="ask before downloading the model" onChange={on => setLimits({ askFirst: on })} />
           <ToggleSwitch on={limits.warm} color={ORANGE} label="warm the prompt in the background" onChange={on => setLimits({ warm: on })} />
           <ToggleSwitch on={limits.gpuProbe} color={ORANGE} label="allow the GPU probe" onChange={on => setLimits({ gpuProbe: on })} />
+          <ToggleSwitch on={limits.fire} color={ORANGE} label="the processor's fire and surges" onChange={on => setLimits({ fire: on })} />
         </div>
         <p className="cp-fine">Threads and memory apply when the engine loads again (APPLY in the dials).</p>
       </Fold>

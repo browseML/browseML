@@ -53,6 +53,9 @@ try {
   check("T opens the control panel with its sections", ["NOW", "TOOLS", "CPU · RAM · GPU · CACHE", "ENGINE LOG", "RECEIPTS", "MODELS ON THIS COMPUTER", "HARD DRIVE", "DIALS", "DIAGNOSTICS", "TOOL SUITE", "LIMITERS"].every((f) => folds.includes(f)), folds.join(", "));
   const pw = await page.evaluate(() => { const a = document.querySelector(".uif-shelves.is-open"); return a.scrollWidth <= a.clientWidth; });
   check("the panel's content fits its width", pw);
+  // the processor's fire: one canvas over the page that never takes a click, and its switch in LIMITERS
+  const fire = await page.evaluate(() => { const c = document.querySelector("canvas.cs-fire"); return c ? getComputedStyle(c).pointerEvents + " · " + getComputedStyle(c).position : ""; });
+  check("the processor's fire: a page-wide canvas that takes no clicks, switched in LIMITERS", fire === "none · fixed" && (await page.getByText("the processor's fire and surges").count()) === 1, fire);
   // SAMPLING: a preset, an advanced tool switched on, the chips of what the next question sends, one removed
   await page.locator(".cp-fold-head", { hasText: "SAMPLING" }).click(); await wait(200);
   const samp = page.locator(".cp-sampling");
