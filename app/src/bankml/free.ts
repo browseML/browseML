@@ -159,10 +159,18 @@ export interface BrowseDiag {
   verified: Browsed | null;
   /** The engine's WebAssembly memory after its last open or answer (0: not loaded). */
   memoryBytes: number;
+  /** What the card did, from bankML's limiter (after the last open or answer); null without a verified card. */
+  gpu: GpuLive | null;
   /** Threads the engine would take here, and the most it takes. */
   threads: number | null;
   maxThreads: number | null;
   model: { title: string; bytes: number } | null;
+}
+/** bankML's GPU limiter status (`worker::status_json`), as the engine reports it. */
+export interface GpuLive {
+  card: string; limit: number; share: number; allocated_bytes: number; heap_bytes: number; integrated: boolean; busy: number;
+  products_on_card: number; products_on_cpu_resting: number; products_on_cpu_memory: number;
+  shapes_on_card: number; shapes_on_cpu: number; shapes_tuning: number;
 }
 export function browseDiag(): BrowseDiag {
   const b = browseml;
@@ -172,6 +180,7 @@ export function browseDiag(): BrowseDiag {
     progress: lastProgress,
     verified: browsed,
     memoryBytes: Number(b?.memoryBytes) || 0,
+    gpu: (b?.gpuStatus as GpuLive | null | undefined) ?? null,
     threads: b?.threads ? b.threads() : null,
     maxThreads: b?.MAX_THREADS ?? null,
     model: b?.MODEL ? { title: String(b.MODEL.title), bytes: Number(b.MODEL.bytes) } : null,

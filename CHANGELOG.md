@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.14 — 2026-10-14 — what the card did, from the engine
+
+- **DIAGNOSTICS · GPU shows what the card did in the engine**, from bankML's own limiter after each answer (the
+  worker reads `browseml_gpu_status` once the answer is taken): the share of each 1-bit matrix's rows it computes,
+  how busy it was against its limit, the memory it holds; the products it computed and those the CPU took while it
+  rested or because a matrix was over its memory limit; and the matrix shapes decided for the card, for the CPU
+  (measured faster there) or still being measured. Without a verified card it says why (GPU off, or no verified
+  card — a software adapter is never used). These are the numbers that explained the GPU's speed in 0.6.10–0.6.12;
+  until now only `testing/bench.mjs` printed them.
+- Browser test: the row is there and says what it found.
+
 ## 0.6.13 — 2026-10-14 — EXACT checks the kernels the engine runs
 
 - **EXACT checks the engine's own kernels**: until now it proved bankML's simple kernel on the visitor's GPU; the

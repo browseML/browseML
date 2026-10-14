@@ -179,6 +179,9 @@ try {
   await page.waitForFunction(() => [...document.querySelectorAll(".cp-row")].some((r) => /prompt cache/.test(r.textContent) && /restored|read \d+ tokens once|not warm:/.test(r.textContent)), null, { timeout: 300000 });
   const pc = (await page.locator(".cp-row", { hasText: "prompt cache" }).innerText()).replace(/\s+/g, " ");
   check("visit 2: the prompt cache restored", /restored \d+ tokens/.test(pc), pc);
+  // DIAGNOSTICS · GPU: what the card did in the engine (bankML's limiter), or why no card (a software adapter here)
+  const live = (await page.locator(".cp-row", { hasText: "in the engine" }).first().innerText().catch(() => "")).replace(/\s+/g, " ");
+  check("DIAGNOSTICS: the GPU in the engine — its share and products, or why there is no card", /of each 1-bit matrix's rows|no verified card|GPU off/.test(live), live);
   // the processor: measured at the first interaction, claimed with room
   const cpuLine = (await page.locator(".cp-slider", { hasText: "CPU" }).first().innerText()).replace(/\s+/g, " ");
   check("the processor measured: threads free, the claim with room", /\d+ free, measured .* auto claims \d+/.test(cpuLine), cpuLine.slice(0, 160));

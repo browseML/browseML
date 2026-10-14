@@ -30,6 +30,7 @@ import { Folders } from './Folders';
 import { Disk } from './Disk';
 import { Status } from './Status';
 import { Sliders } from './Sliders';
+import type { GpuLive } from '../bankml/free';
 import { fireStats } from './Fire';
 import { EngineLog } from './EngineLog';
 import { PersonaSection } from './Persona';
@@ -44,6 +45,17 @@ import { cpu, memory, ping, sensors, speed, storage, type Sensors } from './tool
 import { getLimits, onLimits, setLimits, type Limits } from './limits';
 
 const GREEN = '#0ECB81', ORANGE = '#F7931A', RED = '#F6465D';
+/** What the card did in the engine, from bankML's own limiter after the last answer (worker::status_json). */
+function GpuLiveRows({ g, on }: { g: GpuLive | null; on: boolean }) {
+  if (!g) return <Row k="in the engine">{on ? 'no verified card: the CPU computes everything' : 'GPU off (APPLY with it on to use the card)'}</Row>;
+  const p = (x: number) => `${Math.round(x * 100)}%`, all = g.products_on_card + g.products_on_cpu_resting + g.products_on_cpu_memory;
+  return (<>
+    <Row k="in the engine" tone="ok">{p(g.share)} of each 1-bit matrix's rows · busy {p(g.busy)} of its time (limit {p(g.limit)}) · {mb(g.allocated_bytes)} on the card</Row>
+    <Row k="products">{g.products_on_card} on the card{all ? ` (${p(g.products_on_card / all)})` : ''} · {g.products_on_cpu_resting} on the CPU while it rested{g.products_on_cpu_memory ? ` · ${g.products_on_cpu_memory} over its memory limit` : ''}</Row>
+    <Row k="shapes">{g.shapes_on_card} decided for the card · {g.shapes_on_cpu} for the CPU (measured faster there){g.shapes_tuning ? ` · ${g.shapes_tuning} being measured` : ''}</Row>
+  </>);
+}
+
 /** The fire's own cost, measured on itself (Fire.tsx), refreshed each second while DIAGNOSTICS is open. */
 function FireRow() {
   const [f, set] = useState(fireStats());
@@ -249,6 +261,7 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
           {gpu?.adapter && <Row k="features">{KEY_FEATURES.filter(f => gpu.adapter!.features.includes(f)).join(' · ') || 'none of the key ones'} ({gpu.adapter.features.length} in all)</Row>}
           {gpu?.adapter && <Row k="limits">buffer {mb(gpu.adapter.limits.maxBufferSize ?? 0)} · storage binding {mb(gpu.adapter.limits.maxStorageBufferBindingSize ?? 0)} · {gpu.adapter.limits.maxComputeInvocationsPerWorkgroup ?? '?'} invocations/workgroup</Row>}
           <Row k="verdict" tone={gv.level}>{gv.text}</Row>
+          <GpuLiveRows g={d.gpu} on={!!v && (v.gpu ?? 'off') !== 'off'} />
           {probe && (
             <div className="cp-gauges">
               <Gauge size={78} value={Math.min(probe.gflops, 20000)} min={0} max={Math.max(100, Math.ceil(probe.gflops / 500) * 500)} unit="GFLOP/s" label="COMPUTE" displayDecimals={0} />

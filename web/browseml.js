@@ -22,6 +22,10 @@ const CACHE = "browseml-models";
 let worker = null, ready = null, busy = null, stopFlag = null, ending = null;
 /** The engine's WebAssembly memory after its last open or answer, in bytes (0 when not loaded). */
 export let memoryBytes = 0;
+/** bankML's GPU limiter after the last open or answer (the card, share, busy, products on the card and on the CPU,
+ *  shapes decided): what the card actually did. null without a verified card. */
+export let gpuStatus = null;
+const readGpu = (s) => { try { return s ? JSON.parse(s) : null; } catch { return null; } };
 
 /** The most threads the engine takes, however many cores the browser reports. */
 export const MAX_THREADS = 8;
@@ -120,7 +124,7 @@ export const isBusy = () => !!busy;
 export function unload() {
   if (busy) throw new Error("browseML is writing an answer: wait for it to finish");
   if (worker) worker.terminate();
-  worker = null; ready = null; memoryBytes = 0;
+  worker = null; ready = null; memoryBytes = 0; gpuStatus = null;
 }
 /** The model's bytes in this browser's cache, or 0. */
 export async function cachedBytes() { try { const r = await (await caches.open(CACHE)).match(MODEL.url); return r ? +(r.headers.get("Content-Length") || MODEL.bytes) : 0; } catch { return 0; } }
@@ -165,7 +169,7 @@ async function loadOnce(progress, log, { threads: want, ctx = 4096, cacheRam = 0
     worker.onmessage = (e) => {
       const m = e.data;
       if (m.type === "log") log(m.level, m.text);
-      else if (m.type === "opened") { memoryBytes = m.memory || 0; m.rc === 0 ? resolve({ ...JSON.parse(m.out), threads: m.threads, ctx, build: m.build }) : reject(new Error(m.out)); }
+      else if (m.type === "opened") { memoryBytes = m.memory || 0; gpuStatus = readGpu(m.gpu); m.rc === 0 ? resolve({ ...JSON.parse(m.out), threads: m.threads, ctx, build: m.build }) : reject(new Error(m.out)); }
     };
     worker.onerror = (e) => reject(new Error(e.message || "the engine could not start"));
     // the STOP flag: shared memory where the page is cross-origin isolated (else stop() ends the engine)
@@ -200,6 +204,7 @@ export function chat(request, onPiece, log = () => {}) {
       else if (m.type === "done") {
         busy = null; ending = null;
         memoryBytes = m.memory || memoryBytes;
+        if (m.gpu !== undefined) gpuStatus = readGpu(m.gpu);
         if (m.rc === -99) { ready = null; worker.terminate(); worker = null; }  // the engine trapped: load it again
         const j = (() => { try { return JSON.parse(m.out); } catch { return { error: { message: m.out } }; } })();
         m.rc === 0 ? resolve(j) : reject(new Error(j.error ? j.error.message : m.out));
@@ -220,7 +225,7 @@ export function stop() {
   if (!busy) return "idle";
   if (stopFlag) { Atomics.store(stopFlag, 0, 1); return "stopped"; }
   if (worker) worker.terminate();
-  worker = null; ready = null; memoryBytes = 0;
+  worker = null; ready = null; memoryBytes = 0; gpuStatus = null;
   if (ending) ending();
   return "ended";
 }
