@@ -14,7 +14,7 @@
 
 **browseML** runs a language model in your web browser, on your own CPU. Its engine is
 [bankML](https://github.com/cryptoAGI/bankml) (a separate project) compiled to WebAssembly; browseML is the client side:
-the runtime, the pages and the controls, on the CPU today and on the GPU (WebGPU) next. There's nothing to install, no account
+the runtime, the pages and the controls, on your CPU and, where it is exact and faster, your GPU (WebGPU). There's nothing to install, no account
 to make, and no server answers for you: the page only serves files, and nothing you type leaves your device.
 
 <table>
@@ -138,7 +138,7 @@ How it works and why: verification, receipts, exactness, threads, the model.
 
 **[Technical →](docs/technical.md)**
 
-The kernels, the three builds, measurements, where the time goes, limits. [Efficiency →](docs/efficiency.md)
+The technical summary, every version, the kernels, the GPU, measurements, [limitations](docs/technical.md#limitations). [Efficiency →](docs/efficiency.md)
 
 </td>
 <td width="25%" valign="top">

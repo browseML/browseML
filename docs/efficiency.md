@@ -79,4 +79,29 @@ each): reading **5.08 → 6.82 tok/s (+34%)**; writing unchanged (2.80–3.08 to
    says it, and APPLY sets it.
 4. **Measure the tab, then drop any copy of the model the page still holds** once the engine has it (to check:
    MEASURE in a browser), to bring the tab closer to the engine's 317 MB.
-5. **The GPU:** the Q1_0 kernel is bit-exact on WebGPU (`EXACT`), but not yet in the forward pass.
+5. **The GPU:** in the forward pass since 0.6.7 (below); next, subgroup reductions and discrete cards.
+6. **Exact speculative decoding, attention, hashing during the download:** the remaining items in [TODO](TODO.md).
+
+## 0.6.6: cheaper sign lanes, and where a token's time goes
+
+bankML `1c3c16c`: the relaxed kernels make each block's 0/1 lanes in three operations instead of five. A/B, 4 threads,
+alternating runs: reading **6.72 → 7.13 tok/s (+6%)**, writing unchanged, every answer identical. Profile (2 threads):
+the per-token kernel 55%, the prefill tile 21%, attention 6.5%, the sha256 at open 2.5%; writing is bound by
+arithmetic (~0.85 GB/s of weights against ~10 GB/s of memory). A 2-row tile for writing was bit-exact but no faster
+(2.97 → 2.88) and was not kept.
+
+## 0.6.7–0.6.8: the GPU in the forward pass
+
+Through Dawn (Chrome's WebGPU, in Node) on the AMD Radeon Vega 3, `browseml-mt-relaxed.wasm`, 3 threads, two rounds
+alternating with the GPU off, on a quiet machine (load 2–5, 0.6.8), all 12 answers identical to the record:
+
+| round | reading, off → on | writing, off → on |
+|---|---|---|
+| 1 | 6.70 · 7.50 · 6.91 → 7.58 · 7.74 · 7.57 | 2.98 · 3.30 · 2.88 → 3.26 · 3.33 · 3.14 |
+| 2 | 6.88 · 7.53 · 7.13 → 7.30 · 7.50 · 7.72 | 3.17 · 3.34 · 2.97 → 3.27 · 3.41 · 3.16 |
+
+The card took about 38% of the rows of 5 of the 9 matrix shapes (bankML's limiter in one run: 537 products on the card,
+229 left to the CPU while the card rested); the other shapes measured faster on the CPU and stayed there. What made it work: the limiter no longer needs
+`/proc` (an integrated card in a browser had never been given a matrix), prompts read on the card in one dispatch per
+micro-batch, and Q/K/V and gate/up submitted together with one wait. Measured with `GPU=<dawn> node testing/bench.mjs`
+(it prints the limiter's state).

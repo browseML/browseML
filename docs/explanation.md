@@ -28,12 +28,14 @@ Two projects, one engine:
 | | **bankML** ([cryptoAGI/bankml](https://github.com/cryptoAGI/bankml)) | **browseML** (this repository) |
 |---|---|---|
 | what | the engine: a zero-dependency Rust runtime for 1-bit and ternary models, bit-exact against llama.cpp | the client: bankML's engine in the visitor's browser, with the runtime, the pages and the controls |
-| where it runs | a machine you run it on: `bankml serve`, the C API, Savante, mindX | the visitor's own browser, on their CPU — and, next, their GPU through WebGPU |
-| hardware | CPU (AVX2, NEON next), Vulkan GPUs | WebAssembly SIMD and threads today; WebGPU next; in-house kernels after |
+| where it runs | a machine you run it on: `bankml serve`, the C API, Savante, mindX — a **server** host | the visitor's own browser, on their CPU and, where exact and faster, their GPU through WebGPU — a **client** host: nothing leaves the visitor's machine |
+| hardware | CPU (AVX2, NEON next), Vulkan GPUs | WebAssembly SIMD and threads; WebGPU with bankML's own kernel (since 0.6.7) |
 | trust | the oracle against llama.cpp; receipts | the same oracle and receipts, plus the page's own check of every receipt |
 
 browseML pins bankML as a git submodule, so every build says exactly which engine it is, and evolves on its own
 side: the browser runtime, the client-side controls and diagnostics, and the road from the browser's CPU to its GPU.
+What browseML learns goes back into bankML as modules: the WebGPU kernel (`gpu/wgsl.rs`), the host registry
+(`host.rs`) that keeps server and client apart, and the GPU lessons now in bankML's Vulkan backend too.
 
 ## Where it comes from
 
@@ -73,8 +75,8 @@ page then uses the plain build. Three builds, one engine, the same answers.
 | isolated page, otherwise (Firefox, or no fused multiply-add) | `browseml-mt.wasm` | fast |
 | not isolated, or Safari | `browseml.wasm` | one thread |
 
-On a 2-core laptop this means about **5 tokens a second reading** and **2.7 writing** with four threads, against
-roughly 0.2 for the first, straightforward build.
+On a 2-core laptop this means about **7 tokens a second reading** and **3 writing** (0.6.8), against roughly 0.2 for
+the first, straightforward build.
 
 ## Built for the real world
 
@@ -99,17 +101,24 @@ smaller context) comes from those measurements, never from guesses.
 
 ## From the CPU to the GPU
 
-browseML answers on the visitor's CPU today. The GPU comes next, on the same terms as everything else here: exact
-first. The control panel already **recognises** the GPU (WebGPU's adapter, features and limits; WebGL's renderer as
-the fallback) and **measures** it with compute shaders: is its fused multiply-add exact, how many GFLOP/s, how many
-GB/s. A GPU kernel joins the engine only when it gives the CPU engine's bits — as bankML's Vulkan Q1_0 kernel does,
-with its exact-FMA route for GPUs that do not fuse. The references are mapped in the software catalogues:
-[graphics cards](gpu-software.md) (including llama.cpp's own WebGPU backend), [CPU, memory and network](cpu-software.md),
-and [JavaScript tooling and client-side files](js-software.md).
+Since 0.6.7 the visitor's GPU computes part of every answer, on the same terms as everything else here: exact first.
+At open, bankML runs its WebGPU kernel on the card against the CPU kernel, bit for bit; a card that differs is never
+given work. Then it times each matrix shape on the card and on the CPU and keeps the card only where it is faster, so
+a slow card cannot cost speed. The answers are the same with the GPU on or off.
 
-## What it does not do (yet)
+On the one card measured, an integrated AMD Radeon Vega 3, the gain is modest (reading about +5–10%, writing +3–9%);
+discrete cards are where more is expected and have yet to be measured. The control panel's GPU slider turns it off,
+or picks the low-power or high-performance adapter; the EXACT tool checks any card on demand. The references are
+mapped in the software catalogues: [graphics cards](gpu-software.md) (including llama.cpp's own WebGPU backend),
+[CPU, memory and network](cpu-software.md), and [JavaScript tooling and client-side files](js-software.md).
 
-- **One model size.** The browser runs Bonsai-1.7B; the 8B models are for `bankml serve` on your own machine.
-- **No stopping mid-answer.** The engine runs until the answer ends or reaches its length limit.
-- **Speed is your CPU's.** A 2-core laptop writes a few tokens a second; more cores help.
-- **Safari runs on one thread.**
+## Limitations
+
+- **One model size.** The browser runs Bonsai-1.7B; the 8B and ternary models are for `bankml serve` on your own machine.
+- **Speed is your computer's.** A 2-core laptop reads about 7 tokens a second and writes about 3; more cores help, and
+  the engine uses at most 8 threads.
+- **Threads and the GPU need an isolated page.** Elsewhere, and in Safari, browseML runs on one thread, CPU only.
+- **One answer at a time.** STOP ends it, with its receipt.
+- **Storage is per site,** and the browser may clear it unless you let browseML keep it.
+
+The full list, with the reasons: [technical.md → Limitations](technical.md#limitations).
