@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# The browser module of overlord-dsp: a wasm32 cdylib with plain extern "C" exports over linear memory (no
+# wasm-bindgen, no crates). DSP only - it carries no voice model. See ../../docs/RENDER_RUST.md §5.
+[package]
+name = "overlord-dsp-web"
+version = "0.0.1"
+edition = "2021"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "Band-pass, resample, echo, statement fall and soft knee from overlord-dsp, for the browser (wasm32)"
+
+[lib]
+name = "overlord_dsp_web"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+overlord-dsp = { path = ".." }

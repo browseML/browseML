@@ -473,7 +473,7 @@ proposed. That change would be opt-in: a setting, off by default.
 | A · exactness per stage, wasm32 (+simd128, none, +relaxed-simd) | **pass** (ported stages) | the same 17 tests; xmath proven against glibc natively |
 | A · end to end, int16 | **partial** | sentence mix → int16: 0 samples differ on all 6 sentences, locally and on production. `finish_document` (hall, compressor, int16) is not ported, so the document's int16 is untested |
 | A · decoded Opus / bytes | **not started** | no encoder in the crate |
-| A · speed ≤ 0.5× CPU per audio-s, production host | **measured on production (2026-10-13): like for like median 0.57× (0.55–0.85×) — fails; diagnostics sampled 1 in 8, median 0.42× (0.40–0.79×) — passes if the operator accepts sampled diagnostics (§5 q10); diagnostics off 0.38×.** 3 interleaved rounds × median of 2, not yet the ≥ 5 the bar asks; out of the speak slice (see §4.4) | §4.4 |
+| A · speed ≤ 0.5× CPU per audio-s, production host | **measured on production (2026-10-13): like for like median 0.57× (0.55–0.85×) — fails; diagnostics sampled 1 in 8, median 0.42× (0.40–0.79×) — passes if the operator accepts sampled diagnostics (§6 q10); diagnostics off 0.38×.** 3 interleaved rounds × median of 2, not yet the ≥ 5 the bar asks; out of the speak slice (see §4.4) | §4.4 |
 | A · reproducibility | **partial** | goldens from the reference with its sha256 recorded, test log in this file; the fixed corpus of 3 rage articles is not built (local corpus: 6 sentences of one open voice) |
 | B · no interruption (browser, server) | **untested** (specified in §4.2) | not measured |
 
@@ -489,7 +489,7 @@ production tree, nothing was wired.
 
 | check | result |
 |---|---|
-| `xmath` against glibc 2.39 (incl. the exhaustive test) | 3/3 pass: the table measured on glibc 2.35 holds unchanged (§5 q9 closed) |
+| `xmath` against glibc 2.39 (incl. the exhaustive test) | 3/3 pass: the table measured on glibc 2.35 holds unchanged (§6 q9 closed) |
 | ctypes vs the live `overlord_dsp.py`, golden sentence | E0 stages 0 bits differ; int16 0 of 113,722 samples differ |
 | `corpus.py check`, 6 sentences | every sentence: E0 0 bits, lags and offsets identical, mix ≥ 301 dB, int16 0 differ |
 | `corpus.py bench` (thread CPU s per audio s, 28.26 s of audio) | reference 0.0683; Rust diag every 0.0377 (**0.57×**); diag 1/8 0.0277 (**0.42×**); diag off 0.0265 (0.38×) |
@@ -503,7 +503,80 @@ sharing a slice. That a second job in the speak slice starves while a render run
 already holds its quota, and the DSP would only replace work inside it, never add a neighbour.
 
 
-## 5. Open questions
+## 5. The browser module (`render/web`)
+
+Added 2026-10-13 for client-side voice rendering on a static site (leader.earth). **Local only: built and tested on
+this box, not deployed, not wired into browseML's runtime, pages or worker** (§3.5 and the §4 gate still govern
+that). It is a fourth workspace member, `render/web` (package `overlord-dsp-web`, cdylib, depends only on
+`overlord-dsp` by path, MIT OR Apache-2.0), with plain `extern "C"` exports over wasm linear memory and **no
+wasm-bindgen**. The module has **no imports**.
+
+**It carries DSP only.** No voice model, no phonemiser, nothing that fetches a model. The licence line of §3.1 holds:
+in a browser it may be fed **only open voices** (public-domain / CC0 / CC-BY piper voices such as kristin, cori,
+bryce, john, norman) **or eSpeak** output. **piper alan, jenny and lessac (and anything fine-tuned from lessac) never
+go to a browser,** so NEURAL, JAIMLA and OVERLORD bodies cannot be fed to it client-side.
+
+Each export is a port of mindX `utils/docspeech/engines.py` `Layered` (buffers are f32; the work is f64 inside):
+
+| export | port of |
+|---|---|
+| `odsp_alloc(n_f32) -> *mut f32`, `odsp_free(ptr, n_f32)` | buffers in linear memory (zeroed; free with the same count) |
+| `odsp_band(ptr, len, sr, lo_hz, hi_hz)` in place | `_eq`'s band shape as a band-pass: gain 1 in the core, raised-cosine edges over a third of the band (edge = max(1, (hi−lo)/3), inside [lo, hi]), 0 outside; through the crate's `fft_filter` (n = next pow2 ≥ len+1). Unchanged for len < 64 or hi ≤ lo |
+| `odsp_fit(src, src_len, dst, dst_len)` | `_fit` (np.interp over np.linspace: the crate's `linspace` + `interp_arange`) |
+| `odsp_echo(ptr, len, sr, ms, taps, decay, dry)` in place | `_echo` (the loader applies the spec defaults ms 34, taps 3, decay 0.55, dry 0) |
+| `odsp_fall_len(src, len, sr, semitones, seconds) -> usize`, `odsp_fall(src, len, sr, semitones, seconds, dst) -> usize` | `_fall` (smoothstep semitone ramp over the last `seconds` of voice found by a 10 ms RMS floor at 3% of max; progressive slow read by linear interp; 2-hop crossfade at the seam). `_len` takes `src` too: the output length depends on where the voice ends, not on `len` alone |
+| `odsp_softknee(ptr, len)` in place | the end of `Layered.synth`: tanh(0.9x)/tanh(0.9), peak-normalised to 0.89 |
+
+The loader `render/web/overlord-dsp-web.js` (zero dependencies, UMD: `module.exports` or `globalThis.ODSP`) exposes
+`ODSP.load(urlOrBytes)` (fetch with `cache: 'force-cache'`, streaming when served as `application/wasm`; also accepts
+an ArrayBuffer / typed array / `WebAssembly.Module`), then `band(x, sr, lo, hi)`, `fit(x, n)`,
+`echo(x, sr, {ms, taps, decay, dry})`, `fall(x, sr, semitones, seconds)`, `softknee(x)`: Float32Array in, a new
+Float32Array out, wasm memory freed after each call. `ODSP.loaded`, `ODSP.memoryBytes` for diagnostics.
+
+**Size (measured, rustc 1.99.0, wasm32-unknown-unknown, no wasm-opt):**
+
+| build | .wasm | gzip -9 |
+|---|---|---|
+| `cargo build -p overlord-dsp-web --release --target wasm32-unknown-unknown` (workspace release: opt 3, lto, panic=abort) | 68,264 B | |
+| `cargo build -p overlord-dsp-web --profile wasm --target wasm32-unknown-unknown` (`[profile.wasm]`: inherits release, opt-level "z", strip) | **53,022 B** | 24,092 B |
+
+The `wasm` profile is separate so the native release build (bench, capi) keeps opt-level 3; after adding the member
+and the profile, `cargo test --release --workspace` passes unchanged (overlord-dsp 1+3+7+6+2 tests, web 4).
+
+**Tests (measured 2026-10-13):**
+
+* Rust (`cargo test -p overlord-dsp-web --release`, native): on a synthetic 5-harmonic 130 Hz statement (1.2 s) with
+  0.3 s of silence at 22050 Hz, `fall(1.0 st, 0.3 s)` drops the last 40 ms by **0.905 semitone** (autocorrelation f0)
+  and lengthens each statement by **8.84 ms** (195 samples); `fall_len` equals the length `fall` returns; the head
+  before the tail is bit-identical; no-op cases (shorter than sr/10, 0 st, silence) return the input. Plus band unity
+  in the core / < 1% outside, echo tap gains, fit, knee peak.
+* Node 24 (`render/web/test_node.mjs`), the .wasm through the JS loader, against references computed by
+  `render/web/ref_engines.py` with engines.py's own `Layered` functions (numpy 2.4.1) on a deterministic 3.70 s input
+  (three harmonic statements, silences, seeded noise), outputs compared as f32:
+
+| function | reference | max abs error | SNR |
+|---|---|---|---|
+| band | `x − Layered._eq(x, [[300, 3000, −inf dB]])` (the `_eq` cut to nothing is a band-stop; x minus it is this band-pass at the same FFT size) | 0 | identical in f32 |
+| band | numpy FFT of the same curve at `fft_filter`'s size | 0 | identical in f32 |
+| fit (81,584 → 50,000) | `_fit` | 0 | identical in f32 |
+| echo (34 ms, 3, 0.55, dry 0) | `_echo` | 2.98e-8 | 145.7 dB |
+| echo (21 ms, 4, 0.6, dry 0.7) | `_echo` | 5.96e-8 | 144.5 dB |
+| fall (1.0 st, 0.3 s) | `_fall` | 0, length 81,779 = reference | identical in f32 |
+| softknee | the synth finish | 0 | identical in f32 |
+
+  The echo's one-ulp difference is the ABI, not the port: `decay` and `dry` cross as f32, so 0.55 / 0.6 / 0.7 are
+  not the f64 values Python multiplies by. `engines._band` (two one-pole IIRs) is a different filter and is not the
+  reference for `odsp_band`. Timing in Node: band 50–57 ms and fall 10–14 ms for 3.70 s of audio; linear memory did
+  not grow over 100 further calls (165 pages before and after). Both builds (release, wasm) pass.
+
+```sh
+cd render
+cargo build -p overlord-dsp-web --profile wasm --target wasm32-unknown-unknown
+~/mindX/.mindx_env/bin/python web/ref_engines.py /tmp/odsp_ref       # MINDX=~/mindX by default
+node web/test_node.mjs /tmp/odsp_ref                                 # finds target/…/wasm/ then …/release/
+```
+
+## 6. Open questions
 
 1. ~~Is numba installed in production's `.mindx_env`?~~ The operator states numba 0.61.2 / numpy 2.2.6; the
    iteration-2 goldens use exactly those versions.
@@ -527,7 +600,7 @@ already holds its quota, and the DSP would only replace work inside it, never ad
    figures. With them sampled 1 in 8 the crate is at or under 0.5×; computing them every sentence it is not. Whether
    the gate compares the reference's DSP or the DSP the render needs is an operator call.
 
-## 6. Next steps (after iteration 2)
+## 7. Next steps (after iteration 2)
 
 1. ~~**Measure on production**~~ Done 2026-10-13 (§4.4). Outstanding: ≥ 5 rounds, and inside the speak slice at a
    moment when no render is running.

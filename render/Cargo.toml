@@ -25,10 +25,17 @@ path = "src/bin/gen_tables.rs"
 # Its own workspace root, so browseML's Cargo.toml (which excludes bankml) is not touched. capi/ is the C ABI
 # (liboverlord_dsp_c.so) as its own package: a cdylib beside the rlib in one package collides with the test build.
 [workspace]
-members = ["capi"]
+members = ["capi", "web"]
 
 [profile.release]
 opt-level = 3
 lto = true
 codegen-units = 1
 panic = "abort"
+
+# The browser module's size profile (web/): `cargo build -p overlord-dsp-web --profile wasm --target wasm32-unknown-unknown`.
+# A separate profile, so the native release build (the bench, capi) keeps opt-level 3.
+[profile.wasm]
+inherits = "release"
+opt-level = "z"
+strip = true

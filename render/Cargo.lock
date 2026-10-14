@@ -12,3 +12,10 @@ version = "0.0.2"
 dependencies = [
  "overlord-dsp",
 ]
+
+[[package]]
+name = "overlord-dsp-web"
+version = "0.0.1"
+dependencies = [
+ "overlord-dsp",
+]
