@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.8 — 2026-10-13 — the GPU measured on a quiet machine; the server's card learns the same lessons
+
+- **Measured on a quiet machine** (load 2–5, no browser open): through Dawn on the AMD Radeon Vega 3, 3 threads,
+  two rounds alternating with the GPU off, the GPU on: prompt reading 6.70–7.53 → 7.30–7.74 tok/s, writing
+  2.88–3.34 → 3.14–3.41 tok/s, 12 of 12 answers identical to llama-server b11192's record.
+- **bankML `f618309`** (branch `browseml`): what browseML learned on WebGPU, now on the server's Vulkan card too —
+  the token dimension in SPIR-V (`q1_0_mat_mul8`, prompts read on the card) and grouped submissions (up to four in
+  flight, one wait). Bit-exact in `bankml gpu --verify` and the new `gpu_submissions_in_flight` test; native answers
+  byte-identical. The engine in the page is unchanged in behaviour (the worker's group bound is checked).
+
 ## 0.6.7 — 2026-10-13 — the visitor's GPU in bankML's forward pass, exactly
 
 - **The GPU computes answers in the page** (bankML `a32f81c`, branch `browseml`): a GPU worker
