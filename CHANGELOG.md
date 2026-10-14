@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.6.9 — 2026-10-13 — SAMPLING, deeper: three advanced tools, sliders you can read and reach
+
+- **Three advanced sampling tools**, each switched ON and OFF as a whole, from llama-server's own chain as bankML
+  reproduces it (its sampler oracle, token for token), so the receipt still says exactly what ran:
+  **DRY** (strength, growth, allowed length: repeated sequences penalised, single words left alone), **XTC** (how
+  often, threshold: the most obvious words set aside now and then) and **dynamic temperature** (range, curve: cooler
+  where the model is sure, warmer where it is not). Checked on the browser engine (`browseml-mt-relaxed.wasm`, Node):
+  each is accepted, and XTC and dynamic temperature change the answer at the same seed (`EXTRA=` in `testing/bench.mjs`).
+- **What the next question sends**, at the top of SAMPLING: max tokens and every field you set, as chips; ✕ removes one
+  (back to the engine's default). **COPY AS JSON** copies them.
+- **Sliders you can read**: semi-transparent glass tracks whose filled part shows the value, a translucent thumb, the
+  value riding above it while you drag or use the arrow keys. An unset dial rests, dimmed, on the engine's own
+  default (llama.cpp's, named: "default 0.80"); double-click goes back to it; click the value to type one.
+- **Depth on borders**: each dial a card with a lit top edge and a shadow beneath; a dial you set carries an orange edge,
+  a tool switched on a green one.
+- Browser test: a preset and XTC switched on, listed for the next question; a chip removed and XTC off.
+
 ## 0.6.8 — 2026-10-13 — the GPU measured on a quiet machine; the server's card learns the same lessons
 
 - **Measured on a quiet machine** (load 2–5, no browser open): through Dawn on the AMD Radeon Vega 3, 3 threads,

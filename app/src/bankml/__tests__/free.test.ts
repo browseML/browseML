@@ -16,7 +16,12 @@ describe('browseML settings and download measures', () => {
   });
   it("keeps sampling within Savante's ranges; anything else is the engine's default", () => {
     expect(parseSettings({ sampling: { temperature: 0, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.1, seed: 7 } }).sampling)
-      .toEqual({ temperature: 0, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.1, seed: 7 });
+      .toEqual({ ...NO_SAMPLING, temperature: 0, top_p: 0.9, top_k: 40, min_p: 0.05, repeat_penalty: 1.1, seed: 7 });
+    // the advanced tools: DRY, XTC, dynamic temperature — kept in range, whole numbers where the engine counts
+    expect(parseSettings({ sampling: { dry_multiplier: 0.8, dry_base: 1.75, dry_allowed_length: 3, xtc_probability: 0.5, xtc_threshold: 0.1, dynatemp_range: 0.5, dynatemp_exponent: 2 } }).sampling)
+      .toEqual({ ...NO_SAMPLING, dry_multiplier: 0.8, dry_base: 1.75, dry_allowed_length: 3, xtc_probability: 0.5, xtc_threshold: 0.1, dynatemp_range: 0.5, dynatemp_exponent: 2 });
+    expect(parseSettings({ sampling: { dry_multiplier: 3, dry_base: 0.9, dry_allowed_length: 2.5, xtc_probability: 1.5, xtc_threshold: 0.6, dynatemp_range: -1, dynatemp_exponent: 0 } }).sampling)
+      .toEqual(NO_SAMPLING);
     expect(parseSettings({ sampling: { temperature: 3, top_p: 0, top_k: 1.5, min_p: -1, repeat_penalty: 0.5, seed: 'x' } }).sampling).toEqual(NO_SAMPLING);
     expect(parseSettings({ threads: 0, ctx: 3000, maxTokens: 'x', removeAfterSession: 'yes', cacheRam: 100 })).toEqual(DEFAULT_SETTINGS);
     expect(parseSettings(null)).toEqual(DEFAULT_SETTINGS);

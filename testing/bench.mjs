@@ -80,7 +80,9 @@ if (!isMainThread) {
   let same = 0;
   for (const r of reqs) {
     let text = ""; onPiece = (s) => { text += s; return 1; };
-    const c = x.browseml_chat(...put(JSON.stringify(r.request)));
+    // EXTRA='{"dry_multiplier":0.8}': fields merged into every request (sampling tools, a seed); the record then no longer applies
+    const req = process.env.EXTRA ? { ...r.request, ...JSON.parse(process.env.EXTRA) } : r.request;
+    const c = x.browseml_chat(...put(JSON.stringify(req)));
     const j = JSON.parse(out());
     if (c !== 0) { console.log("chat failed:", out()); process.exit(1); }
     const tm = j.timings, ok = r.text === undefined ? null : text === r.text;

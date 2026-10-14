@@ -260,15 +260,93 @@ details.cs-card.is-ready > p { margin: 0; padding: 0 12px 10px; color: #a7f3d0; 
 .cp-log-lines .is-step { color: #cbd5e1; }
 .cp-disk code { font-size: 11px; }
 
-/* SAMPLING: Savante's dials */
+/* SAMPLING: Savante's dials — cards with depth, semi-transparent sliders */
 .cp-sampling { display: grid; gap: 12px; }
-.cp-dial { display: grid; gap: 4px; }
-.cp-dial input[type=range] { width: 100%; accent-color: var(--btc-orange, #F7931A); }
-.cp-dial input[type=number] { width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid #334155; background: #0b1220; color: #f8fafc; }
+.cp-dial {
+  display: grid; gap: 6px; padding: 10px 10px 8px; border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, .16);
+  background: linear-gradient(180deg, rgba(30, 41, 59, .55), rgba(15, 23, 42, .35));
+  /* depth: a light edge on top, a shadow under, a soft drop */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), inset 0 -1px 0 rgba(0, 0, 0, .35), 0 2px 6px rgba(0, 0, 0, .28);
+  transition: border-color .15s, box-shadow .15s, transform .15s;
+}
+.cp-dial:hover { border-color: rgba(148, 163, 184, .3); }
+.cp-dial.is-set { border-color: rgba(247, 147, 26, .45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), inset 0 -1px 0 rgba(0, 0, 0, .35), inset 3px 0 0 rgba(247, 147, 26, .55), 0 2px 8px rgba(0, 0, 0, .3); }
+.cp-dial.is-active { border-color: rgba(247, 147, 26, .75); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 0 0 3px rgba(247, 147, 26, .12), 0 4px 12px rgba(0, 0, 0, .35); }
+.cp-dial input[type=number] { width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 6px; border: 1px solid #334155; background: rgba(11, 18, 32, .7); color: #f8fafc;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .45); }
 .cp-dial .cp-fine { margin-top: 0; }
+.cp-dial .cp-slider-head b { cursor: default; user-select: none; }
+.cp-value { background: none; border: 0; padding: 1px 6px; border-radius: 6px; color: #cbd5e1; font: inherit; font-variant-numeric: tabular-nums; cursor: text; }
+.cp-value:hover, .cp-value:focus-visible { background: rgba(148, 163, 184, .14); color: #f8fafc; outline: none; }
+.cp-dial:not(.is-set) .cp-value { color: #64748b; }
+.cp-dial input.cp-value-edit { width: 84px; padding: 1px 6px; text-align: right; font-size: 12px; }
+
+/* the slider: a translucent glass track, the filled part showing the value, a translucent thumb with a lit rim */
+.cp-range { position: relative; --fill: 50%; padding-top: 2px; }
+.cp-range input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; margin: 0; background: transparent; cursor: pointer; }
+.cp-range input[type=range]:focus-visible { outline: none; }
+.cp-range input[type=range]::-webkit-slider-runnable-track {
+  height: 8px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .14);
+  background: linear-gradient(90deg, rgba(247, 147, 26, .55) 0, rgba(247, 147, 26, .35) var(--fill), rgba(255, 255, 255, .07) var(--fill));
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .5), 0 1px 0 rgba(255, 255, 255, .05);
+}
+.cp-range input[type=range]::-moz-range-track {
+  height: 8px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .14); background: rgba(255, 255, 255, .07);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .5);
+}
+.cp-range input[type=range]::-moz-range-progress { height: 8px; border-radius: 999px; background: rgba(247, 147, 26, .45); }
+.cp-range input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 18px; height: 18px; margin-top: -6px; border-radius: 50%;
+  border: 1px solid rgba(247, 147, 26, .9); background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, .55), rgba(247, 147, 26, .35) 60%, rgba(247, 147, 26, .2));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .45), inset 0 1px 1px rgba(255, 255, 255, .4); transition: transform .12s;
+}
+.cp-range input[type=range]::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(247, 147, 26, .9);
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, .55), rgba(247, 147, 26, .35) 60%, rgba(247, 147, 26, .2));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .45);
+}
+.cp-dial.is-active .cp-range input[type=range]::-webkit-slider-thumb { transform: scale(1.18); }
+.cp-dial:not(.is-set) .cp-range input[type=range] { opacity: .55; }
+.cp-dial:not(.is-set) .cp-range input[type=range]:hover { opacity: .85; }
+.cp-bubble {
+  position: absolute; bottom: calc(100% + 2px); left: clamp(14px, var(--fill), calc(100% - 14px)); transform: translate(-50%, 4px);
+  padding: 2px 7px; border-radius: 6px; font-size: 11px; font-variant-numeric: tabular-nums; color: #0b1220;
+  background: rgba(247, 147, 26, .92); box-shadow: 0 2px 8px rgba(0, 0, 0, .4); pointer-events: none; opacity: 0; transition: opacity .12s, transform .12s;
+}
+.cp-dial.is-active .cp-bubble { opacity: 1; transform: translate(-50%, 0); }
+
+/* what the next question sends */
+.cp-sent { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 8px; border-radius: 10px;
+  border: 1px solid rgba(14, 203, 129, .25); background: rgba(14, 203, 129, .05); box-shadow: inset 0 1px 2px rgba(0, 0, 0, .35); font-size: 11px; }
+.cp-sent-label { color: #94a3b8; margin-right: 2px; }
+.cp-sent-none { color: #64748b; }
+.cp-chip { padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(247, 147, 26, .5); background: rgba(247, 147, 26, .1); color: #fbbf24; font-size: 11px; cursor: pointer;
+  font-variant-numeric: tabular-nums; box-shadow: 0 1px 2px rgba(0, 0, 0, .3); }
+.cp-chip:hover { border-color: var(--stop-red, #F6465D); color: var(--stop-red, #F6465D); background: rgba(246, 70, 93, .1); }
+.cp-chip.is-fixed { cursor: default; border-color: rgba(14, 203, 129, .45); background: rgba(14, 203, 129, .1); color: var(--candle-green, #0ECB81); }
+
+/* the advanced tools: DRY · XTC · dynamic temperature */
+.cp-sampler { display: grid; gap: 8px; padding: 10px; border-radius: 12px; border: 1px solid rgba(148, 163, 184, .18);
+  background: rgba(2, 6, 23, .35); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), 0 2px 6px rgba(0, 0, 0, .25); transition: border-color .15s, box-shadow .15s; }
+.cp-sampler.is-on { border-color: rgba(14, 203, 129, .45); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), inset 3px 0 0 rgba(14, 203, 129, .6), 0 3px 10px rgba(0, 0, 0, .3); }
+.cp-sampler .cp-fine { margin: 0; }
+.cp-sampler-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; }
+.cp-sampler-head b { color: #f8fafc; letter-spacing: .08em; }
+.cp-switch { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 4px; border-radius: 999px; font-size: 11px; font-weight: 600; cursor: pointer;
+  border: 1px solid #334155; background: rgba(15, 23, 42, .7); color: #94a3b8; box-shadow: inset 0 1px 2px rgba(0, 0, 0, .45); }
+.cp-switch-knob { width: 14px; height: 14px; border-radius: 50%; background: #475569; box-shadow: 0 1px 2px rgba(0, 0, 0, .5); transition: background .15s, transform .15s; }
+.cp-switch[aria-checked=true] { border-color: rgba(14, 203, 129, .6); color: var(--candle-green, #0ECB81); }
+.cp-switch[aria-checked=true] .cp-switch-knob { background: var(--candle-green, #0ECB81); box-shadow: 0 0 8px rgba(14, 203, 129, .6); }
+.cp-switch:focus-visible, .cp-chip:focus-visible, .cp-presets button:focus-visible { outline: 2px solid var(--btc-orange, #F7931A); outline-offset: 1px; }
+@media (prefers-reduced-motion: reduce) { .cp-dial, .cp-bubble, .cp-switch-knob, .cp-range input[type=range]::-webkit-slider-thumb { transition: none; } }
 .cp-presets { display: flex; flex-wrap: wrap; gap: 4px; }
 .cp-presets button, .cp-persona-list button { padding: 3px 8px; border-radius: 999px; border: 1px solid #334155; background: transparent; color: #cbd5e1; font-size: 11px; cursor: pointer; }
 .cp-presets button.is-on, .cp-persona-list button.is-on { border-color: var(--btc-orange, #F7931A); color: var(--btc-orange, #F7931A); }
+.cp-presets button { transition: border-color .12s, background .12s; }
+.cp-presets button:hover { border-color: #64748b; background: rgba(148, 163, 184, .08); }
+.cp-presets button.is-on { background: rgba(247, 147, 26, .1); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06); }
 .cp-more summary { cursor: pointer; color: #94a3b8; font-size: 12px; margin-bottom: 8px; }
 .cp-more[open] { display: grid; gap: 12px; }
 

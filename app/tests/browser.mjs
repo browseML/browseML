@@ -53,6 +53,20 @@ try {
   check("T opens the control panel with its sections", ["NOW", "TOOLS", "CPU · RAM · GPU · CACHE", "ENGINE LOG", "RECEIPTS", "MODELS ON THIS COMPUTER", "HARD DRIVE", "DIALS", "DIAGNOSTICS", "TOOL SUITE", "LIMITERS"].every((f) => folds.includes(f)), folds.join(", "));
   const pw = await page.evaluate(() => { const a = document.querySelector(".uif-shelves.is-open"); return a.scrollWidth <= a.clientWidth; });
   check("the panel's content fits its width", pw);
+  // SAMPLING: a preset, an advanced tool switched on, the chips of what the next question sends, one removed
+  await page.locator(".cp-fold-head", { hasText: "SAMPLING" }).click(); await wait(200);
+  const samp = page.locator(".cp-sampling");
+  await samp.locator(".cp-dial", { hasText: "temperature" }).first().getByRole("button", { name: "0.7", exact: true }).click();
+  await samp.locator("details.cp-advanced > summary").click();
+  await samp.getByRole("switch", { name: "XTC" }).click(); await wait(100);
+  const chips = (await samp.locator(".cp-chip").allInnerTexts()).map((t) => t.replace(/\s+/g, " ").trim());
+  check("SAMPLING: a preset and XTC switched on, listed for the next question",
+    (await samp.getByRole("switch", { name: "XTC" }).getAttribute("aria-checked")) === "true" && chips.some((c) => /^temperature 0\.70/.test(c)) && chips.some((c) => /^XTC how often 0\.50/.test(c)) && chips.some((c) => /^XTC threshold 0\.10/.test(c)),
+    chips.join(" | "));
+  await samp.locator(".cp-chip", { hasText: "temperature" }).click(); await wait(100);
+  await samp.getByRole("switch", { name: "XTC" }).click(); await wait(100);
+  check("SAMPLING: a chip removed, XTC off — back to the engine's defaults", (await samp.locator("button.cp-chip").count()) === 0, (await samp.locator(".cp-sent").innerText()).replace(/\s+/g, " "));
+  await page.locator(".cp-fold-head", { hasText: "SAMPLING" }).click();
   for (const t of ["MEMORY", "CPU", "STORAGE", "SENSORS", "EXACT"]) {
     const card = page.locator(".cp-tool", { hasText: t }).first();
     await card.getByRole("button", { name: "RUN" }).click();

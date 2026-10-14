@@ -31,11 +31,25 @@ export interface BrowseSettings {
   /** Prompts kept read (warm slots in this browser), each persona's or prompt's own; the least recently used go first. */
   keptPrompts: number;
 }
-export interface Sampling { temperature: number | null; top_p: number | null; top_k: number | null; min_p: number | null; repeat_penalty: number | null; seed: number | null }
-export const NO_SAMPLING: Sampling = { temperature: null, top_p: null, top_k: null, min_p: null, repeat_penalty: null, seed: null };
+export interface Sampling {
+  temperature: number | null; top_p: number | null; top_k: number | null; min_p: number | null; repeat_penalty: number | null; seed: number | null;
+  /** The advanced tools, llama-server's own samplers as bankML reproduces them (its `oracle_samplers`): DRY, XTC and
+   *  dynamic temperature. */
+  dry_multiplier: number | null; dry_base: number | null; dry_allowed_length: number | null;
+  xtc_probability: number | null; xtc_threshold: number | null;
+  dynatemp_range: number | null; dynatemp_exponent: number | null;
+}
+export const NO_SAMPLING: Sampling = {
+  temperature: null, top_p: null, top_k: null, min_p: null, repeat_penalty: null, seed: null,
+  dry_multiplier: null, dry_base: null, dry_allowed_length: null, xtc_probability: null, xtc_threshold: null, dynatemp_range: null, dynatemp_exponent: null,
+};
+/** Fields that only take whole numbers. */
+export const SAMPLING_INT: ReadonlySet<keyof Sampling> = new Set(['top_k', 'seed', 'dry_allowed_length']);
 /** Each sampling field's range (out of range: the engine's default). */
 export const SAMPLING_RANGE: Record<keyof Sampling, [number, number]> = {
   temperature: [0, 1.5], top_p: [0.05, 1], top_k: [0, 200], min_p: [0, 0.5], repeat_penalty: [1, 1.5], seed: [0, 2147483647],
+  dry_multiplier: [0, 2], dry_base: [1, 3], dry_allowed_length: [1, 8], xtc_probability: [0, 1], xtc_threshold: [0, 0.5],
+  dynatemp_range: [0, 1.5], dynatemp_exponent: [0.5, 4],
 };
 const SETTINGS = 'browseml:settings';
 export const CTX_CHOICES = [1024, 2048, 4096, 8192] as const;
@@ -62,7 +76,7 @@ export function parseSettings(raw: unknown, memoryGB: number | null = null): Bro
       const out = { ...NO_SAMPLING };
       for (const k of Object.keys(SAMPLING_RANGE) as (keyof Sampling)[]) {
         const v = r[k], [lo, hi] = SAMPLING_RANGE[k];
-        if (typeof v === 'number' && isFinite(v) && v >= lo && v <= hi && ((k !== 'top_k' && k !== 'seed') || Number.isInteger(v))) out[k] = v;
+        if (typeof v === 'number' && isFinite(v) && v >= lo && v <= hi && (!SAMPLING_INT.has(k) || Number.isInteger(v))) out[k] = v;
       }
       return out;
     })(),
