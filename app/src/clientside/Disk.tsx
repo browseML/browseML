@@ -88,7 +88,10 @@ export function Disk({ say }: { say: Say }) {
   };
   const owed = limits.diskCopy && !saved && dl.phase === 'verified' && model > 0;
   const twice = !!saved && saved.how === 'folder' && limits.rememberFolders && model > 0;
-  const room = est ? est.quota - est.usage : null;
+  // the browser's estimate can lag its own writes (Chromium reported 0 MB just after the model was stored): what is
+  // in use is at least the model this page knows it keeps
+  const used = est ? Math.max(est.usage, model ?? 0) : 0, lagging = !!est && !!model && est.usage < model;
+  const room = est ? est.quota - used : null;
   const freeBrowserCopy = async () => {
     const n = await clearBrowseCache();
     setLimits({ keepCopy: false });
@@ -99,7 +102,7 @@ export function Disk({ say }: { say: Say }) {
   return (
     <div className="cp-disk">
       <dl>
-        <div className="cp-row"><dt>browser</dt><dd>{est ? `${mb(est.usage)} of ${mb(est.quota)}` : 'not reported'}</dd></div>
+        <div className="cp-row"><dt>browser</dt><dd>{est ? `${lagging ? 'at least ' : ''}${mb(used)} of ${mb(est.quota)}${lagging ? ' (its estimate lags; REFRESH)' : ''}` : 'not reported'}</dd></div>
         {room !== null && <div className="cp-row"><dt>room</dt><dd className={room < MODEL_BYTES ? 'is-bad' : undefined}>{mb(Math.max(0, room))}{room < MODEL_BYTES ? ` · under ${mb(MODEL_BYTES)}: free space` : ''}</dd></div>}
         <div className="cp-row"><dt>kept</dt><dd className={keep ? 'is-ok' : undefined}>
           <IndicatorLamp on={!!keep} readOnly size={8} color={keep ? GREEN : ORANGE} aria-label="persisted" /> {keep === null ? 'not reported' : keep ? 'persistent' : 'may be evicted'}

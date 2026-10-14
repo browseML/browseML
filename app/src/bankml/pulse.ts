@@ -86,5 +86,8 @@ export function surgeColor(k: SurgeKind): string {
   return k === 'gpu' ? '#cfe8ff' : k === 'receipt' || k === 'record' ? '#0ECB81' : k === 'error' || k === 'stop' ? '#F6465D' : '#F7931A';
 }
 
+/** The browser checks drive the fire without an engine (`__browsemlPulse`): activity, tokens, surges. */
+(globalThis as { __browsemlPulse?: unknown }).__browsemlPulse = { setActivity: (a: Activity) => setActivity(a), token: () => token(), surge: (k: SurgeKind, s?: number) => surge(k, s), setReady: (r: boolean) => setReady(r) };
+
 /** Tests: back to the start. */
 export function resetPulse() { Object.assign(st, { activity: 'idle', ready: false, tokens: [], best: 0, lastRate: 0, surges: [], tool: 0 }); }

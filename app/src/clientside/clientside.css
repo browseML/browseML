@@ -420,5 +420,7 @@ details.cs-card.is-ready > p { margin: 0; padding: 0 12px 10px; color: #a7f3d0; 
 
 /* the processor's fire across the page (Fire.tsx): above the page, under nothing it could hide — screen blending adds
    light, black stays clear; never takes a click */
-.cs-fire { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 5; mix-blend-mode: screen; }
-@media print { .cs-fire { display: none; } }
+/* behind the page: html has no background, so body's paints the viewport and this sits between it and the content */
+.cs-fire { position: fixed; left: 0; right: 0; bottom: 0; width: 100vw; height: 60vh; pointer-events: none; z-index: -1; }
+.cs-arcs { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 5; }
+@media print { .cs-fire, .cs-arcs { display: none; } }

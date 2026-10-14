@@ -11,9 +11,23 @@
 - **Tried in bankML and not kept**: a second share for prompt reading, calibrated on a 16-token product (bit-exact,
   tested on the card). With the writing share fixed: reading 5.56 against 5.75 tok/s, writing 2.28 against 2.20,
   18 of 18 identical — no gain, recorded in bankML's TODO under "Rejected, with reasons".
-- **The fire measures itself**: frames a second, milliseconds of the page's main thread per frame, and that time as a
-  share of the main thread, over the last second it drew; DIAGNOSTICS (CPU) shows it, or "asleep: no frames" when
-  the engine is idle. The browser test samples it while the engine answers and records the median.
+- **The fire, half the cost, behind the page.** Measured in headless Brave (all of its processes, /proc; the fire
+  driven hot through a test hook, `__browsemlPulse`): Brave took 99–106% of a core with the fire hot against 7% with
+  it asleep — the fire's own drawing only 1.1 ms a frame, the rest the browser compositing a window-sized canvas in a
+  blend mode. Now the flames and embers sit on a canvas over the lower 60% of the window, **behind the page** (the text
+  stays readable, the fire shows between it), in plain alpha, never opaque, and at 15 frames a second while the engine
+  computes; the arcs have a page-wide canvas of their own, drawn only while one is alive, their glow a wide faint
+  stroke instead of a shadow blur. Hot: 56–66% of a core (42–44% without arcs), from 99–106% (≈ 50%); idle unchanged
+  (7%). Software compositing in headless Brave overstates what a GPU-composited page pays; the shape of the saving
+  holds. The first screenshots also showed the flames hiding the FAQ and a hard edge at the side glows: both fixed
+  (the glows are now in the lower corners, fading every way).
+- **The fire measures itself**: frames a second, milliseconds of the page's main thread per frame (and per part:
+  automaton, blit, glow, embers, arcs), and that time as a share of the main thread, over the last second it drew;
+  DIAGNOSTICS (CPU) shows it, or "asleep: no frames" when the engine is idle. The browser test samples it while the
+  engine answers.
+- **HARD DRIVE no longer reports less in use than the model it keeps**: the browser's storage estimate can lag its
+  own writes (0.0 MB just after the model was stored); the figure is now at least the model's size, said so ("its
+  estimate lags; REFRESH"), and the room left follows it. Found by the 0.6.12 browser checks.
 - `testing/bench.mjs` passes every `BANKML_GPU_*` variable (`BANKML_GPU_SHARE`, `BANKML_GPU_LIMIT`, …) to the engine,
   so a comparison can hold the share fixed.
 

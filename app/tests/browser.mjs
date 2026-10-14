@@ -94,7 +94,7 @@ try {
   const hd = page.locator(".cp-disk");
   await hd.getByRole("button", { name: "REFRESH" }).click(); await wait(1500);
   const rows = (await hd.locator(".cp-row").allInnerTexts()).map((t) => t.replace(/\s+/g, " "));
-  check("HARD DRIVE: the browser's storage and the model kept", rows.some((r) => /browser \d+ MB of \d+ MB/.test(r)) && rows.some((r) => /model \d+ MB in browser/.test(r)), rows.join(" | "));
+  check("HARD DRIVE: the browser's storage and the model kept", rows.some((r) => /browser (at least )?[\d.]+ MB of [\d.]+ MB/.test(r)) && rows.some((r) => /model \d+ MB in browser/.test(r)), rows.join(" | "));
   if (await page.evaluate(() => "showDirectoryPicker" in window)) {
     check("HARD DRIVE: a copy on the disk (this browser writes folders: the picker needs a person)", true, "skipped");
   } else {
