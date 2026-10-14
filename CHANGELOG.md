@@ -1,6 +1,20 @@
 # Changelog
 
-## 0.6.16 — 2026-10-14 — the fire at 10 frames a second while the engine computes
+## Version numbers: the patch rolls over after 9
+
+From here the third number rolls over after 9 (0.6.9 → 0.7.0). The releases published as **v0.6.10–v0.6.15 are
+0.7.0–0.7.5** in this numbering; their tags keep the names they were published under. The next release is 0.7.6.
+
+| published | in the numbering |
+|---|---|
+| v0.6.10 | 0.7.0 |
+| v0.6.11 | 0.7.1 |
+| v0.6.12 | 0.7.2 |
+| v0.6.13 | 0.7.3 |
+| v0.6.14 | 0.7.4 |
+| v0.6.15 | 0.7.5 |
+
+## 0.7.6 — 2026-10-14 — the fire at 10 frames a second while the engine computes
 
 - **While bankML reads, writes, warms or verifies, the fire draws 10 frames a second instead of 15** (30 otherwise,
   and none when it sleeps): the CPU is the engine's then. Measured in headless Brave, two alternating rounds, the

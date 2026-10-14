@@ -1,6 +1,6 @@
 {
   "name": "browseml-app",
-  "version": "0.6.16",
+  "version": "0.7.6",
   "private": true,
   "type": "module",
   "license": "MIT",
