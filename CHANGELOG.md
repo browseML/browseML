@@ -1,14 +1,30 @@
 # Changelog
 
+## 0.6.12 — 2026-10-14 — measured again, with the noise taken out
+
+- **A correction to 0.6.11**: its "+8% reading at 100% of the GPU's time" does not hold. That measurement let bankML
+  calibrate the card's share afresh in every run, and the calibration itself moves 38–56% from run to run on the
+  AMD Radeon Vega 3 (Dawn, 3 threads), more than the effect measured. With the share fixed (0.42), three alternating
+  rounds, 27 of 27 answers identical: reading 6.23 tok/s at 80% (the default), 6.17 at 100%, 6.28 at 100% with a
+  smaller share in place of the rests; writing 2.36, 2.32, 2.46 — the same within the noise. The slider stays (the
+  card's time is the visitor's to give); its text no longer claims a speed-up.
+- **Tried in bankML and not kept**: a second share for prompt reading, calibrated on a 16-token product (bit-exact,
+  tested on the card). With the writing share fixed: reading 5.56 against 5.75 tok/s, writing 2.28 against 2.20,
+  18 of 18 identical — no gain, recorded in bankML's TODO under "Rejected, with reasons".
+- **The fire measures itself**: frames a second, milliseconds of the page's main thread per frame, and that time as a
+  share of the main thread, over the last second it drew; DIAGNOSTICS (CPU) shows it, or "asleep: no frames" when
+  the engine is idle. The browser test samples it while the engine answers and records the median.
+- `testing/bench.mjs` passes every `BANKML_GPU_*` variable (`BANKML_GPU_SHARE`, `BANKML_GPU_LIMIT`, …) to the engine,
+  so a comparison can hold the share fixed.
+
 ## 0.6.11 — 2026-10-14 — the GPU's time, to 100%
 
 - **The GPU's time, a slider to 100%** (CPU · RAM · GPU · CACHE, under the GPU's OFF · LOW · HIGH): the share of the
   card's time bankML may take, 25% to 100%, passed to the engine's limiter (`BANKML_GPU_LIMIT`: after a dispatch of d
   the card rests d·(1−L)/L). 80% stays the default, room for the screen and other tabs; at 100% it never rests. APPLY
-  restarts the engine with it. Measured first (Dawn on the AMD Radeon Vega 3, 3 threads, three alternating rounds,
-  load ≈ 4): reading 5.58 tok/s at 80% against 6.04 at 100% (+8%; ahead in each round), writing 2.31 against 2.30,
-  18 of 18 answers identical to the record. At 80% about a quarter of the card's products went to the CPU while it
-  rested; at 100%, none.
+  restarts the engine with it. Answers are the same at any setting (18 of 18 identical to the record at 80% and
+  100%). Speed: see 0.6.12 — a first measurement here read +8% for 100%, but it let the card's share be calibrated
+  afresh each run; with the share fixed the difference is within the noise.
 - `testing/bench.mjs` passes `BANKML_GPU_LIMIT` to the engine.
 - Browser test: the slider, at 80% by default.
 

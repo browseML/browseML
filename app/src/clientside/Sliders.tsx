@@ -118,7 +118,7 @@ export function Sliders({ usage, say, gpu, uif }: { usage: Usage; say: Say; gpu:
           <LEDFader orientation="horizontal" length={220} breadth={14} segments={GPU_TIME_CHOICES.length} min={0} max={GPU_TIME_CHOICES.length - 1} step={1} value={timeI}
             zones={[{ upTo: 0.67, color: GREEN }, { upTo: 1, color: ORANGE }]} aria-label="The share of the GPU's time bankML may take"
             onChange={x => setBrowseSettings({ gpuTime: GPU_TIME_CHOICES[Math.round(x)] })} />
-          <p className="cp-fine">the card rests between dispatches for the rest of its time, leaving it to the screen and other tabs; at 100% it never rests (measured on an integrated Radeon: reading +8%, writing unchanged, answers identical){v && v.gpu !== 'off' && (v.gpuTime ?? 80) !== s.gpuTime ? ' · APPLY restarts with it' : ''}</p>
+          <p className="cp-fine">the card rests between dispatches for the rest of its time, leaving it to the screen and other tabs; at 100% it never rests. Answers are the same at any setting; on an integrated Radeon the speed was the same within the noise{v && v.gpu !== 'off' && (v.gpuTime ?? 80) !== s.gpuTime ? ' · APPLY restarts with it' : ''}</p>
         </>)}
       </div>
 

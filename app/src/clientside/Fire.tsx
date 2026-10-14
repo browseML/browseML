@@ -22,6 +22,14 @@ const PALETTE: [number, number, number, number][] = Array.from({ length: 37 }, (
   return [r, g, b, i === 0 ? 0 : Math.min(255, 30 + t * 260)];
 });
 
+/** What the fire costs, measured on itself: frames a second, milliseconds of the page's main thread per frame, and
+ *  that time as a share of the main thread, over the last second it drew (DIAGNOSTICS shows it). */
+export interface FireStats { on: boolean; asleep: boolean; fps: number; msPerFrame: number; share: number; frames: number }
+const stats: FireStats = { on: true, asleep: true, fps: 0, msPerFrame: 0, share: 0, frames: 0 };
+let win = { t: 0, frames: 0, ms: 0 };
+export const fireStats = (): FireStats => ({ ...stats });
+(globalThis as { __browsemlFire?: () => FireStats }).__browsemlFire = fireStats;
+
 interface Ember { x: number; y: number; vx: number; vy: number; life: number; max: number }
 interface Bolt { pts: [number, number][][]; color: string; born: number; strength: number }
 
@@ -43,6 +51,7 @@ export function ProcessorFire() {
     let heat = 0, flare = 0, raf = 0, last = performance.now(), lastFrame = 0;
     const embers: Ember[] = [], bolts: Bolt[] = [];
     let enabled = getLimits().fire;
+    stats.on = enabled;
 
     // an arc: from a point on the top edge or a side down toward the fire line, jagged by midpoint displacement, with
     // a branch or two
@@ -79,9 +88,11 @@ export function ProcessorFire() {
 
     const frame = (t: number) => {
       raf = 0;
-      if (document.hidden || !enabled) { ctx.clearRect(0, 0, W, H); return; }
+      if (document.hidden || !enabled) { ctx.clearRect(0, 0, W, H); Object.assign(stats, { asleep: true, fps: 0, share: 0 }); win = { t: 0, frames: 0, ms: 0 }; return; }
       if (t - lastFrame < FRAME) { raf = requestAnimationFrame(frame); return; }
       const dt = Math.min(100, t - last); last = t; lastFrame = t;
+      const t0 = performance.now();
+      stats.asleep = false;
       heat = follow(heat, targetHeat(), dt);
       flare *= Math.exp(-dt / 300);
       const fuel = Math.min(1, heat + flare * 0.6);
@@ -151,10 +162,20 @@ export function ProcessorFire() {
       const calm = heat < 0.012 && targetHeat() < 0.012 && flare < 0.02 && !embers.length && !bolts.length;
       if (!calm) raf = requestAnimationFrame(frame);
       else { cells.fill(0); ctx.clearRect(0, 0, W, H); }
+      // its own cost: this frame's time on the main thread, summed over a second
+      const end = performance.now();
+      if (!win.t) win = { t: t0, frames: 0, ms: 0 };
+      win.frames++; win.ms += end - t0; stats.frames++;
+      if (end - win.t >= 1000) {
+        const span = end - win.t;
+        Object.assign(stats, { fps: win.frames * 1000 / span, msPerFrame: win.ms / win.frames, share: win.ms / span });
+        win = { t: end, frames: 0, ms: 0 };
+      }
+      if (calm) { Object.assign(stats, { asleep: true, fps: 0, share: 0 }); win = { t: 0, frames: 0, ms: 0 }; }
     };
     const wake = () => { if (reduced) { still(); return; } if (!raf && enabled && !document.hidden) { last = performance.now(); raf = requestAnimationFrame(frame); } };
     const offPulse = onPulse((s) => { if (s && enabled && !reduced && !document.hidden) strike(s); wake(); });
-    const offLimits = onLimits(() => { enabled = getLimits().fire; if (!enabled) { cancelAnimationFrame(raf); raf = 0; ctx.clearRect(0, 0, W, H); } else wake(); });
+    const offLimits = onLimits(() => { enabled = stats.on = getLimits().fire; if (!enabled) { cancelAnimationFrame(raf); raf = 0; ctx.clearRect(0, 0, W, H); } else wake(); });
     const onVis = () => wake();
     const onResize = () => { resize(); wake(); };
     document.addEventListener('visibilitychange', onVis);

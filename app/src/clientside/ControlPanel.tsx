@@ -30,6 +30,7 @@ import { Folders } from './Folders';
 import { Disk } from './Disk';
 import { Status } from './Status';
 import { Sliders } from './Sliders';
+import { fireStats } from './Fire';
 import { EngineLog } from './EngineLog';
 import { PersonaSection } from './Persona';
 import { SamplingDials } from './Sampling';
@@ -43,6 +44,13 @@ import { cpu, memory, ping, sensors, speed, storage, type Sensors } from './tool
 import { getLimits, onLimits, setLimits, type Limits } from './limits';
 
 const GREEN = '#0ECB81', ORANGE = '#F7931A', RED = '#F6465D';
+/** The fire's own cost, measured on itself (Fire.tsx), refreshed each second while DIAGNOSTICS is open. */
+function FireRow() {
+  const [f, set] = useState(fireStats());
+  useEffect(() => { const t = window.setInterval(() => set(fireStats()), 1000); return () => window.clearInterval(t); }, []);
+  return <Row k="the fire">{!f.on ? 'off (LIMITERS)' : f.asleep ? `asleep: no frames${f.frames ? ` · ${f.frames} drawn this visit` : ''}` : `${f.fps.toFixed(0)} fps · ${f.msPerFrame.toFixed(2)} ms a frame · ${(f.share * 100).toFixed(1)}% of the page's main thread`}</Row>;
+}
+
 const TITLES: Record<string, string> = { now: 'NOW', tools: 'TOOLS', sliders: 'CPU · RAM · GPU · CACHE', persona: 'PERSONA', builder: 'BUILDER', sampling: 'SAMPLING', log: 'ENGINE LOG',
   receipts: 'RECEIPTS', folders: 'MODELS ON THIS COMPUTER', disk: 'HARD DRIVE', dials: 'DIALS', diag: 'DIAGNOSTICS', suite: 'TOOL SUITE', limits: 'LIMITERS', advice: 'ADVICE AND RECORDS' };
 
@@ -223,6 +231,7 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
           <Row k="engine">{v ? `${v.threads} thread${v.threads === 1 ? '' : 's'} · ${v.build ?? 'browseml.wasm'}` : 'not loaded'}</Row>
           <Row k="speed">{last ? `reading ${last.promptPerSec.toFixed(2)} · writing ${last.genPerSec.toFixed(2)} tok/s` : 'no answer yet'}</Row>
           {res.cpu && <Row k="CPU tool">{res.cpu}</Row>}
+          <FireRow />
         </dl>
         <h4>RAM</h4>
         <dl>

@@ -118,7 +118,16 @@ try {
 
   // a question: answered here, its receipt a closed accordion
   await page.locator(".cs-faq-q", { hasText: "Does anything I type" }).click();
+  // the fire's own cost while the engine works, sampled from its self-measure (Fire.tsx fireStats)
+  const fireSeen = [];
+  const firePoll = setInterval(() => { page.evaluate(() => globalThis.__browsemlFire?.()).then((f) => { if (f && !f.asleep && f.fps > 0) fireSeen.push(f); }, () => {}); }, 700);
   await answered(page, 0);
+  clearInterval(firePoll);
+  {
+    const fs = fireSeen.sort((a, b) => a.share - b.share), med = fs[Math.floor(fs.length / 2)];
+    check("the fire measured itself while the engine worked (fps, ms a frame, share of the main thread)", fs.length > 0 && med.fps > 0 && med.share < 0.5,
+      med ? `${fs.length} samples · median ${med.fps.toFixed(0)} fps · ${med.msPerFrame.toFixed(2)} ms a frame · ${(med.share * 100).toFixed(1)}% of the main thread (worst ${(fs.at(-1).share * 100).toFixed(1)}%)` : "no samples");
+  }
   const acc = page.locator(".uif-output").first().locator("details.cs-receipt");
   const accHead = acc.locator(":scope > summary");
   check("the receipt under the answer: a closed accordion", (await acc.count()) === 1 && !(await acc.evaluate((d) => d.open)), (await accHead.innerText().catch(() => "")).replace(/\s+/g, " "));

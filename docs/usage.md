@@ -81,7 +81,7 @@ SHOW; RESET LAYOUT restores the order. The layout is kept in this browser.
 | **MODELS ON THIS COMPUTER** | add a folder, rescan, reconnect, remove; every model found with its verdict and USE (below) |
 | **HARD DRIVE** | the browser's storage and the model kept (below); SAVE A COPY, SAVE FOR bankML |
 | **DIALS** | the DreamKnob dials: CPU, RAM, CACHE, ANSWER, HELD; LOAD / APPLY, UNLOAD, CLEAR CACHE, MEASURE |
-| **DIAGNOSTICS** · **TOOL SUITE** | network, CPU, RAM and GPU from what ran; PING, SPEED, CPU, MEMORY, STORAGE, GPU, SENSORS and **EXACT** (the GPU kernel bit-exact on this card), each with RUN |
+| **DIAGNOSTICS** · **TOOL SUITE** | network, CPU, RAM and GPU from what ran (and **the fire's own cost**: frames a second, milliseconds a frame, its share of the page's main thread); PING, SPEED, CPU, MEMORY, STORAGE, GPU, SENSORS and **EXACT** (the GPU kernel bit-exact on this card), each with RUN |
 | **LIMITERS** · **ADVICE AND RECORDS** | spare a core, low memory, ask before downloading, warm in background, GPU probe, **the processor's fire** (flames across the page that follow the engine's work, electrical surges on its events: blue-white GPU, green receipt or speed record, red error or STOP); advice from your own records, saved as JSON or cleared |
 
 The diagnostics record every load and answer **in your browser only** (the last 50 of each) and work out their advice
