@@ -41,6 +41,8 @@ const check = (what, ok, more = "") => { console.log(`${ok ? "ok  " : "FAIL"} ${
 {
   const len = x.browseml_wgsl(), engine = new TextDecoder().decode(new Uint8Array(x.memory.buffer, x.browseml_out_ptr(), len).slice());
   check("bankML's WGSL kernel (gpu/wgsl.rs) is browseml-gpu.js's Q1_MM_WGSL, character for character", engine === g.Q1_MM_WGSL, `${engine.length} vs ${g.Q1_MM_WGSL.length} chars`);
+  const len4 = x.browseml_wgsl_tiled(), engine4 = new TextDecoder().decode(new Uint8Array(x.memory.buffer, x.browseml_out_ptr(), len4).slice());
+  check("bankML's tiled kernel (Q1_0_MM4) is browseml-gpu.js's Q1_MM4_WGSL, character for character", engine4 === g.Q1_MM4_WGSL, `${engine4.length} vs ${g.Q1_MM4_WGSL.length} chars`);
 }
 
 // exactness: shapes small and layer-like, one and many activations, −128 included (randomCase puts some in)
@@ -55,6 +57,17 @@ for (const [rows, n, cols] of [[64, 128, 1], [257, 1024, 3], [512, 2048, 8], [96
   const simple = await g.gpuDot(device, { W: c0.W, A: As[0], rows, n });
   check(`simple kernel ${rows}×${n}: bit-exact`, simple.bits.every((b, r) => b === want[0][r]));
 }
+// the tiled kernel (four tokens per invocation): every result the reference's, token counts that fill a tile and
+// that leave its tail short (1, 3, 5, 9), on shapes small and layer-like
+for (const [rows, n, cols] of [[64, 128, 1], [257, 1024, 3], [512, 2048, 5], [96, 6144, 9], [300, 2048, 16]]) {
+  const c0 = g.randomCase(rows, n, rows + n + 1);
+  const As = Array.from({ length: cols }, (_, i) => g.randomCase(1, n, 2000 + i).A);
+  const want = As.map((A) => ref(c0.W, A, rows, n));
+  const t = await g.gpuMatMul(device, g.packQ1(c0.W, rows, n), g.packQ8(As, n), wg, true);
+  let same = 0;
+  for (let c = 0; c < cols; c++) for (let r = 0; r < rows; r++) same += t.bits[c * rows + r] === want[c][r];
+  check(`tiled kernel ${rows}×${n} × ${cols}: every result bit-exact`, same === rows * cols, `${same}/${rows * cols}`);
+}
 // the other workgroup sizes give the same bits (a vendor's size never changes an answer)
 {
   const rows = 300, n = 2048, c0 = g.randomCase(rows, n, 7), As = [c0.A, g.randomCase(1, n, 8).A];
@@ -68,7 +81,7 @@ const time = async (rows, n, cols, kernel) => {
   const Wp = g.packQ1(c0.W, rows, n), Ap = g.packQ8(As, n);
   let best = Infinity;
   for (let t = 0; t < 6; t++) {
-    const r = kernel === "simple" ? await g.gpuDot(device, { W: c0.W, A: As[0], rows, n }) : await g.gpuMatMul(device, Wp, Ap, wg);
+    const r = kernel === "simple" ? await g.gpuDot(device, { W: c0.W, A: As[0], rows, n }) : await g.gpuMatMul(device, Wp, Ap, wg, kernel === "tiled");
     if (t) best = Math.min(best, r.ms);
   }
   return best;
@@ -76,8 +89,9 @@ const time = async (rows, n, cols, kernel) => {
 console.log("\nspeed (ms, submit to result in hand; weights already on the card for the fast kernel):");
 for (const [rows, n] of [[2048, 2048], [6144, 2048], [2048, 6144]]) {
   const s = await time(rows, n, 1, "simple"), f1 = await time(rows, n, 1, "fast"), f16 = await time(rows, n, 16, "fast"), f64 = await time(rows, n, 64, "fast");
+  const t16 = await time(rows, n, 16, "tiled"), t64 = await time(rows, n, 64, "tiled");
   const gmac = (cols, ms) => ((rows * n * cols) / (ms / 1000) / 1e9).toFixed(1);
-  console.log(`  ${rows}×${n}: simple ${s.toFixed(2)} · fast 1 token ${f1.toFixed(2)} (${gmac(1, f1)} GMAC/s) · 16 tokens ${f16.toFixed(2)} (${gmac(16, f16)}) · 64 tokens ${f64.toFixed(2)} (${gmac(64, f64)})`);
+  console.log(`  ${rows}×${n}: simple ${s.toFixed(2)} · fast 1 token ${f1.toFixed(2)} (${gmac(1, f1)} GMAC/s) · 16 tokens ${f16.toFixed(2)} (${gmac(16, f16)}) · 64 tokens ${f64.toFixed(2)} (${gmac(64, f64)}) · tiled 16 ${t16.toFixed(2)} (${gmac(16, t16)}) · tiled 64 ${t64.toFixed(2)} (${gmac(64, t64)})`);
 }
 device.destroy();
 console.log(failed ? `\n${failed} check(s) failed` : "\nevery check passed");

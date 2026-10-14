@@ -115,6 +115,14 @@ pub extern "C" fn browseml_wgsl() -> usize {
     engine::gpu::wgsl::Q1_0_MM.len()
 }
 
+/// bankML's tiled WGSL kernel (`Q1_0_MM4`, prompts: four tokens per invocation), checked against `browseml-gpu.js`'s
+/// `Q1_MM4_WGSL` as the untiled one is.
+#[no_mangle]
+pub extern "C" fn browseml_wgsl_tiled() -> usize {
+    set_out(engine::gpu::wgsl::Q1_0_MM4);
+    engine::gpu::wgsl::Q1_0_MM4.len()
+}
+
 /// Where this engine runs (bankML's host registry, `bankml hosts`): browseML on the client side.
 #[no_mangle]
 pub extern "C" fn browseml_hosts() -> usize {

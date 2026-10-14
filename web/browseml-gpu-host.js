@@ -35,10 +35,11 @@ export function gpuEnv(bridge) {
     bankml_gpu_buffer(bytes) { const id = nextId++; sizes.set(id, bytes); bridge.post({ op: "buffer", id, bytes }); return id; },
     bankml_gpu_write: (id, ptr, len, wait) => (wait ? bridge.call({ op: "write", id, ptr, len }) : (bridge.post({ op: "write", id, ptr, len }), 1)),
     bankml_gpu_free(id) { sizes.delete(id); bridge.post({ op: "free", id }); },
-    bankml_gpu_pipeline(code, len, wg, bindings) {
-      // the shader's text, copied out of the engine's memory now (the GPU worker compiles it in order)
+    bankml_gpu_pipeline(code, len, wg, bindings, tile = 1) {
+      // the shader's text, copied out of the engine's memory now (the GPU worker compiles it in order); tile: tokens
+      // per invocation (bankML's Q1_0_MM4 reads prompts four at a time)
       const id = nextId++, text = new TextDecoder().decode(new Uint8Array(mem(), code, len).slice());
-      bridge.post({ op: "pipeline", id, code: text, wg, bindings });
+      bridge.post({ op: "pipeline", id, code: text, wg, bindings, tile: tile || 1 });
       return id;
     },
     bankml_gpu_submit(pipe, idsPtr, n, pushPtr, np, outPtr, outLen) {
@@ -104,11 +105,11 @@ export function serveGpu({ gpu, onMessage, ctrl, memory, power = "high-performan
       return 1;
     },
     free({ id }) { bufs.get(id)?.destroy(); bufs.delete(id); staging.get(id)?.destroy(); staging.delete(id); groups.forEach((_, k) => { if (k.split(",").includes(String(id))) groups.delete(k); }); return 1; },
-    pipeline({ id, code, wg }) {
+    pipeline({ id, code, wg, tile = 1 }) {
       // bankML's kernel (gpu/wgsl.rs), its workgroup the vendor's (bankML chooses it)
       const module = device.createShaderModule({ code });
       const pipeline = device.createComputePipeline({ layout: "auto", compute: { module, entryPoint: "main", constants: { WG: wg } } });
-      pipes.set(id, { pipeline, wg, uniform: device.createBuffer({ size: 16, usage: U.UNIFORM | U.COPY_DST }) });
+      pipes.set(id, { pipeline, wg, tile, uniform: device.createBuffer({ size: 16, usage: U.UNIFORM | U.COPY_DST }) });
       return 1;
     },
     submit({ pipe, ids, push, outPtr, outLen }) {
@@ -124,7 +125,7 @@ export function serveGpu({ gpu, onMessage, ctrl, memory, power = "high-performan
       if (!st) { st = device.createBuffer({ size, usage: U.MAP_READ | U.COPY_DST }); staging.set(oid, st); }
       const enc = device.createCommandEncoder();
       const pass = enc.beginComputePass(); pass.setPipeline(p.pipeline); pass.setBindGroup(0, groups.get(key));
-      pass.dispatchWorkgroups(Math.ceil((rows * 8) / p.wg), cols); pass.end();
+      pass.dispatchWorkgroups(Math.ceil((rows * 8) / p.wg), Math.ceil(cols / p.tile)); pass.end();
       enc.copyBufferToBuffer(bufs.get(ids[ids.length - 1]), 0, st, 0, size);
       device.queue.submit([enc.finish()]);
       pending.push(st.mapAsync(MAP.READ, 0, size).then(() => {
