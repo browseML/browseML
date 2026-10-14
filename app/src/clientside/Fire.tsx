@@ -17,7 +17,9 @@ import { getLimits, onLimits } from './limits';
 const CELL = 6;            // screen pixels per fire cell
 const ROWS = 56;           // the automaton's height in cells (the flames reach up to ROWS · CELL at full heat)
 const FRAME = 1000 / 30;
-const FRAME_BUSY = 1000 / 15;  // while the engine computes (reading, writing, warming, verifying), the CPU is its
+// while the engine computes (reading, writing, warming, verifying), the CPU is its: 10 frames a second (15 → 10 took
+// Brave from 26–27% to 20–21% of a core in headless Brave, the flames hot without arcs, 0.6.16)
+const FRAME_BUSY = 1000 / 10;
 const STRIP = 0.45;        // the flames' canvas: this share of the window's height, from the bottom (its cost follows
                            // its area: 60% → 40% took Brave from 39–47% to 27% of a core, the flames hot, 0.6.15)
 

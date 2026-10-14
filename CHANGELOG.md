@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.16 — 2026-10-14 — the fire at 10 frames a second while the engine computes
+
+- **While bankML reads, writes, warms or verifies, the fire draws 10 frames a second instead of 15** (30 otherwise,
+  and none when it sleeps): the CPU is the engine's then. Measured in headless Brave, two alternating rounds, the
+  flames hot without arcs: 26–27% of a core at 15 fps, 20–21% at 10. Surges still draw at full rate for their instant.
+
 ## 0.6.15 — 2026-10-14 — the fire for less, and the night's measurements written down
 
 - **The fire costs a quarter less again**: its canvas covers the lower 45% of the window instead of 60% (at least the

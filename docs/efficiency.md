@@ -134,6 +134,7 @@ test hook; software compositing there overstates what a GPU-composited page pays
 | fire hot, 0.6.10 (a window-sized canvas in a blend mode, 30 fps) | 99–106 |
 | fire hot, 0.6.12 (a strip over 60% of the window behind the page, plain alpha, 15 fps while the engine computes, arcs on their own canvas) | 56–66 (42–44 without arcs) |
 | fire hot, 0.6.15 (the strip over 45%) | 42–47 (26–27 without arcs) |
+| fire hot without arcs, 0.6.16 (10 fps while the engine computes) | 20–21 |
 | embers over the whole window as CSS-animated elements (tried) | 125–138: any running CSS animation composites the window at 60 fps; not kept |
 
 The fire's own drawing is about 1.1 ms a frame (DIAGNOSTICS shows it); the rest is the browser compositing its canvas,
