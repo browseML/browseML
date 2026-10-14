@@ -105,3 +105,36 @@ The card took about 38% of the rows of 5 of the 9 matrix shapes (bankML's limite
 `/proc` (an integrated card in a browser had never been given a matrix), prompts read on the card in one dispatch per
 micro-batch, and Q/K/V and gate/up submitted together with one wait. Measured with `GPU=<dawn> node testing/bench.mjs`
 (it prints the limiter's state).
+
+## 0.6.10–0.6.15: the GPU's noise, and the page's own cost
+
+**The GPU.** bankML calibrates the card's share of rows at every open; on the Vega 3 it moved **38–56%** from run to
+run (and, natively over eight opens with the machine busy, 0.29–0.71) — more than any GPU change measured since. So GPU
+comparisons now hold the share fixed (`BANKML_GPU_SHARE=0.42`; `testing/bench.mjs` passes every `BANKML_GPU_*`) and
+alternate three rounds, 3 threads, every answer identical to the record:
+
+| change | reading tok/s | writing tok/s | kept |
+|---|---|---|---|
+| prompts read four tokens per invocation (`Q1_0_MM4`; the kernel alone 1.14–1.18× at 64–512 tokens) | 5.77 → 5.54 | unchanged | yes: the kernel is faster and bit-exact |
+| the GPU's time 80% → 100% (`BANKML_GPU_LIMIT`) | 6.23 → 6.17 | 2.36 → 2.32 | the slider, without a speed claim |
+| the duty cycle as fewer rows instead of rests | 6.23 → 6.28 | 2.36 → 2.46 | no (noise) |
+| a second share for reading prompts | 5.75 → 5.56 | 2.20 → 2.28 | no |
+
+On a 3-compute-unit integrated card the CPU's share of the rows sets the speed, and the speed was flat across shares
+of 0.37–0.56. DIAGNOSTICS now shows what the card did after each answer (0.6.14), and EXACT checks the two kernels the
+engine runs (0.6.13).
+
+**The page.** Measured in headless Brave as all of its processes' CPU time (`/proc`), with the fire driven through a
+test hook; software compositing there overstates what a GPU-composited page pays, but the comparisons hold:
+
+| the page | Brave, % of one core |
+|---|---|
+| idle, fire asleep | 7 |
+| idle, control panel open | 6–11 |
+| fire hot, 0.6.10 (a window-sized canvas in a blend mode, 30 fps) | 99–106 |
+| fire hot, 0.6.12 (a strip over 60% of the window behind the page, plain alpha, 15 fps while the engine computes, arcs on their own canvas) | 56–66 (42–44 without arcs) |
+| fire hot, 0.6.15 (the strip over 45%) | 42–47 (26–27 without arcs) |
+| embers over the whole window as CSS-animated elements (tried) | 125–138: any running CSS animation composites the window at 60 fps; not kept |
+
+The fire's own drawing is about 1.1 ms a frame (DIAGNOSTICS shows it); the rest is the browser compositing its canvas,
+in proportion to its area and frame rate. LIMITERS switches it off.

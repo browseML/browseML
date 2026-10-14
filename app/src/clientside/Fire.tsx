@@ -8,7 +8,7 @@
 // Cheap by design, so it never costs the speed it shows: a low-resolution fire automaton (the classic one), at most
 // 30 frames a second, asleep (no frames at all) when cold and calm, paused in a background tab; with reduced motion,
 // a still glow. LIMITERS turns it off. Most of a canvas's cost is the browser compositing it each frame, so the flames
-// and embers live on a canvas over the lower part of the window only, in plain alpha (a blend mode cost a fifth of a
+// and embers live on a canvas over the lower 45% of the window only, in plain alpha (a blend mode cost a fifth of a
 // core more, measured in Brave), and the arcs on a page-wide canvas drawn only while one is alive (0.6.13).
 import { useEffect, useRef } from 'react';
 import { activity, follow, onPulse, recentSurges, surgeColor, targetHeat, type Surge } from '../bankml/pulse';
@@ -18,7 +18,8 @@ const CELL = 6;            // screen pixels per fire cell
 const ROWS = 56;           // the automaton's height in cells (the flames reach up to ROWS · CELL at full heat)
 const FRAME = 1000 / 30;
 const FRAME_BUSY = 1000 / 15;  // while the engine computes (reading, writing, warming, verifying), the CPU is its
-const STRIP = 0.6;         // the flames' canvas: this share of the window's height, from the bottom
+const STRIP = 0.45;        // the flames' canvas: this share of the window's height, from the bottom (its cost follows
+                           // its area: 60% → 40% took Brave from 39–47% to 27% of a core, the flames hot, 0.6.15)
 
 /** black → red → orange → yellow → white, with opacity rising with the intensity (0–36). */
 const PALETTE: [number, number, number, number][] = Array.from({ length: 37 }, (_, i) => {
@@ -52,7 +53,7 @@ export function ProcessorFire() {
     const low = document.createElement('canvas'), lctx = low.getContext('2d')!;
     const resize = () => {
       W = cv.width = av.width = innerWidth; H = av.height = innerHeight;
-      SH = cv.height = Math.min(H, Math.max(ROWS * CELL, Math.round(H * STRIP)));
+      SH = cv.height = Math.min(H, Math.max(ROWS * CELL + 80, Math.round(H * STRIP)));
       cv.style.height = `${SH}px`;
       cols = Math.ceil(W / CELL); cells = new Uint8Array(cols * ROWS);
       low.width = cols; low.height = ROWS; img = lctx.createImageData(cols, ROWS);

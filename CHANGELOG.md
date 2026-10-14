@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.15 — 2026-10-14 — the fire for less, and the night's measurements written down
+
+- **The fire costs a quarter less again**: its canvas covers the lower 45% of the window instead of 60% (at least the
+  flames' height and room for embers). Its cost follows its area: in headless Brave, the flames hot without arcs took
+  39–47% of a core at 60% and 27% at 40%; at 45%, 26–27% (42–47% with an arc every 2 s, from 56–66% in 0.6.12 and
+  99–106% in 0.6.10). The flames look the same; the embers rise through the lower half.
+- **Tried and not kept**: embers over the whole window as 28 CSS-animated elements (no canvas, moved by the compositor)
+  — 125–138% of a core hot against 53–56% without them: any running CSS animation makes the browser composite the whole
+  window at 60 frames a second.
+- [efficiency.md](docs/efficiency.md): 0.6.10–0.6.15 — the GPU's calibration noise and the comparisons made with the
+  share held fixed; the page's own cost, idle and with the fire, version by version.
+
 ## 0.6.14 — 2026-10-14 — what the card did, from the engine
 
 - **DIAGNOSTICS · GPU shows what the card did in the engine**, from bankML's own limiter after each answer (the
