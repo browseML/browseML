@@ -10,8 +10,8 @@ internals: [technical.md](technical.md).
 
 ## Try it
 
-Open a page and ask. The first question offers the one-time model download (248 MB); bankML checks it, then answers
-with a receipt.
+Open a page and ask. Asking is the go-ahead: the model (248 MB) is pulled once in the background, checked against its
+sha256 pin, and your question is answered with a receipt. The next visit starts from the copy kept in your browser.
 
 | page | what it is |
 |---|---|
@@ -49,23 +49,40 @@ npm run dev            # http://localhost:5173/app.html  (cross-origin isolated)
 npm run build          # dist/: index.html (landing) + app.html, ready to host
 ```
 
-Ask anything, or press a FAQ question. The field drops to the bottom left and the answer's window opens above it,
-joined to it by a string, so you can find it from anywhere on the page. If the model is not in your browser yet, the
-window says **Click to load the model in your browser** with an **Import browseML** button: the model is pulled once in
-the background, checked against its sha256 pin, and your question is answered. Once loaded, each new window starts with
-browseML's state: what was verified, threads, context, the memory it holds, the last answer's speed.
+The page just loads; nothing starts until you interact with it. Ask anything, or press a FAQ question: the field drops
+to the bottom left, the answer's window and the **control panel** grow out of it, and the model loads straight away
+(from a folder or the browser's copy if you have one, otherwise downloaded once and checked). Each window is joined to
+the field by a string, so you can find it from anywhere on the page. With the *ask before downloading* limiter on, the
+window offers **Import browseML** instead.
 
-| control | where | what it does |
-|---|---|---|
-| **T** | in the field | opens the control panel (below): ON · OFF · CLEAR, the sliders, the dials, the diagnostics |
-| **CPU** | dial | threads, 1 to every core the browser reports (8 at most) — applied on the next load |
-| **RAM** | dial | the context (1k–8k tokens), shown as the most memory it can take — next load |
-| **CACHE** | dial | the engine's prompt cache, 0–256 MiB — next load |
-| **ANSWER** | dial | the longest answer — from the next question |
-| **HELD** | gauge | the memory the engine holds right now |
-| **LOAD / APPLY · UNLOAD · CLEAR CACHE · MEASURE** | buttons | reload with the dials · free the engine's memory · remove the kept model · measure the whole tab |
-| **⧉** | in the field | dock the field in the page, or pop it out (drag, resize, dock to an edge) |
-| **the control panel** | left edge | grows out of the field with your first interaction; **GPU** off · low · high (the card computes only where bankML found it exact and faster); drag any section by ⠿, hide it with –, SHOW brings it back; **NOW** at the top shows tok/s (a chart per answer) and memory; (the page itself just loads; on a phone, T opens it); **ON · OFF · CLEAR** at its top with the load as it happens (bar, rate, time left, source, verify clock) and the engine log; **CPU · RAM · GPU · CACHE** sliders to 100%; **PERSONA** (switch, make, import, export, an opening message); **BUILDER** (browseML fills a `.persona` from a description, writes a `.prompt`, keeps a `.memory` note); **SAMPLING** (Savante's dials, and DRY · XTC · dynamic temperature under *advanced*; the chips at its top are what the next question sends); then receipts, models on this computer, HARD DRIVE (SAVE COPY, SAVE FOR bankML), the dials, diagnostics, the tool suite and limiters; the switch at its top right shelves it; also holds the menu and button panels (**+ panel**) when you drag buttons there |
+**In the field**
+
+| control | what it does |
+|---|---|
+| **T** | opens and closes the control panel |
+| **⧉** | docks the field in the page, or pops it out (drag, resize, dock to an edge) |
+| **⋯** on a window | adds a reply field to that window, or to every window |
+| drag a button off the field | puts it in a sidebar menu or a button panel (**+ panel**) |
+
+**The control panel** (left edge; the switch at its top right shelves it to a tab that a hover peeks and a press opens;
+on a phone it opens only with T). Every section can be dragged by its grip ⠿, hidden with –, and brought back with
+SHOW; RESET LAYOUT restores the order. The layout is kept in this browser.
+
+| section | what you can do there |
+|---|---|
+| **NOW** | the engine (ON/OFF, threads, context), writing and reading tok/s with a chart per answer, memory held and its peak, the prompt cache's size |
+| **TOOLS** | **ON · OFF · CLEAR** (OFF stops an answer, with its receipt, and frees the engine's memory); the load as it happens: bar, MB/s, time left, source, PAUSE · RESUME · CANCEL, the verify clock |
+| **CPU · RAM · GPU · CACHE** | sliders to 100%: threads 1–8 (AUTO takes what was measured free, one spare; RE-MEASURE), the context against the device's memory, the GPU off · low · high (the card computes only where bankML found it exact and faster), the prompt cache's size and kept prompts (1–8); APPLY restarts the engine with them |
+| **PERSONA** | switch personas, make one (name, opening message, prompt), import and export `.persona` files |
+| **BUILDER** | browseML fills a `.persona` from a description, writes a `.prompt` for a task, keeps a `.memory` note |
+| **SAMPLING** | max tokens (from 1, the single-token proof), temperature, top-p; under *more* top-k, min-p, repeat penalty, seed; under *advanced* **DRY**, **XTC** and **dynamic temperature**, each with an ON/OFF switch. The chips at the top are what the next question sends (✕ removes one); COPY AS JSON. Drag a slider (the value rides above it), use the arrow keys, double-click for the engine's default, click the value to type one |
+| **ENGINE LOG** | bankML's own lines (verification, the GPU's verdict and share, host and side) and the page's steps |
+| **RECEIPTS** | the last 30 receipts, each a closed accordion; *view receipts* shows or hides them under answers |
+| **MODELS ON THIS COMPUTER** | add a folder, rescan, reconnect, remove; every model found with its verdict and USE (below) |
+| **HARD DRIVE** | the browser's storage and the model kept (below); SAVE A COPY, SAVE FOR bankML |
+| **DIALS** | the DreamKnob dials: CPU, RAM, CACHE, ANSWER, HELD; LOAD / APPLY, UNLOAD, CLEAR CACHE, MEASURE |
+| **DIAGNOSTICS** · **TOOL SUITE** | network, CPU, RAM and GPU from what ran; PING, SPEED, CPU, MEMORY, STORAGE, GPU, SENSORS and **EXACT** (the GPU kernel bit-exact on this card), each with RUN |
+| **LIMITERS** · **ADVICE AND RECORDS** | spare a core, low memory, ask before downloading, warm in background, GPU probe; advice from your own records, saved as JSON or cleared |
 
 The diagnostics record every load and answer **in your browser only** (the last 50 of each) and work out their advice
 from those records: the thread count that measured fastest, a smaller context when conversations use little of it,
@@ -84,7 +101,7 @@ starts from it, even after the browser's storage is cleared), or to your downloa
 folders (Brave until `brave://flags/#file-system-access-api` is on, Firefox, Safari).
 
 Slash commands in the field: `/client threads|ram|cache|answer <n>`, `/client apply|unload|measure`,
-`/client clear yes`, `/usage`, `/receipt`, `/shelf`.
+`/client clear yes`, `/usage` (the advice from your records), `/receipt` (the last receipt), `/shelf`.
 
 ## Build the engine
 
@@ -104,12 +121,13 @@ BANKML_PATH=~/bankml tools/build.sh         # against another bankML checkout in
 | the GPU kernel, bit for bit, with its controls | open `web/gpu-exact.html` (any static server) and press Run, or EXACT in the control panel | a WebGPU browser |
 | the GPU kernels on this machine's card, and bankML's WGSL the same text | `node testing/gpu.mjs --dawn DIR` | Node 20+, the `webgpu` package (Dawn) in `DIR` |
 | speed with the GPU on, and what the card did | `GPU=DIR node testing/bench.mjs web/browseml-mt-relaxed.wasm MODEL.gguf FORK.json 3 ORACLE.jsonl 3` | the model, Dawn |
+| a sampling tool on the engine itself (no browser) | `EXTRA='{"temperature":0.8,"seed":1,"xtc_probability":0.5}' SHOW=1 node testing/bench.mjs web/browseml-mt-relaxed.wasm MODEL.gguf FORK.json 3` | the model |
 | the prompt cache: save, restore, the same answer as a cold engine | `node testing/slot.mjs web/browseml.wasm MODEL.gguf FORK.json` | the model |
 | answers identical to llama-server's record | `BANKML_MODELS=… tools/build.sh oracle` | the model and `oracle-forward/serve-Bonsai-1.7B-Q1_0.jsonl` |
 | speed at any thread count, plus the oracle | `node testing/bench.mjs web/browseml-mt-relaxed.wasm MODEL.gguf FORK.json 4 ORACLE.jsonl 9` | the same |
 | the page code | `cd app && npm run typecheck && npm test` | Node 20+ |
-| a release: every check above that needs no browser, recorded | `testing/release.sh 0.6.8` → `testing/results/v0.6.8.txt` | the model, Node |
-| a release: the browser checks, appended to the record | `testing/browser.sh 0.6.8` | Brave (headless, a throwaway profile) |
+| a release: every check above that needs no browser, recorded | `testing/release.sh 0.6.9` → `testing/results/v0.6.9.txt` | the model, Node |
+| a release: the browser checks, appended to the record | `testing/browser.sh 0.6.9` | Brave (headless, a throwaway profile) |
 
 The model for the oracle is in [`models/`](../models/README.md) (Git LFS: `git lfs pull`); the recorded answers come
 from bankML's importer.

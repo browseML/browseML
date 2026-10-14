@@ -117,6 +117,10 @@ The engine needed six small changes for WebAssembly, and none of them changes th
 
 ### The 1-bit kernel in SIMD
 
+The theory behind every kernel on this page — reference equivalence, the three lemmas that make most of the work
+free to reorganise, the emulated FMA's exactness condition, the `hide` hazard and the evidence, with the literature —
+is bankML's kernel treatise, [KERNELS.md](https://github.com/cryptoAGI/bankml/blob/browseml/docs/KERNELS.md).
+
 Q1_0's dot product has a WebAssembly SIMD kernel (`q1_0::simd128_core`, used by `vec_dot` and the forward pass's
 `vec_dot_act`) that is bit-identical to the scalar reference:
 - **The integer sums are vectorised.** Signs are applied as `(q ^ m) − m`, then two pairwise widening adds.
