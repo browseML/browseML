@@ -14,6 +14,13 @@ From here the third number rolls over after 9 (0.6.9 → 0.7.0). The releases pu
 | v0.6.14 | 0.7.4 |
 | v0.6.15 | 0.7.5 |
 
+## 0.7.7 — 2026-10-14 — the fire's cost under its switch
+
+- **LIMITERS shows what the fire costs now**, right under its switch, from its own measure: frames a second,
+  milliseconds each, its share of the page's main thread — or "asleep" (no frames while the engine rests) or "off".
+  The browser's compositing costs more than the drawing (efficiency.md); switching it off frees both.
+- Browser test: the line is there under the switch.
+
 ## 0.7.6 — 2026-10-14 — the fire at 10 frames a second while the engine computes
 
 - **While bankML reads, writes, warms or verifies, the fire draws 10 frames a second instead of 15** (30 otherwise,

@@ -45,6 +45,13 @@ import { cpu, memory, ping, sensors, speed, storage, type Sensors } from './tool
 import { getLimits, onLimits, setLimits, type Limits } from './limits';
 
 const GREEN = '#0ECB81', ORANGE = '#F7931A', RED = '#F6465D';
+/** Under the fire's switch: what it costs now, measured on itself, so the choice is made with the number in view. */
+function FireCost() {
+  const [f, set] = useState(fireStats());
+  useEffect(() => { const t = window.setInterval(() => set(fireStats()), 1000); return () => window.clearInterval(t); }, []);
+  return <p className="cp-fine cp-fire-cost">the fire now: {!f.on ? 'off — no frames, no cost' : f.asleep ? 'asleep — no frames while the engine rests' : `${f.fps.toFixed(0)} frames a second, ${f.msPerFrame.toFixed(1)} ms each (${(f.share * 100).toFixed(1)}% of the page's main thread; the browser's compositing costs more — off frees both)`}</p>;
+}
+
 /** What the card did in the engine, from bankML's own limiter after the last answer (worker::status_json). */
 function GpuLiveRows({ g, on }: { g: GpuLive | null; on: boolean }) {
   if (!g) return <Row k="in the engine">{on ? 'no verified card: the CPU computes everything' : 'GPU off (APPLY with it on to use the card)'}</Row>;
@@ -293,6 +300,7 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
           <ToggleSwitch on={limits.gpuProbe} color={ORANGE} label="allow the GPU probe" onChange={on => setLimits({ gpuProbe: on })} />
           <ToggleSwitch on={limits.fire} color={ORANGE} label="the processor's fire and surges" onChange={on => setLimits({ fire: on })} />
         </div>
+        <FireCost />
         <p className="cp-fine">Threads and memory apply when the engine loads again (APPLY in the dials).</p>
       </Fold>
 

@@ -56,6 +56,8 @@ try {
   // the processor's fire: one canvas over the page that never takes a click, and its switch in LIMITERS
   const fire = await page.evaluate(() => { const c = document.querySelector("canvas.cs-fire"); return c ? getComputedStyle(c).pointerEvents + " · " + getComputedStyle(c).position : ""; });
   check("the processor's fire: a page-wide canvas that takes no clicks, switched in LIMITERS", fire === "none · fixed" && (await page.getByText("the processor's fire and surges").count()) === 1, fire);
+  const fireCost = await page.locator(".cp-fire-cost").first().innerText().catch(() => "");
+  check("LIMITERS: the fire's cost now, under its switch", /^the fire now: (off|asleep|\d+ frames a second)/.test(fireCost), fireCost);
   // SAMPLING: a preset, an advanced tool switched on, the chips of what the next question sends, one removed
   await page.locator(".cp-fold-head", { hasText: "SAMPLING" }).click(); await wait(200);
   const samp = page.locator(".cp-sampling");
