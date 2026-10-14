@@ -223,3 +223,58 @@ models/Bonsai-1.7B-Q1_0.gguf matches the pin
 -- model copy: the pin: pass (2s)
 
 release gate v0.6.9: every step passed
+
+== browser: Brave Browser 152.1.94.117 , headless, a throwaway profile
+ok   the page: title and logo
+ok   the FAQ: eight questions
+ok   no panel at first, T in the field
+ok   T opens the control panel with its sections — NOW, TOOLS, CPU · RAM · GPU · CACHE, PERSONA, BUILDER, SAMPLING, ENGINE LOG, RECEIPTS, MODELS ON THIS COMPUTER, HARD DRIVE, DIALS, DIAGNOSTICS, TOOL SUITE, LIMITERS, ADVICE AND RECORDS
+ok   the panel's content fits its width
+ok   SAMPLING: a preset and XTC switched on, listed for the next question — max tokens 128 | temperature 0.70 ✕ | XTC how often 0.50 ✕ | XTC threshold 0.10 ✕
+ok   SAMPLING: a chip removed, XTC off — back to the engine's defaults — the next question sends max tokens 128 and the engine's defaults for the rest
+ok   tool MEMORY — copy 9.0 GB/s · triad 2.6 GB/s
+ok   tool CPU — 56 Mops/s on one · 126 on 2 (×2.24)
+ok   tool STORAGE — write 5 MB/s · read 89 MB/s
+ok   tool SENSORS — online · battery 100% charging
+ok   tool EXACT — 256/256 rows bit-exact (n 2048) · GPU 1094 ms
+ok   EXACT: every row bit-exact on this GPU — 256/256 rows bit-exact (n 2048) · GPU 1094 ms
+ok   the folder's models listed with their verdicts — the right size: checked when used | another model (not run in the browser yet)
+ok   the model from the folder: recognised by sha256, used with no download — ✓ Bonsai-1.7B · 1-bit (Q1_0) from my-models/Bonsai-1.7B-Q1_0.gguf — no download
+ok   HARD DRIVE: the browser's storage and the model kept — browser 248 MB of 2147 MB | room 1899 MB | kept may be evicted | model 248 MB in browser | disk copy none
+ok   HARD DRIVE: keep a copy on the disk — the model saved, its sha256 the pin — Bonsai-1.7B-Q1_0.gguf · 248302272 bytes · 3d7c6c90dd98717a…
+ok   HARD DRIVE: the copy recorded
+ok   HARD DRIVE: SAVE FOR bankML — the model and its FORK.json (pinned to the sha256) — Bonsai-1.7B-Q1_0.gguf + Bonsai-1.7B-Q1_0.gguf.FORK.json
+ok   the receipt under the answer: a closed accordion — ✓ receipt · 584 → 122 tokens · 0.67 tok/s
+ok   the receipt verified (✓)
+ok   opened: the response's sha256 in the receipt
+ok   the receipt kept in .history — 1 exchange(s) with a receipt
+ok   the receipt kept in .memory as a delivery record — 1 delivery record(s)
+ok   a response window has no reply field unless chosen
+ok   its ⋯ menu adds one to that window
+ok   the control panel opened with the response window
+ok   NOW: the answer in the speed chart — ■ writing 0.67 avg 0.67 — reading 1.47
+ok   a panel section dragged by its grip to the top — disk · now · tools
+ok   a section hidden with –, brought back with SHOW
+ok   RESET LAYOUT puts NOW first again
+ok   the panel's RECEIPTS lists it
+ok   view receipts off: hidden under answers
+ok   visit 2: the page just loads — nothing started before an interaction
+ok   visit 2: the prompt cache restored — prompt cache restored 705 tokens in 3.8 s
+ok   the processor measured: threads free, the claim with room — CPU 6 threads · 75% · auto 7 free, measured (2 reported) · auto claims 6, one left for the unexpected · running 6 · last answer: reading 1.47, writing 0.67 tok/
+ok   CACHE lists the kept prompt, named — browseML 705 tok · 81 MB · ctx 2048 · just now ✕
+ok   a second persona keeps its own prompt beside the first — Tester · browseML
+ok   its opening message, in a window of its own
+ok   gpu-exact.html: every shape bit-exact — 256 rows × 2048: 256/256 bit-exact · GPU 122 ms · google · swiftshader | 64 rows × 6144: 64/64 bit-exact · GPU 89 ms · google · swiftshader | 512 rows × 128: 512/512 bit-exact · GPU 92 ms · google · swiftshader
+ok   gpu-exact.html: both controls differ
+ok   fresh visit: the page just loads, no panel before an interaction
+ok   fresh visit: the closed panel's tab is there
+ok   the first interaction pops the control panel out, HARD DRIVE in it
+ok   ON, OFF and CLEAR in the panel's TOOLS — ▾
+TOOLS · – · ON… · OFF · CLEAR · PAUSE · CANCEL
+ok   the field drops beside the panel, not under it — panel ends at 340px, field starts at 356px
+ok   the response window does not ask: no Import button
+ok   closed, the panel's edge tab opens it (no input field needed)
+ok   no model: asking starts loading it
+
+every browser check passed
+-- browser checks: pass (601s)
