@@ -14,6 +14,11 @@ From here the third number rolls over after 9 (0.6.9 → 0.7.0). The releases pu
 | v0.6.14 | 0.7.4 |
 | v0.6.15 | 0.7.5 |
 
+## 0.7.9 — 2026-10-14 — usage.md: the fire's cost under its switch
+
+- [usage.md](docs/usage.md): LIMITERS' row says what 0.7.7 put under the fire's switch — its cost now, or that it
+  sleeps. The last release in the 0.7 line; the next is 0.8.0.
+
 ## 0.7.8 — 2026-10-14 — the explanation brought up to date
 
 - [explanation.md](docs/explanation.md): the GPU as it is now (its time to 100%, EXACT on the kernels the engine runs,
