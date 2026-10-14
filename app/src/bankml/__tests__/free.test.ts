@@ -6,10 +6,15 @@ import { parseSettings, rateOf, DEFAULT_SETTINGS, NO_SAMPLING } from '../free';
 describe('browseML settings and download measures', () => {
   it('keeps only valid values', () => {
     expect(parseSettings({})).toEqual(DEFAULT_SETTINGS);
-    expect(parseSettings({ threads: 4, ctx: 2048, maxTokens: 1024, removeAfterSession: true, cacheRam: 64 })).toEqual({ threads: 4, ctx: 2048, maxTokens: 1024, removeAfterSession: true, cacheRam: 64, sampling: NO_SAMPLING, keptPrompts: 4 });
+    expect(parseSettings({ threads: 4, ctx: 2048, maxTokens: 1024, removeAfterSession: true, cacheRam: 64 })).toEqual({ threads: 4, ctx: 2048, maxTokens: 1024, removeAfterSession: true, cacheRam: 64, sampling: NO_SAMPLING, keptPrompts: 4, gpuTime: 80 });
     // any answer length from 1 (the single-token proof) to 2048
     expect(parseSettings({ maxTokens: 1 }).maxTokens).toBe(1);
     expect(parseSettings({ maxTokens: 2049 }).maxTokens).toBe(DEFAULT_SETTINGS.maxTokens);
+    // the GPU's time: one of its stops, else the default (80%)
+    expect(parseSettings({ gpuTime: 100 }).gpuTime).toBe(100);
+    expect(parseSettings({ gpuTime: 25 }).gpuTime).toBe(25);
+    expect(parseSettings({ gpuTime: 101 }).gpuTime).toBe(80);
+    expect(parseSettings({ gpuTime: 0.8 }).gpuTime).toBe(80);
     // prompts kept read: 1 to 8
     expect(parseSettings({ keptPrompts: 8 }).keptPrompts).toBe(8);
     expect(parseSettings({ keptPrompts: 0 }).keptPrompts).toBe(4);

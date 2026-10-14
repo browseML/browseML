@@ -72,7 +72,7 @@ SHOW; RESET LAYOUT restores the order. The layout is kept in this browser.
 |---|---|
 | **NOW** | the engine (ON/OFF, threads, context), writing and reading tok/s with a chart per answer, memory held and its peak, the prompt cache's size |
 | **TOOLS** | **ON · OFF · CLEAR** (OFF stops an answer, with its receipt, and frees the engine's memory); the load as it happens: bar, MB/s, time left, source, PAUSE · RESUME · CANCEL, the verify clock |
-| **CPU · RAM · GPU · CACHE** | sliders to 100%: threads 1–8 (AUTO takes what was measured free, one spare; RE-MEASURE), the context against the device's memory, the GPU off · low · high (the card computes only where bankML found it exact and faster), the prompt cache's size and kept prompts (1–8); APPLY restarts the engine with them |
+| **CPU · RAM · GPU · CACHE** | sliders to 100%: threads 1–8 (AUTO takes what was measured free, one spare; RE-MEASURE), the context against the device's memory, the GPU off · low · high (the card computes only where bankML found it exact and faster) and **its time**, 25–100% (80% by default; at 100% the card never rests), the prompt cache's size and kept prompts (1–8); APPLY restarts the engine with them |
 | **PERSONA** | switch personas, make one (name, opening message, prompt), import and export `.persona` files |
 | **BUILDER** | browseML fills a `.persona` from a description, writes a `.prompt` for a task, keeps a `.memory` note |
 | **SAMPLING** | max tokens (from 1, the single-token proof), temperature, top-p; under *more* top-k, min-p, repeat penalty, seed; under *advanced* **DRY**, **XTC** and **dynamic temperature**, each with an ON/OFF switch. The chips at the top are what the next question sends (✕ removes one); COPY AS JSON. Drag a slider (the value rides above it), use the arrow keys, double-click for the engine's default, click the value to type one |
@@ -121,6 +121,7 @@ BANKML_PATH=~/bankml tools/build.sh         # against another bankML checkout in
 | the GPU kernel, bit for bit, with its controls | open `web/gpu-exact.html` (any static server) and press Run, or EXACT in the control panel | a WebGPU browser |
 | the GPU kernels on this machine's card, and bankML's WGSL the same text | `node testing/gpu.mjs --dawn DIR` | Node 20+, the `webgpu` package (Dawn) in `DIR` |
 | speed with the GPU on, and what the card did | `GPU=DIR node testing/bench.mjs web/browseml-mt-relaxed.wasm MODEL.gguf FORK.json 3 ORACLE.jsonl 3` | the model, Dawn |
+| the same at another share of the GPU's time | `BANKML_GPU_LIMIT=1.0 GPU=DIR node testing/bench.mjs …` | the model, Dawn |
 | a sampling tool on the engine itself (no browser) | `EXTRA='{"temperature":0.8,"seed":1,"xtc_probability":0.5}' SHOW=1 node testing/bench.mjs web/browseml-mt-relaxed.wasm MODEL.gguf FORK.json 3` | the model |
 | the prompt cache: save, restore, the same answer as a cold engine | `node testing/slot.mjs web/browseml.wasm MODEL.gguf FORK.json` | the model |
 | answers identical to llama-server's record | `BANKML_MODELS=… tools/build.sh oracle` | the model and `oracle-forward/serve-Bonsai-1.7B-Q1_0.jsonl` |

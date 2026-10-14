@@ -146,7 +146,7 @@ export function load(progress = () => {}, log = () => {}, opts = {}) {
 /** The last load, measured: when each phase ended (ms from the start), the bytes fetched (0: from this browser's
  *  cache), retried pieces, and the engine's WebAssembly memory once open. null before a load finishes. */
 export let loadStats = null;
-async function loadOnce(progress, log, { threads: want, ctx = 4096, cacheRam = 0, gpu = "off", bytes: given = null, from = "" } = {}) {
+async function loadOnce(progress, log, { threads: want, ctx = 4096, cacheRam = 0, gpu = "off", gpuTime = 80, bytes: given = null, from = "" } = {}) {
   const t0 = performance.now(), st = { fetched: 0, retries: 0, source: "download" };
   const seen = (got, total, phase) => {
     if (phase === "retry") st.retries++;
@@ -170,9 +170,9 @@ async function loadOnce(progress, log, { threads: want, ctx = 4096, cacheRam = 0
     worker.onerror = (e) => reject(new Error(e.message || "the engine could not start"));
     // the STOP flag: shared memory where the page is cross-origin isolated (else stop() ends the engine)
     stopFlag = typeof SharedArrayBuffer !== "undefined" && globalThis.crossOriginIsolated ? new Int32Array(new SharedArrayBuffer(4)) : null;
-    worker.postMessage({ type: "open", name: MODEL.name, bytes, fork, threads: Math.max(1, Math.min(isolated() ? MAX_THREADS : 1, want || threads())), ctx, cacheRam, gpu, stop: stopFlag && stopFlag.buffer }, [bytes]);
+    worker.postMessage({ type: "open", name: MODEL.name, bytes, fork, threads: Math.max(1, Math.min(isolated() ? MAX_THREADS : 1, want || threads())), ctx, cacheRam, gpu, gpuTime, stop: stopFlag && stopFlag.buffer }, [bytes]);
   });
-  loadStats = { ...st, openMs: Math.round(performance.now() - t0) - st.modelMs, totalMs: Math.round(performance.now() - t0), memory: memoryBytes, threads: verified.threads, ctx, cacheRam, gpu, build: verified.build };
+  loadStats = { ...st, openMs: Math.round(performance.now() - t0) - st.modelMs, totalMs: Math.round(performance.now() - t0), memory: memoryBytes, threads: verified.threads, ctx, cacheRam, gpu, gpuTime, build: verified.build };
   ready = verified;
   return verified;
 }

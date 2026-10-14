@@ -31,6 +31,9 @@ export interface BrowseSettings {
   sampling: Sampling;
   /** Prompts kept read (warm slots in this browser), each persona's or prompt's own; the least recently used go first. */
   keptPrompts: number;
+  /** The share of the GPU's time bankML may take, in percent (its limiter, BANKML_GPU_LIMIT): the card rests between
+   *  dispatches for the rest. Applied on the next load. */
+  gpuTime: number;
 }
 export interface Sampling {
   temperature: number | null; top_p: number | null; top_k: number | null; min_p: number | null; repeat_penalty: number | null; seed: number | null;
@@ -56,7 +59,8 @@ const SETTINGS = 'browseml:settings';
 export const CTX_CHOICES = [1024, 2048, 4096, 8192] as const;
 export const MAXTOK_CHOICES = [128, 256, 384, 512, 1024, 2048] as const;
 export const CACHE_CHOICES = [0, 16, 32, 64, 128, 256] as const;
-export const DEFAULT_SETTINGS: BrowseSettings = { threads: null, ctx: 4096, maxTokens: MAX_TOKENS, removeAfterSession: false, cacheRam: 0, sampling: NO_SAMPLING, keptPrompts: 4 };
+export const GPU_TIME_CHOICES = [25, 50, 60, 70, 80, 90, 100] as const;
+export const DEFAULT_SETTINGS: BrowseSettings = { threads: null, ctx: 4096, maxTokens: MAX_TOKENS, removeAfterSession: false, cacheRam: 0, sampling: NO_SAMPLING, keptPrompts: 4, gpuTime: 80 };
 /** Settings as stored, each value checked (a stored value out of range falls back to the default). */
 export function parseSettings(raw: unknown, memoryGB: number | null = null): BrowseSettings {
   const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
@@ -71,6 +75,7 @@ export function parseSettings(raw: unknown, memoryGB: number | null = null): Bro
     maxTokens: (() => { const m = int(o.maxTokens); return m !== null && m >= 1 && m <= 2048 ? m : DEFAULT_SETTINGS.maxTokens; })(),
     removeAfterSession: o.removeAfterSession === true,
     cacheRam: (CACHE_CHOICES as readonly number[]).includes(int(o.cacheRam) ?? -1) ? (o.cacheRam as number) : DEFAULT_SETTINGS.cacheRam,
+    gpuTime: (GPU_TIME_CHOICES as readonly number[]).includes(int(o.gpuTime) ?? -1) ? (o.gpuTime as number) : DEFAULT_SETTINGS.gpuTime,
     keptPrompts: (() => { const k = int(o.keptPrompts); return k !== null && k >= 1 && k <= 8 ? k : DEFAULT_SETTINGS.keptPrompts; })(),
     sampling: (() => {
       const r = (o.sampling && typeof o.sampling === 'object' ? o.sampling : {}) as Record<string, unknown>;
@@ -99,7 +104,7 @@ export function setBrowseSettings(patch: Partial<BrowseSettings>) {
 export function onBrowseSettings(f: () => void) { settingsFns.add(f); return () => { settingsFns.delete(f); }; }
 
 // ── bankML in this browser ──────────────────────────────────────────────────────────────────────────────────
-export interface Browsed { model: string; sha256: string; version: string; threads: number; ctx?: number; build?: string; guard?: string; cacheRam?: number; gpu?: GpuMode; gpuNote?: string; host?: string; side?: string }
+export interface Browsed { model: string; sha256: string; version: string; threads: number; ctx?: number; build?: string; guard?: string; cacheRam?: number; gpu?: GpuMode; gpuTime?: number; gpuNote?: string; host?: string; side?: string }
 /** The GPU the engine was asked to use: the control panel's GPU switch (OFF · LOW · HIGH). */
 export type GpuMode = 'off' | 'low-power' | 'high-performance';
 export const gpuMode = (): GpuMode => { const l = getLimits(); return l.gpuProbe ? l.power : 'off'; };
@@ -193,7 +198,7 @@ export async function loadBrowse(progress: (line: string, phase?: string) => voi
   let lastLogged = '';
   const gpu = gpuMode();
   gpuNote = '';
-  engineLog('step', `starting bankML: ${s.threads ?? (autoThreads ? `${autoThreads} (measured free)` : 'default')} threads, context ${s.ctx}, cache ${s.cacheRam} MiB, GPU ${gpu === 'off' ? 'off' : gpu.replace('-', ' ')}`);
+  engineLog('step', `starting bankML: ${s.threads ?? (autoThreads ? `${autoThreads} (measured free)` : 'default')} threads, context ${s.ctx}, cache ${s.cacheRam} MiB, GPU ${gpu === 'off' ? 'off' : `${gpu.replace('-', ' ')}, ${s.gpuTime}% of its time`}`);
   browsed = await b.load((got: number, total: number, phase: string) => {
     lastProgress = { phase, got, total };
     if (phase !== 'download' && phase !== lastLogged) { lastLogged = phase; engineLog('step', phase === 'cache' ? `the model from this browser (${MB(got)}): no download` : phase === 'verify' ? 'bankML: the guard, then the sha256 of the whole model against its pin' : phase === 'folder' ? `the model from this computer: ${from?.name ?? 'a folder'}` : `${phase}: ${MB(got)} of ${MB(total)}`); }
@@ -202,9 +207,9 @@ export async function loadBrowse(progress: (line: string, phase?: string) => voi
     else if (phase === 'verify') progress('checking sha256… (bankML checks the model against its pin)', phase);
     else if (phase === 'retry') progress(`the connection dropped at ${MB(got)}: asking for that piece again`, phase);
     else if (phase === 'folder') progress(`the model from this computer (${from?.name ?? 'a folder'}): no download`, phase);
-  }, fromEngine, { threads: s.threads ?? autoThreads ?? undefined, ctx: s.ctx, cacheRam: s.cacheRam, gpu, ...(from ? { bytes: from.bytes, from: 'folder' } : {}) });
+  }, fromEngine, { threads: s.threads ?? autoThreads ?? undefined, ctx: s.ctx, cacheRam: s.cacheRam, gpu, gpuTime: s.gpuTime, ...(from ? { bytes: from.bytes, from: 'folder' } : {}) });
   setReady(true);
-  browsed = { ...browsed!, cacheRam: s.cacheRam, gpu, gpuNote: gpuNote || (gpu === 'off' ? 'GPU off: the CPU computes everything' : browsed!.threads > 1 ? 'no WebGPU device here: the CPU computes everything' : 'one thread (not cross-origin isolated): the CPU computes everything') };
+  browsed = { ...browsed!, cacheRam: s.cacheRam, gpu, gpuTime: s.gpuTime, gpuNote: gpuNote || (gpu === 'off' ? 'GPU off: the CPU computes everything' : browsed!.threads > 1 ? 'no WebGPU device here: the CPU computes everything' : 'one thread (not cross-origin isolated): the CPU computes everything') };
   engineLog('ok', `verified ${browsed.model} · sha256 ${browsed.sha256} · guard ${browsed.guard ?? '?'} · bankML ${browsed.version} · ${browsed.threads} thread(s) · ${browsed.build ?? 'browseml.wasm'} · context ${browsed.ctx}${browsed.host ? ` · host ${browsed.host}, ${browsed.side ?? 'client'} side` : ''}`);
   engineLog(browsed.gpuNote && /computes \d+%/.test(browsed.gpuNote) ? 'ok' : 'step', `GPU: ${browsed.gpuNote}`);
   // an import (download()) put the model in the cache first: the record says it was downloaded

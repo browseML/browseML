@@ -43,7 +43,7 @@ if (!isMainThread) {
   const threads = +threadsArg || 1, name = path.basename(modelPath);
   const bytes = fs.readFileSync(wasmPath);
   const module = await WebAssembly.compile(bytes);
-  const w = makeWasi({ files: { [name]: new Uint8Array(fs.readFileSync(modelPath)) }, env: { BANKML_CACHE_RAM: "0", BANKML_THREADS: String(threads) }, write: (fd, s) => process.stderr.write(s) });
+  const w = makeWasi({ files: { [name]: new Uint8Array(fs.readFileSync(modelPath)) }, env: { BANKML_CACHE_RAM: "0", BANKML_THREADS: String(threads), ...(process.env.BANKML_GPU_LIMIT ? { BANKML_GPU_LIMIT: process.env.BANKML_GPU_LIMIT } : {}) }, write: (fd, s) => process.stderr.write(s) });
   let memory, onPiece = () => 1, tid = 0;
   // the engine's log: shown with GPU= (or LOGS=1)
   const imports = { ...w.imports, browseml: { piece: (p, n) => onPiece(dec.decode(new Uint8Array(memory.buffer).slice(p, p + n))),

@@ -172,6 +172,9 @@ try {
   // the processor: measured at the first interaction, claimed with room
   const cpuLine = (await page.locator(".cp-slider", { hasText: "CPU" }).first().innerText()).replace(/\s+/g, " ");
   check("the processor measured: threads free, the claim with room", /\d+ free, measured .* auto claims \d+/.test(cpuLine), cpuLine.slice(0, 160));
+  // the GPU's time: a slider to 100%, at 80% by default
+  const gpuLine = (await page.locator(".cp-slider", { hasText: "its time" }).first().innerText().catch(() => "")).replace(/\s+/g, " ");
+  check("GPU: its time, a slider to 100% (80% by default)", /its time 80% · the default/.test(gpuLine) && (await page.getByLabel("The share of the GPU's time bankML may take").count()) === 1, gpuLine.slice(0, 160));
   // CACHE: the kept prompt by name; a new persona keeps its own beside it
   const kept = () => page.locator(".cp-kept li").allInnerTexts();
   check("CACHE lists the kept prompt, named", (await kept()).some((t) => /browseML/.test(t) && /\d+ tok/.test(t)), (await kept()).join(" | ").replace(/\s+/g, " "));

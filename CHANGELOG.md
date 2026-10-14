@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.11 — 2026-10-14 — the GPU's time, to 100%
+
+- **The GPU's time, a slider to 100%** (CPU · RAM · GPU · CACHE, under the GPU's OFF · LOW · HIGH): the share of the
+  card's time bankML may take, 25% to 100%, passed to the engine's limiter (`BANKML_GPU_LIMIT`: after a dispatch of d
+  the card rests d·(1−L)/L). 80% stays the default, room for the screen and other tabs; at 100% it never rests. APPLY
+  restarts the engine with it. Measured first (Dawn on the AMD Radeon Vega 3, 3 threads, three alternating rounds,
+  load ≈ 4): reading 5.58 tok/s at 80% against 6.04 at 100% (+8%; ahead in each round), writing 2.31 against 2.30,
+  18 of 18 answers identical to the record. At 80% about a quarter of the card's products went to the CPU while it
+  rested; at 100%, none.
+- `testing/bench.mjs` passes `BANKML_GPU_LIMIT` to the engine.
+- Browser test: the slider, at 80% by default.
+
 ## 0.6.10 — 2026-10-14 — the processor's fire; prompts read on the GPU four tokens at a time
 
 - **The processor's fire, across the page**: flames along the bottom of the window whose height and colour follow
