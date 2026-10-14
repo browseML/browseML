@@ -14,6 +14,12 @@ From here the third number rolls over after 9 (0.6.9 → 0.7.0). The releases pu
 | v0.6.14 | 0.7.4 |
 | v0.6.15 | 0.7.5 |
 
+## 0.7.8 — 2026-10-14 — the explanation brought up to date
+
+- [explanation.md](docs/explanation.md): the GPU as it is now (its time to 100%, EXACT on the kernels the engine runs,
+  DIAGNOSTICS showing what the card did, and why GPU comparisons hold its share fixed), and a section on the
+  processor's fire — what it shows, what it costs, and how it sleeps, slows and switches off.
+
 ## 0.7.7 — 2026-10-14 — the fire's cost under its switch
 
 - **LIMITERS shows what the fire costs now**, right under its switch, from its own measure: frames a second,

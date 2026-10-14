@@ -108,9 +108,24 @@ a slow card cannot cost speed. The answers are the same with the GPU on or off.
 
 On the one card measured, an integrated AMD Radeon Vega 3, the gain is modest (reading about +5–10%, writing +3–9%);
 discrete cards are where more is expected and have yet to be measured. The control panel's GPU slider turns it off,
-or picks the low-power or high-performance adapter; the EXACT tool checks any card on demand. The references are
+or picks the low-power or high-performance adapter, and sets how much of the card's time bankML may take (80% by
+default, up to 100%). The EXACT tool checks, on demand, the kernels the engine runs on that card — the one for
+writing and the one that reads a prompt four tokens at a time — every result against the CPU's. After each answer,
+DIAGNOSTICS shows what the card did: its share of the rows, how busy it was, and the work the CPU took instead.
+Measuring a GPU honestly turned out to need care: bankML re-times the card at every start, and that alone moves its
+share by a third from run to run, so comparisons hold it fixed ([efficiency](efficiency.md)). The references are
 mapped in the software catalogues: [graphics cards](gpu-software.md) (including llama.cpp's own WebGPU backend),
 [CPU, memory and network](cpu-software.md), and [JavaScript tooling and client-side files](js-software.md).
+
+## The processor's fire
+
+While bankML works, flames rise behind the page, embers drift up, and electrical arcs cross it on the engine's own
+events: blue-white when the GPU passes its check, green for a receipt or a new speed record, red for an error or STOP,
+orange for a question or a load. The flames follow what the engine is actually doing — the live writing speed against
+the best this visit, a prompt being read or warmed — so they are a gauge, not a decoration. They cost something, and
+browseML says how much: LIMITERS shows it under the fire's switch, measured on itself. They sleep (no frames at all)
+while the engine rests, draw 10 frames a second while it computes, and stop in a background tab; on a 2-core laptop the
+browser spent about a fifth of a core on them while hot. One switch turns them off.
 
 ## Limitations
 
