@@ -229,3 +229,69 @@ models/Bonsai-1.7B-Q1_0.gguf matches the pin
 -- model copy: the pin: pass (4s)
 
 release gate v0.6.10: every step passed
+
+== browser: Brave Browser 152.1.94.117 , headless, a throwaway profile
+ok   the page: title and logo
+ok   the FAQ: eight questions
+ok   no panel at first, T in the field
+ok   T opens the control panel with its sections — NOW, TOOLS, CPU · RAM · GPU · CACHE, PERSONA, BUILDER, SAMPLING, ENGINE LOG, RECEIPTS, MODELS ON THIS COMPUTER, HARD DRIVE, DIALS, DIAGNOSTICS, TOOL SUITE, LIMITERS, ADVICE AND RECORDS
+ok   the panel's content fits its width
+ok   the processor's fire: a page-wide canvas that takes no clicks, switched in LIMITERS — none · fixed
+ok   SAMPLING: a preset and XTC switched on, listed for the next question — max tokens 128 | temperature 0.70 ✕ | XTC how often 0.50 ✕ | XTC threshold 0.10 ✕
+ok   SAMPLING: a chip removed, XTC off — back to the engine's defaults — the next question sends max tokens 128 and the engine's defaults for the rest
+ok   tool MEMORY — copy 11.0 GB/s · triad 5.4 GB/s
+ok   tool CPU — 98 Mops/s on one · 434 on 3 (×4.41)
+ok   tool STORAGE — write 10 MB/s · read 273 MB/s
+ok   tool SENSORS — online · battery 100% charging
+ok   tool EXACT — 256/256 rows bit-exact (n 2048) · GPU 742 ms
+ok   EXACT: every row bit-exact on this GPU — 256/256 rows bit-exact (n 2048) · GPU 742 ms
+ok   the folder's models listed with their verdicts — the right size: checked when used | another model (not run in the browser yet)
+ok   the model from the folder: recognised by sha256, used with no download — ✓ Bonsai-1.7B · 1-bit (Q1_0) from my-models/Bonsai-1.7B-Q1_0.gguf — no download
+ok   HARD DRIVE: the browser's storage and the model kept — browser 248 MB of 2147 MB | room 1899 MB | kept may be evicted | model 248 MB in browser | disk copy none
+ok   HARD DRIVE: keep a copy on the disk — the model saved, its sha256 the pin — Bonsai-1.7B-Q1_0.gguf · 248302272 bytes · 3d7c6c90dd98717a…
+ok   HARD DRIVE: the copy recorded
+ok   HARD DRIVE: SAVE FOR bankML — the model and its FORK.json (pinned to the sha256) — Bonsai-1.7B-Q1_0.gguf + Bonsai-1.7B-Q1_0.gguf.FORK.json
+ok   the receipt under the answer: a closed accordion — ✓ receipt · 584 → 42 tokens · 1.00 tok/s
+ok   the receipt verified (✓)
+ok   opened: the response's sha256 in the receipt
+ok   the receipt kept in .history — 1 exchange(s) with a receipt
+ok   the receipt kept in .memory as a delivery record — 1 delivery record(s)
+ok   a response window has no reply field unless chosen
+ok   its ⋯ menu adds one to that window
+ok   the control panel opened with the response window
+ok   NOW: the answer in the speed chart — ■ writing 1.02 avg 1.02 — reading 1.54
+ok   a panel section dragged by its grip to the top — disk · now · tools
+ok   a section hidden with –, brought back with SHOW
+ok   RESET LAYOUT puts NOW first again
+ok   the panel's RECEIPTS lists it
+ok   view receipts off: hidden under answers
+ok   visit 2: the page just loads — nothing started before an interaction
+ok   visit 2: the prompt cache restored — prompt cache restored 625 tokens in 0.8 s
+ok   the processor measured: threads free, the claim with room — CPU 3 threads · 38% · auto 4 free, measured (3 reported) · auto claims 3, one left for the unexpected · running 3 · last answer: reading 1.54, writing 1.02 tok/
+ok   CACHE lists the kept prompt, named — browseML 625 tok · 72 MB · ctx 2048 · just now ✕
+ok   a second persona keeps its own prompt beside the first — Tester · browseML
+ok   its opening message, in a window of its own
+ok   gpu-exact.html: every shape bit-exact — 256 rows × 2048: 256/256 bit-exact · GPU 158 ms · google · swiftshader | 64 rows × 6144: 64/64 bit-exact · GPU 197 ms · google · swiftshader | 512 rows × 128: 512/512 bit-exact · GPU 120 ms · google · swiftshader
+ok   gpu-exact.html: both controls differ
+ok   fresh visit: the page just loads, no panel before an interaction
+ok   fresh visit: the closed panel's tab is there
+ok   the first interaction pops the control panel out, HARD DRIVE in it
+ok   ON, OFF and CLEAR in the panel's TOOLS — ▾
+TOOLS · – · ON… · OFF · CLEAR · PAUSE · CANCEL
+ok   the field drops beside the panel, not under it — panel ends at 340px, field starts at 356px
+ok   the response window does not ask: no Import button
+ok   closed, the panel's edge tab opens it (no input field needed)
+ok   no model: asking starts loading it
+
+every browser check passed
+-- browser checks: pass (383s)
+
+== the token tile, whole engine (0.6.9's browseml-mt-relaxed.wasm against 0.6.10's), GPU on through Dawn, 3 threads, 3 turns, 3 alternating rounds
+load ≈ 4 (another session's solc build); all answers identical to the record (18 of 18)
+r1 old: prompt 6.07 5.80 5.39 · write 1.96 2.25 2.21 · card share 39%
+r1 new: prompt 5.88 5.00 4.78 · write 2.00 2.51 2.35 · card share 49%
+r2 old: prompt 5.82 5.53 5.03 · write 1.93 2.21 2.58 · card share 47%
+r2 new: prompt 5.74 6.31 5.11 · write 2.06 2.41 2.29 · card share 39%
+r3 old: prompt 7.26 6.28 4.75 · write 1.92 2.42 2.04 · card share 39%
+r3 new: prompt 5.93 5.43 5.68 · write 2.04 2.37 2.34 · card share 41%
+reading mean 5.77 (old) vs 5.54 (new): within the noise; the kernel alone is 1.14–1.18× at 64–512 tokens

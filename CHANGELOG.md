@@ -13,8 +13,11 @@
 - **Prompts read on the visitor's GPU four tokens per invocation** (bankML `8f5e930`, `Q1_0_MM4`): each weight word
   decoded once for four tokens, every token's arithmetic unchanged, so the same bits (`testing/gpu.mjs`: partial tiles
   included). The kernel, interleaved medians on the AMD Radeon Vega 3: 1.14–1.18× at 64–512 tokens; tiles of 8 and 16
-  measured and not kept; micro-batches under four tokens stay on the CPU. The engine's whole reading speed moved within
-  the noise of a loaded machine, answers identical; the idle-machine A/B is recorded with the release.
+  measured and not kept; micro-batches under four tokens stay on the CPU. The engine's whole reading speed did not
+  move beyond the noise: 0.6.9's engine against 0.6.10's, GPU on, 3 threads, three alternating rounds (load ≈ 4 from
+  another build): reading 4.75–7.26 tok/s (mean 5.77) against 4.78–6.31 (mean 5.54), writing 1.92–2.58 against
+  2.00–2.51, the card's verified share 39–49% in both; 18 of 18 answers identical to the record. The kernel is faster;
+  on this integrated card the CPU's share of the rows, not the kernel, sets the reading speed.
 - bankML's kernel treatise, [KERNELS.md](https://github.com/cryptoAGI/bankml/blob/browseml/docs/KERNELS.md), and
   usage.md brought to 0.6.9 (the control panel section by section).
 
