@@ -142,8 +142,8 @@ async function open({ name, bytes, fork, threads, ctx, cacheRam, gpu = "off", gp
     return open({ name, bytes: files[name].buffer, fork, threads, ctx, cacheRam, gpu, gpuTime, stop: stopFlag && stopFlag.buffer });
   }
   w.release(name);  // the engine holds the model in its own memory now; the downloaded copy can go
-  const text = out();
-  postMessage({ type: "opened", rc, out: text, threads: n, memory: memory.buffer.byteLength, build: builtWith, gpu: gpuStatus() });
+  const said = out();  // (not `text`: that is the decoder the engine's log and pieces call)
+  postMessage({ type: "opened", rc, out: said, threads: n, memory: memory.buffer.byteLength, build: builtWith, gpu: gpuStatus() });
 }
 
 /** bankML's GPU limiter as it stands (`browseml_gpu_status`: the card, its share, busy fraction, products on the card
@@ -162,8 +162,8 @@ onmessage = async (e) => {
       const [p, len] = put(JSON.stringify(m.request));
       const rc = x.browseml_chat(p, len);
       x.browseml_free(p, len);
-      const text = out();
-      postMessage({ type: "done", rc, out: text, memory: memory.buffer.byteLength, gpu: gpuStatus() });
+      const said = out();
+      postMessage({ type: "done", rc, out: said, memory: memory.buffer.byteLength, gpu: gpuStatus() });
     } else if (m.type === "slot") {
       if (!x) throw new Error("no model is open");
       if (m.action === "restore") slots[m.name] = new Uint8Array(m.bytes);

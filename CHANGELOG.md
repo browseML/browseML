@@ -10,6 +10,9 @@
   card — a software adapter is never used). These are the numbers that explained the GPU's speed in 0.6.10–0.6.12;
   until now only `testing/bench.mjs` printed them.
 - Browser test: the row is there and says what it found.
+- Found by the browser checks before release: the worker's new status read first named its result `text`, which
+  shadowed the decoder the engine's log calls during open — the engine could not open ("Cannot access 'text' before
+  initialization"). Renamed; the Node gate cannot see this (it never runs the page's worker), the browser checks did.
 
 ## 0.6.13 — 2026-10-14 — EXACT checks the kernels the engine runs
 
