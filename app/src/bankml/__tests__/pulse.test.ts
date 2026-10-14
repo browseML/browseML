@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { follow, liveRate, onPulse, recentSurges, resetPulse, setActivity, setPulseClock, setReady, surge, surgeColor, targetHeat, token, toolRunning, noteRate, type Surge } from '../pulse';
+import { follow, liveRate, onPulse, recentSurges, resetPulse, setActivity, setPulseClock, setReady, surge, surgeColor, targetHeat, token, toolRunning, noteRate, seedBest, bestRate, type Surge } from '../pulse';
 
 describe("the processor's pulse", () => {
   let t = 0;
@@ -46,5 +46,16 @@ describe("the processor's pulse", () => {
     const up = follow(0, 1, 350), down = follow(1, 0, 350);
     expect(up).toBeGreaterThan(0.6);
     expect(1 - down).toBeLessThan(0.2);
+  });
+  it('takes a recorded best as its reference without a surge, and a record must beat it', () => {
+    const seen: Surge[] = [];
+    onPulse(s => { if (s) seen.push(s); });
+    seedBest(4);
+    seedBest(NaN); seedBest(2);
+    expect(bestRate()).toBe(4);
+    setActivity('writing');
+    for (let i = 0; i < 8; i++) { t += 333; token(); }  // ~3 tok/s: below the seed, no record
+    expect(seen.filter(s => s.kind === 'record')).toHaveLength(0);
+    expect(targetHeat()).toBeLessThan(0.95);
   });
 });

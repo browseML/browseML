@@ -47,6 +47,10 @@ export function liveRate(): number {
 /** The best measured writing speed (the reference the heat is measured against); a recorded answer can raise it. */
 export function noteRate(r: number) { if (r > st.best) st.best = r; st.lastRate = r; }
 export const bestRate = () => st.best;
+/** The best writing speed this browser has recorded before (its own answers, the same thread count): the reference
+ *  from the first answer of a visit, so the flames are scaled at once and a speed-record surge means a real record. No
+ *  surge for the seed itself. */
+export function seedBest(r: number) { if (isFinite(r) && r > st.best) st.best = r; }
 
 export function surge(kind: SurgeKind, strength = 1) {
   const s: Surge = { kind, at: now(), strength: Math.max(0.1, Math.min(1, strength)) };

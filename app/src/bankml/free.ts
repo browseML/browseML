@@ -6,8 +6,8 @@
 import type { Turn, Verdict } from './engine';
 import { sha256hex } from './engine';
 import { ctxCapFor, mb } from './caps';
-import { recordAnswer, recordLoad, recordWarm } from './usage';
-import { activity, noteRate, setActivity, setReady, surge, token } from './pulse';
+import { recordAnswer, recordLoad, recordWarm, usageLog } from './usage';
+import { activity, noteRate, seedBest, setActivity, setReady, surge, token } from './pulse';
 import { getLimits } from '../clientside/limits';
 
 const esm = (url: string): Promise<any> => import(/* @vite-ignore */ url);
@@ -218,6 +218,8 @@ export async function loadBrowse(progress: (line: string, phase?: string) => voi
     else if (phase === 'folder') progress(`the model from this computer (${from?.name ?? 'a folder'}): no download`, phase);
   }, fromEngine, { threads: s.threads ?? autoThreads ?? undefined, ctx: s.ctx, cacheRam: s.cacheRam, gpu, gpuTime: s.gpuTime, ...(from ? { bytes: from.bytes, from: 'folder' } : {}) });
   setReady(true);
+  // the fire's reference: the best writing speed recorded here before at this thread count
+  try { seedBest(Math.max(0, ...usageLog().answers.filter(a => a.threads === browsed!.threads).map(a => a.genPerSec))); } catch { /* no records */ }
   browsed = { ...browsed!, cacheRam: s.cacheRam, gpu, gpuTime: s.gpuTime, gpuNote: gpuNote || (gpu === 'off' ? 'GPU off: the CPU computes everything' : browsed!.threads > 1 ? 'no WebGPU device here: the CPU computes everything' : 'one thread (not cross-origin isolated): the CPU computes everything') };
   engineLog('ok', `verified ${browsed.model} · sha256 ${browsed.sha256} · guard ${browsed.guard ?? '?'} · bankML ${browsed.version} · ${browsed.threads} thread(s) · ${browsed.build ?? 'browseml.wasm'} · context ${browsed.ctx}${browsed.host ? ` · host ${browsed.host}, ${browsed.side ?? 'client'} side` : ''}`);
   engineLog(browsed.gpuNote && /computes \d+%/.test(browsed.gpuNote) ? 'ok' : 'step', `GPU: ${browsed.gpuNote}`);

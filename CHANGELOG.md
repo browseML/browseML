@@ -14,6 +14,21 @@ From here the third number rolls over after 9 (0.6.9 → 0.7.0). The releases pu
 | v0.6.14 | 0.7.4 |
 | v0.6.15 | 0.7.5 |
 
+## 0.8.0 — 2026-10-14 — the fire knows your record; two ideas measured before building
+
+- **The fire's reference is this browser's record**: at load, the best writing speed recorded here before (its own
+  answers, the same thread count) becomes the reference the flames are scaled against, so they read right from the
+  first answer of a visit, and a speed-record surge now means a record across visits, not the first fast stretch of
+  this one. The seed itself raises no surge (unit-tested).
+- **Exact speculative decoding, simulated before building** (`testing/spec_sim.py`): prompt-lookup drafts (3-token
+  match, 4 drafted) replayed on the 9 recorded oracle turns and on a browseML answer from its own 500-token prompt, at
+  this laptop's measured costs (a token written ≈ 1/3 s, read in a batch ≈ 1/7 s): 50 of 427 tokens accepted, ×1.04
+  overall, ×1.13 on the browseML answer. Not built: too little for the risk; worth it with a draft model or where
+  reading is far cheaper than writing. In the [TODO](docs/TODO.md) with its numbers.
+- **The Origin Private File System, measured**: inconclusive on this full disk (the first 248 MB read 26 s from Cache
+  Storage against 5.8 s from OPFS, later reads 1.4–3.3 s either way); in the TODO.
+- The TODO brought up to date with the GPU work of 0.7.0–0.7.4 and what was tried and not kept.
+
 ## 0.7.9 — 2026-10-14 — usage.md: the fire's cost under its switch
 
 - [usage.md](docs/usage.md): LIMITERS' row says what 0.7.7 put under the fire's switch — its cost now, or that it
