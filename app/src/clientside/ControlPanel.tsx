@@ -161,7 +161,8 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
         const g = await import(/* @vite-ignore */ new URL('browseml-gpu.js', location.href).href);
         const x = await g.exact({ rows: p.rows, n: 2048, seed: Date.now() & 0xffff, power: limits.power });
         setGx(x);
-        return `${x.same}/${x.rows} rows bit-exact (n ${x.n}) · GPU ${x.gpuMs.toFixed(0)} ms`;
+        const all = x.rows * (x.cols ?? 0);
+        return `${x.same}/${x.rows} rows bit-exact (n ${x.n}) · the engine's kernels: fast ${x.fastSame ?? '?'}/${all}, tiled ${x.tiledSame ?? '?'}/${all} · GPU ${x.gpuMs.toFixed(0)} ms`;
       } },
     { id: 'sensors', name: 'SENSORS', run: async () => { const s = await sensors(); setSens(s); return `${s.online ? 'online' : 'offline'}${s.connection?.effectiveType ? ` · ${s.connection.effectiveType}` : ''}${s.battery ? ` · battery ${Math.round(s.battery.level * 100)}%${s.battery.charging ? ' charging' : ''}` : ''}`; } },
   ];

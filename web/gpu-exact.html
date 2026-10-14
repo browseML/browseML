@@ -33,7 +33,9 @@ document.getElementById("go").onclick = async () => {
   try {
     for (const [rows, n, seed] of [[256, 2048, 1], [64, 6144, 2], [512, 128, 3]]) {
       const x = await g.exact({ rows, n, seed });
+      const all = x.rows * x.cols;
       say(`${rows} rows × ${n}: ${x.same}/${x.rows} bit-exact · GPU ${x.gpuMs.toFixed(0)} ms · ${x.adapter || "adapter unnamed"}`, x.same === x.rows ? "ok" : "bad");
+      say(`  the engine's kernels, ${x.cols} tokens: fast ${x.fastSame}/${all} · tiled ${x.tiledSame}/${all} bit-exact (workgroup ${x.wg})`, x.fastSame === all && x.tiledSame === all ? "ok" : "bad");
     }
     // the controls: the same harness, the outer step without the exact FMA
     const adapter = await navigator.gpu.requestAdapter(), device = await adapter.requestDevice();

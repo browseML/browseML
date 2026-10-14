@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.13 — 2026-10-14 — EXACT checks the kernels the engine runs
+
+- **EXACT checks the engine's own kernels**: until now it proved bankML's simple kernel on the visitor's GPU; the
+  forward pass runs two others — the fast one (eight lanes per row, writing) and the tiled one (four tokens per
+  invocation, reading a prompt). EXACT (TOOL SUITE) and `web/gpu-exact.html` now run both on five tokens (a partial
+  tile) and check every result against bankML's reference for its token: in headless Brave (SwiftShader) 1280/1280,
+  320/320 and 2560/2560 for each, at the three shapes. The verdict in DIAGNOSTICS counts all three. The same in
+  [browseML/webgpu](https://github.com/browseML/webgpu)'s page.
+- **The GPU verdict's words brought up to date**: it no longer says "browseML answers on the CPU today" or "ready for
+  an exact kernel when browseML has one" — the card has computed its verified share of each answer since 0.6.7.
+- bankML `262a27a`: a card run that fails during the share's calibration now gives no share (before, its quick
+  failure timed as a very fast card); a test that measures the calibration's spread; the 0.4.0 milestone gate ticked
+  in its TODO (it passed on 2026-10-07).
+
 ## 0.6.12 — 2026-10-14 — measured again, with the noise taken out
 
 - **A correction to 0.6.11**: its "+8% reading at 100% of the GPU's time" does not hold. That measurement let bankML

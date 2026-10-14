@@ -79,6 +79,7 @@ try {
   }
   const exact = await page.locator(".cp-tool", { hasText: "EXACT" }).first().locator(".cp-tool-out").innerText();
   check("EXACT: every row bit-exact on this GPU", /^(\d+)\/\1 rows bit-exact/.test(exact), exact);
+  check("EXACT: the engine's kernels too (fast and tiled, five tokens), every result bit-exact", /fast (\d+)\/\1, tiled (\d+)\/\2/.test(exact) && !/\?/.test(exact), exact);
 
   // a folder on this computer: the folder input (the path every browser has) — recognised, used, no download
   await page.locator(".cp-fold-head", { hasText: "MODELS ON THIS COMPUTER" }).click(); await wait(300);
@@ -207,8 +208,10 @@ try {
   await page.click("#go");
   await page.waitForFunction(() => (document.getElementById("out").textContent.match(/control/g) || []).length === 2 || /Error/i.test(document.getElementById("out").textContent), null, { timeout: 180000 });
   const g = await page.locator("#out").innerText();
-  const shapes = [...g.matchAll(/(\d+)\/(\d+) bit-exact/g)];
-  check("gpu-exact.html: every shape bit-exact", shapes.length === 3 && shapes.every((m) => m[1] === m[2]), g.split("\n").slice(0, 3).join(" | "));
+  const shapes = [...g.matchAll(/rows × \d+: (\d+)\/(\d+) bit-exact/g)];
+  check("gpu-exact.html: every shape bit-exact", shapes.length === 3 && shapes.every((m) => m[1] === m[2]), g.split("\n").filter((l) => /rows ×/.test(l)).join(" | "));
+  const engine = [...g.matchAll(/fast (\d+)\/(\d+) · tiled (\d+)\/(\d+) bit-exact/g)];
+  check("gpu-exact.html: the engine's kernels (fast, tiled) bit-exact at every shape", engine.length === 3 && engine.every((m) => m[1] === m[2] && m[3] === m[4] && m[1] === m[3]), g.split("\n").filter((l) => /engine's kernels/.test(l)).join(" | "));
   check("gpu-exact.html: both controls differ", (g.match(/as expected/g) || []).length === 2);
 
   // ── no model: a question goes straight to loading it ─────────────────────────────────────────────────────────

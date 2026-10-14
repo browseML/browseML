@@ -25,7 +25,7 @@ State at **0.6.8** (2026-10-13), engine bankML `f618309` (branch `browseml`).
 | **server and client** | bankML's host registry (`host.rs`) names browseML a client host — the visitor's machine, nothing leaves it — and `bankml serve` a server host; engine work lands in bankML first and is pinned here |
 | **checked by** | `testing/release.sh` (engines, kernels under Node's WASI, the download, both oracles, the prompt cache, the app, the model's pin) and `testing/browser.sh` (headless Brave), recorded in `testing/results/v<version>.txt` |
 
-## Versions, from the first experiments to 0.6.12
+## Versions, from the first experiments to 0.6.13
 
 Before this repository, browseML lived in bankML (`browseML/`, from `9c63fa1`, 2026-10-08) and was shown on Hugging
 Face Spaces; [HISTORY.md](../HISTORY.md) maps each experiment to its code. The details of each release are in the
@@ -51,7 +51,8 @@ Face Spaces; [HISTORY.md](../HISTORY.md) maps each experiment to its code. The d
 | 0.6.9 | 2026-10-13 | SAMPLING deeper: DRY, XTC and dynamic temperature; glass sliders; depth on borders | `f618309` |
 | 0.6.10 | 2026-10-14 | the processor's fire across the page; prompts read on the GPU four tokens per invocation (the kernel 1.14–1.18×, the engine within the noise) | `8f5e930` |
 | 0.6.11 | 2026-10-14 | the GPU's time, a slider to 100% | `51ec905` |
-| 0.6.12 | 2026-10-14 | 0.6.11's speed claim corrected with the GPU share held fixed; the fire measures its own cost | `dab9771` |
+| 0.6.12 | 2026-10-14 | 0.6.11's speed claim corrected with the GPU share held fixed; the fire at half the cost, behind the page, measuring itself | `dab9771` |
+| 0.6.13 | 2026-10-14 | EXACT checks the kernels the engine runs (fast and tiled) | `262a27a` |
 
 ## The pieces
 
@@ -258,7 +259,7 @@ Nothing is a silent wait. In the browseML app:
 
 ## Limitations
 
-What browseML does not do, or does only under conditions, at 0.6.12.
+What browseML does not do, or does only under conditions, at 0.6.13.
 
 **Where it runs**
 - **Threads need cross-origin isolation** (COOP `same-origin`, COEP `credentialless` or `require-corp`). Without it,

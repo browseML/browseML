@@ -418,6 +418,14 @@ export async function exact({ rows = 256, n = 2048, seed = 1, power = 'high-perf
     const differ = [];
     for (let r = 0; r < rows; r++) if (g.bits[r] !== ref[r]) differ.push({ row: r, gpu: g.bits[r], ref: ref[r] });
     const info = adapter.info ?? {};
-    return { rows, n, same: rows - differ.length, differ: differ.slice(0, 16), gpuMs: g.ms, refMs, adapter: [info.vendor, info.architecture, info.device].filter(Boolean).join(' · ') };
+    // the kernels the engine runs: the fast one (eight lanes per row, writing) and the tiled one (four tokens per
+    // invocation, reading a prompt), on five activations (a partial tile), each result against its own reference
+    const As = [c.A, ...[1, 2, 3, 4].map((k) => randomCase(1, n, seed * 100 + k).A)];
+    const refs = [ref, ...(await Promise.all(As.slice(1).map((A) => reference(wasmUrl, wasiUrl, { W: c.W, A, rows, n }))))];
+    const wg = workgroupFor(info), Wp = packQ1(c.W, rows, n), Ap = packQ8(As, n);
+    const count = (bits) => { let k = 0; for (let a = 0; a < As.length; a++) for (let r = 0; r < rows; r++) k += bits[a * rows + r] === refs[a][r]; return k; };
+    const fast = await gpuMatMul(device, Wp, Ap, wg), tiled = await gpuMatMul(device, Wp, Ap, wg, true);
+    return { rows, n, same: rows - differ.length, differ: differ.slice(0, 16), gpuMs: g.ms, refMs, adapter: [info.vendor, info.architecture, info.device].filter(Boolean).join(' · '),
+             cols: As.length, fastSame: count(fast.bits), tiledSame: count(tiled.bits), fastMs: fast.ms, tiledMs: tiled.ms, wg };
   } finally { device.destroy(); }
 }
