@@ -65,6 +65,29 @@ streams ~0.85 GB/s of weights against ~10 GB/s of memory: it is bound by arithme
 | f16 attention, RoPE, norms in WGSL | the rest of the layer, each against its scalar reference | per-kernel exactness + the oracle |
 | subgroups | faster reductions where `subgroups` exists, the same reduction order | the same tests |
 
+## Receipts banked — the ledger (bankML first, then browseML)
+
+Asked 2026-10-14: bankML banks the token usage and the prompt/response receipts, exact to 18 decimal places, ready for
+a blockchain by default, the chain an extensible module (iNFT and THOT), and the same counting for external inference.
+
+| module | what | checked by |
+|---|---|---|
+| **amounts to 18 decimals** | token counts and costs as integers of 10⁻¹⁸ (as ERC-20's `uint256` with 18 decimals): parsed and printed exactly, checked arithmetic, never a float | unit tests: round trips, carries, overflow refused; the same vectors in Rust and in the page (BigInt) |
+| **the ledger** | each receipt banked as an entry: model sha256, request and response sha256, prompt / completion / total tokens, cost at the entry's rate, the source, the time; each entry's hash (keccak256, the EVM's) covers the previous one's, so the head commits to all | append and re-verify; a changed entry breaks the chain at that entry |
+| **server and client** | bankML serve banks to a file beside its slots; browseML banks in the visitor's browser (`.history` / `.memory` keep the receipts as today), the same format | the same vectors on both sides |
+| **external inference** | an entry's source: bankML here, or an external provider with the counts it reports and its own rate; totals per source | entries from a recorded external response |
+| **blockchain-ready, by module** | a connector interface: none by default (the ledger stands alone); THOT (`sAGI/thot.py`: the ledger's head as a commitment in the bundle) and iNFT (`sAGI/chain.py`: an unsigned transaction anchoring the head, the owner signs) as the first two; never signed or sent by bankML itself | THOT's spec vectors; the devnet mint path as in bankML 0.1.0 |
+
+## Monitoring, the CPU and the GPU
+
+| module | what | checked by |
+|---|---|---|
+| **the monitor** | **0.8.1**: battery, network, CPU pressure, the main thread's lag and long tasks, memory, what the card did, the engine's live speed — live, by the browser's events and one tick a second | the browser checks |
+| **graphics cards recognised** | **0.8.1**: vendor, model, integrated · discrete · software · handheld, from WebGPU's adapter and WebGL's renderer | unit tests on real renderer strings |
+| **battery limiter** | **0.8.1**: rest the fire effect on battery — unarmed by default | the browser checks |
+| **handheld GPUs** (Adreno, Mali, Apple) | the engine's workgroup per vendor on handhelds (subgroups of 16–128), the page's layout at phone width, measured on a phone | the kernel's bits per vendor; the oracle |
+| **CPU and GPU speed** | carry on: discrete AMD and NVIDIA measured, subgroups, f16 and attention on the card; each A/B with the GPU share held fixed | answers identical |
+
 ## The organisation's repositories
 
 | repository | what it holds | first step |

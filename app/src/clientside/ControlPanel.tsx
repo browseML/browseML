@@ -39,12 +39,34 @@ import { Builder } from './Builder';
 import { Arrange, useArrange } from './Arrange';
 import { SpeedChart, Trace } from './Charts';
 import { ReceiptsSection } from './Receipt';
-import { gpuVerdict, probeGpu, readGpu, KEY_FEATURES, type GpuExact, type GpuProbe, type GpuReport } from '../bankml/gpu';
+import { gpuVerdict, probeGpu, readGpu, recogniseGpu, isHandheld, KEY_FEATURES, type GpuExact, type GpuProbe, type GpuReport } from '../bankml/gpu';
+import { monitor, onMonitor } from './monitor';
 import { ClientRack, useTick, useUsage } from './ClientRack';
 import { cpu, memory, ping, sensors, speed, storage, type Sensors } from './tools';
 import { getLimits, onLimits, setLimits, type Limits } from './limits';
 
 const GREEN = '#0ECB81', ORANGE = '#F7931A', RED = '#F6465D';
+/** The monitor, live: battery, network, CPU (pressure, the main thread's lag, long tasks), memory, the GPU (what the
+ *  card did in the engine), the engine's live speed, the fire — each from the browser's own events or one tick a second. */
+function MonitorRows() {
+  const [, tick] = useState(0);
+  useEffect(() => onMonitor(() => tick(n => n + 1)), []);
+  const m = monitor(), p = (x: number) => `${Math.round(x * 100)}%`;
+  const b = m.battery, n = m.network, g = m.gpu;
+  const spark = (xs: number[], max: number) => xs.slice(-30).map(x => ' ▁▂▃▄▅▆▇█'[Math.min(8, Math.round((x / Math.max(max, 1e-9)) * 8))]).join('');
+  return (
+    <dl className="cp-monitor">
+      <Row k="battery" tone={b && !b.charging && b.level < 0.2 ? 'warn' : undefined}>{b ? `${p(b.level)} · ${b.charging ? `charging${isFinite(b.chargingTime) && b.chargingTime > 0 ? `, full in ${Math.round(b.chargingTime / 60)} min` : ''}` : `on battery${isFinite(b.dischargingTime) ? `, ~${Math.round(b.dischargingTime / 60)} min left` : ''}`}` : 'not reported by this browser'}</Row>
+      <Row k="network" tone={n.online ? undefined : 'bad'}>{n.online ? 'online' : 'offline'}{n.effectiveType ? ` · ${n.effectiveType}` : ''}{n.downlink ? ` · ~${n.downlink} Mb/s` : ''}{n.rtt ? ` · rtt ~${n.rtt} ms` : ''}{n.saveData ? ' · data saver' : ''}{n.changes ? ` · ${n.changes} change${n.changes === 1 ? '' : 's'} this visit` : ''}</Row>
+      <Row k="CPU" tone={m.pressure === 'serious' || m.pressure === 'critical' ? 'warn' : undefined}>{m.pressure ? `pressure ${m.pressure} · ` : ''}main thread {Math.round(m.lagMs)} ms late · {m.longTasks} long task{m.longTasks === 1 ? '' : 's'} in 10 s <span className="cp-spark">{spark(m.history.lag, 50)}</span></Row>
+      <Row k="memory">{m.heapMB !== null ? `page heap ${m.heapMB.toFixed(0)} MB` : 'page heap not reported'} · engine {mb(browseDiag().memoryBytes)}</Row>
+      <Row k="GPU">{g ? `${p(g.share)} of the rows · busy ${p(g.busy)} of its time (limit ${p(g.limit)})` : 'none working: the CPU computes everything'} <span className="cp-spark">{spark(m.history.gpuBusy, 1)}</span></Row>
+      <Row k="engine">{m.engine.activity}{m.engine.tokPerSec ? ` · ${m.engine.tokPerSec.toFixed(2)} tok/s now` : ''} <span className="cp-spark">{spark(m.history.tok, Math.max(...m.history.tok, 1))}</span></Row>
+      <Row k="device">{isHandheld() ? 'handheld (the page draws less)' : 'desktop or laptop'}</Row>
+    </dl>
+  );
+}
+
 /** Under the fire's switch: what it costs now, measured on itself, so the choice is made with the number in view. */
 function FireCost() {
   const [f, set] = useState(fireStats());
@@ -238,6 +260,8 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
       <Fold id="dials" title="DIALS"><ClientRack onSaid={say} /></Fold>
 
       <Fold id="diag" title="DIAGNOSTICS">
+        <h4>Monitor (live)</h4>
+        <MonitorRows />
         <h4>Network</h4>
         <dl>
           <Row k="connection">{sens ? `${sens.online ? 'online' : 'offline'}${sens.connection?.effectiveType ? ` · ${sens.connection.effectiveType}` : ''}${sens.connection?.downlink ? ` · ~${sens.connection.downlink} Mb/s` : ''}${sens.connection?.rtt ? ` · rtt ~${sens.connection.rtt} ms` : ''}${sens.connection?.saveData ? ' · data saver' : ''}` : '…'}</Row>
@@ -263,6 +287,7 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
         </dl>
         <h4>GPU</h4>
         <dl>
+          {gpu && (() => { const k = recogniseGpu(gpu); return <Row k="recognised" tone={k.kind === 'software' ? 'warn' : 'ok'}>{k.vendor === 'unknown' && !k.model ? 'not named by this browser' : [k.vendor !== 'unknown' ? k.vendor : '', k.model ?? '', k.kind !== 'unknown' ? k.kind : '', k.handheld ? 'handheld' : ''].filter(Boolean).join(' · ')} — {k.note}</Row>; })()}
           <Row k="adapter">{gpu?.adapter ? [gpu.adapter.vendor, gpu.adapter.architecture, gpu.adapter.device, gpu.adapter.description].filter(Boolean).join(' · ') || 'unnamed (the browser keeps it private)' : gpu ? (gpu.reason ?? 'none') : '…'}{gpu?.adapter?.fallback ? ' · software fallback' : ''}</Row>
           {gpu?.webgl && <Row k="WebGL">{gpu.webgl.renderer}</Row>}
           {gpu?.adapter && <Row k="features">{KEY_FEATURES.filter(f => gpu.adapter!.features.includes(f)).join(' · ') || 'none of the key ones'} ({gpu.adapter.features.length} in all)</Row>}
@@ -298,7 +323,8 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
           <ToggleSwitch on={limits.askFirst} color={ORANGE} label="ask before downloading the model" onChange={on => setLimits({ askFirst: on })} />
           <ToggleSwitch on={limits.warm} color={ORANGE} label="warm the prompt in the background" onChange={on => setLimits({ warm: on })} />
           <ToggleSwitch on={limits.gpuProbe} color={ORANGE} label="allow the GPU probe" onChange={on => setLimits({ gpuProbe: on })} />
-          <ToggleSwitch on={limits.fire} color={ORANGE} label="the processor's fire and surges" onChange={on => setLimits({ fire: on })} />
+          <ToggleSwitch on={limits.fire} color={ORANGE} label="the fire effect (flames, sparks, electric arcs)" onChange={on => setLimits({ fire: on })} />
+          <ToggleSwitch on={limits.fireOnBattery} color={ORANGE} label="rest the fire effect on battery" onChange={on => setLimits({ fireOnBattery: on })} />
         </div>
         <FireCost />
         <p className="cp-fine">Threads and memory apply when the engine loads again (APPLY in the dials).</p>

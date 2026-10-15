@@ -3,8 +3,9 @@
 // limits, whether it is a software fallback) with WebGL's renderer as the fallback report; then, on request, three
 // compute probes on that GPU — whether its fused multiply-add is exact (the precondition bankML's GPU kernels are held
 // to; see bankML/gpu/spirv.rs fma_exact), its f32 throughput, and its memory bandwidth — each timed by the browser.
-// Nothing is sent anywhere. browseML answers on the CPU today; this is how a GPU earns its way into the engine: an
-// exact kernel, proven bit for bit as bankML's Vulkan Q1_0 kernel is, never a faster approximate one.
+// Nothing is sent anywhere. This is how a GPU earns its way into the engine (since 0.6.7 it computes its verified share
+// of each answer): an exact kernel, proven bit for bit as bankML's Vulkan Q1_0 kernel is, never a faster approximate one.
+// `recogniseGpu` names the card from what the browser reports (vendor, model, integrated or discrete or software).
 // The approach follows the open references: the WebGPU spec and gpuweb/cts (BSD-3-Clause) for features and limits,
 // webglreport (Apache-2.0) for the WebGL renderer; the code here is this repository's own.
 
@@ -20,6 +21,63 @@ export interface GpuReport {
     limits: Record<string, number>;
   };
   webgl?: { vendor: string; renderer: string; version: string };
+}
+
+/** The card, recognised from what this browser reports (WebGPU's adapter info and WebGL's renderer string). */
+export interface GpuKind {
+  vendor: 'NVIDIA' | 'AMD' | 'Intel' | 'Apple' | 'Qualcomm' | 'ARM' | 'software' | 'unknown';
+  /** The model as reported, cleaned of driver detail ("Radeon Vega 3", "GeForce RTX 3060"); null when not reported. */
+  model: string | null;
+  /** Integrated cards share the computer's memory with the CPU (and its bandwidth); a software adapter is the CPU. */
+  kind: 'integrated' | 'discrete' | 'software' | 'unknown';
+  /** A handheld's GPU (phone or tablet: Adreno, Mali, an Apple GPU outside the M-series Macs): small, on a battery. */
+  handheld: boolean;
+  /** What bankML does with such a card, plainly. */
+  note: string;
+}
+
+/** The card from the browser's own words. Browsers may hide the model (privacy); then the vendor and kind from what is
+ *  left, or unknown — never a guess dressed as a fact. */
+export function recogniseGpu(r: Pick<GpuReport, 'adapter' | 'webgl'>): GpuKind {
+  const a = r.adapter, text = [a?.vendor, a?.architecture, a?.device, a?.description, r.webgl?.vendor, r.webgl?.renderer].filter(Boolean).join(' ');
+  const renderer = r.webgl?.renderer || a?.description || '';
+  const model = (() => {
+    // ANGLE's "ANGLE (Vendor, Model (0x…) Direct3D11 …, D3D11)", Mesa's "Model (driver detail), OpenGL …": the first
+    // segment that names a card, not just its vendor or the graphics API
+    const segs = renderer.replace(/^ANGLE \(/, '').replace(/\)$/, '').split(/,\s*/);
+    const seg = segs.find(x => /radeon|geforce|rtx|gtx|quadro|tesla|intel|arc|iris|uhd|apple|adreno|mali|vega|nvidia|amd|m[1-4]\b/i.test(x)
+      && !/^(amd|nvidia|intel|google|apple|qualcomm|arm|ati)( inc\.?| corporation)?$/i.test(x.trim()) && !/^(vulkan|opengl|direct3d|d3d|metal)/i.test(x.trim())) ?? '';
+    const clean = seg.replace(/\(0x[0-9a-f]+\)/gi, '').replace(/\b(Direct3D\d*|vs_\d_\d|ps_\d_\d|D3D\d*)\b/gi, '').replace(/\(([^)]*)\)/g, '')
+      .replace(/\(TM\)|\(R\)|®|™/g, '').replace(/\b(AMD|NVIDIA|Intel|Corporation|Inc\.?)\b/gi, '').replace(/\s+/g, ' ').trim();
+    return clean || null;
+  })();
+  const t = text.toLowerCase();
+  const soft = a?.fallback || /swiftshader|llvmpipe|softpipe|lavapipe|microsoft basic render|software rasterizer/.test(t);
+  if (soft) return { vendor: 'software', model, kind: 'software', handheld: false, note: 'a software adapter (the CPU drawing as a GPU): bankML never gives it work' };
+  const vendor: GpuKind['vendor'] = /nvidia|geforce|quadro|tesla|rtx|gtx/.test(t) ? 'NVIDIA' : /\bamd\b|radeon|\bati\b/.test(t) ? 'AMD'
+    : /intel/.test(t) ? 'Intel' : /apple/.test(t) ? 'Apple' : /qualcomm|adreno/.test(t) ? 'Qualcomm' : /\barm\b|mali/.test(t) ? 'ARM' : 'unknown';
+  const m = (model ?? '').toLowerCase();
+  const kind: GpuKind['kind'] =
+    vendor === 'NVIDIA' ? (/tegra/.test(t) ? 'integrated' : 'discrete')
+    : vendor === 'AMD' ? (/\b(rx|pro|w\d{4}|instinct|fury|nano)\b|rx ?\d{3,4}|\b(r9|r7)\b/.test(m) ? 'discrete'
+        : /vega \d+\b|radeon graphics|\d{3}m\b|raven|renoir|cezanne|rembrandt|phoenix|barcelo|lucienne|picasso|apu/.test(t) ? 'integrated' : 'unknown')
+    : vendor === 'Intel' ? (/\barc\b/.test(m) && !/arc graphics$/.test(m) ? 'discrete' : 'integrated')
+    : vendor === 'Apple' || vendor === 'Qualcomm' || vendor === 'ARM' ? 'integrated' : 'unknown';
+  const note = kind === 'integrated' ? 'integrated: it shares memory (and its bandwidth) with the CPU; bankML gives it only the matrix shapes it measured faster there'
+    : kind === 'discrete' ? 'discrete: its own memory; bankML checks its bits, then gives it the share of rows it measured faster'
+    : 'bankML checks its bits at load and measures it before giving it any work';
+  const handheld = vendor === 'Qualcomm' || vendor === 'ARM' || (vendor === 'Apple' && !/\bm[1-9]\b/i.test(model ?? ''));
+  return { vendor, model, kind, handheld, note: handheld ? `a handheld's GPU: ${note}; on a battery, LIMITERS can rest the fire` : note };
+}
+
+/** This device is a handheld (phone or tablet): the browser says so (userAgentData.mobile), or a coarse pointer on a
+ *  small screen. The page draws less on one (the fire: coarser, slower, shorter). */
+export function isHandheld(): boolean {
+  try {
+    const m = (navigator as Navigator & { userAgentData?: { mobile?: boolean } }).userAgentData?.mobile;
+    if (typeof m === 'boolean') return m;
+    return matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) <= 900;
+  } catch { return false; }
 }
 
 /** The limits worth showing for compute (the full set is in the adapter). */

@@ -53,9 +53,25 @@ try {
   check("T opens the control panel with its sections", ["NOW", "TOOLS", "CPU · RAM · GPU · CACHE", "ENGINE LOG", "RECEIPTS", "MODELS ON THIS COMPUTER", "HARD DRIVE", "DIALS", "DIAGNOSTICS", "TOOL SUITE", "LIMITERS"].every((f) => folds.includes(f)), folds.join(", "));
   const pw = await page.evaluate(() => { const a = document.querySelector(".uif-shelves.is-open"); return a.scrollWidth <= a.clientWidth; });
   check("the panel's content fits its width", pw);
-  // the processor's fire: one canvas over the page that never takes a click, and its switch in LIMITERS
+  // the fire effect (a visual effect): one canvas that never takes a click, and its switch in LIMITERS
   const fire = await page.evaluate(() => { const c = document.querySelector("canvas.cs-fire"); return c ? getComputedStyle(c).pointerEvents + " · " + getComputedStyle(c).position : ""; });
-  check("the processor's fire: a page-wide canvas that takes no clicks, switched in LIMITERS", fire === "none · fixed" && (await page.getByText("the processor's fire and surges").count()) === 1, fire);
+  check("the fire effect: a canvas that takes no clicks, switched in LIMITERS", fire === "none · fixed" && (await page.getByText("the fire effect (flames, sparks, electric arcs)").count()) === 1, fire);
+  // the monitor, live; the card recognised; the battery limiter unarmed
+  await page.waitForFunction(() => [...document.querySelectorAll(".cp-monitor .cp-row")].some((r) => /main thread \d+ ms late/.test(r.textContent)), null, { timeout: 10000 }).catch(() => {});
+  const mon = (await page.locator(".cp-monitor").first().innerText().catch(() => "")).replace(/\s+/g, " ");
+  check("DIAGNOSTICS: the monitor, live (battery, network, CPU, memory, GPU, engine, device)", ["battery", "network", "CPU", "memory", "GPU", "engine", "device"].every((k) => mon.includes(k)) && /main thread \d+ ms late/.test(mon), mon.slice(0, 220));
+  const rec = (await page.locator(".cp-row", { hasText: "recognised" }).first().innerText().catch(() => "")).replace(/\s+/g, " ");
+  check("DIAGNOSTICS: the card recognised (a software adapter here, named as such)", /software/.test(rec), rec.slice(0, 160));
+  const batt = await page.evaluate(() => {
+    // the switch beside its label (DreamKnob's ToggleSwitch: aria-pressed or aria-checked on the control), up to three levels up
+    let el = [...document.querySelectorAll(".cp-limits *")].find((e) => e.childElementCount === 0 && e.textContent?.trim() === "rest the fire effect on battery");
+    for (let i = 0; el && i < 4; i++, el = el.parentElement) {
+      const sw = el.matches("[aria-pressed],[aria-checked]") ? el : el.querySelector("[aria-pressed],[aria-checked]");
+      if (sw) return sw.getAttribute("aria-pressed") ?? sw.getAttribute("aria-checked");
+    }
+    return null;
+  });
+  check("LIMITERS: rest the fire effect on battery — unarmed by default", batt === "false", String(batt));
   const fireCost = await page.locator(".cp-fire-cost").first().innerText().catch(() => "");
   check("LIMITERS: the fire's cost now, under its switch", /^the fire now: (off|asleep|\d+ frames a second)/.test(fireCost), fireCost);
   // SAMPLING: a preset, an advanced tool switched on, the chips of what the next question sends, one removed
@@ -206,6 +222,17 @@ try {
   check("a second persona keeps its own prompt beside the first", both.length >= 2 && both.some((t) => /Tester/.test(t)) && both.some((t) => /browseML/.test(t)), both.map((t) => t.split("\n")[0]).join(" · "));
   check("its opening message, in a window of its own", (await page.locator(".uif-output", { hasText: "Ready." }).count()) >= 1);
   await ctx.close();
+
+  // ── a handheld: a phone's screen and touch ────────────────────────────────────────────────────────────────────
+  {
+    const phone = await ctxNow.browser()?.newContext?.({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }).catch(() => null);
+    const ctxP = phone ?? await chromium.launchPersistentContext(join(tmp, "profile-phone"), { executablePath: BROWSER, headless: true, args: ["--headless=new"], viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const pp = ctxP.pages?.()[0] ?? (await ctxP.newPage());
+    await pp.goto(`${BASE}/app.html`, { waitUntil: "networkidle" });
+    const ph = await pp.evaluate(() => ({ scroll: document.documentElement.scrollWidth - innerWidth, coarse: matchMedia("(pointer: coarse)").matches }));
+    check("handheld (390×844, touch): no sideways scroll", ph.scroll <= 0 && ph.coarse, JSON.stringify(ph));
+    await ctxP.close();
+  }
 
   // ── the GPU kernel's own page ─────────────────────────────────────────────────────────────────────────────────
   ({ ctx, page } = await open("profile-b"));

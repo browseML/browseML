@@ -148,6 +148,9 @@ body { background: radial-gradient(circle at 50% 0%, #1a160f, #0b0f14 60%) fixed
 .cp-fold-body h4 { margin: 10px 0 4px; font: 700 11px ui-monospace, monospace; letter-spacing: .1em; color: #94a3b8; text-transform: uppercase; }
 .cp-fold-body dl { margin: 0; display: grid; gap: 3px; }
 .cp-row { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 8px; }
+.cp-spark { font-family: ui-monospace, monospace; letter-spacing: -1px; color: #F7931A; opacity: .85; white-space: nowrap; }
+/* handhelds: the monitor's rows stack (label over value) so nothing scrolls sideways at phone width */
+@media (max-width: 480px) { .cp-row { grid-template-columns: minmax(0, 1fr); gap: 0; } .cp-row dt { opacity: .7; font-size: .9em; } .cp-spark { display: block; overflow: hidden; } }
 .cp-row dt { color: #94a3b8; }
 .cp-row dd { margin: 0; overflow-wrap: anywhere; color: #e2e8f0; }
 .cp-row dd.is-ok { color: #a7f3d0; }
@@ -418,7 +421,7 @@ details.cs-card.is-ready > p { margin: 0; padding: 0 12px 10px; color: #a7f3d0; 
 .cp-kept li button { grid-column: 2; grid-row: 1 / span 2; border: 0; background: transparent; color: #64748b; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
 .cp-kept li button:hover { color: var(--stop-red, #F6465D); }
 
-/* the processor's fire across the page (Fire.tsx): above the page, under nothing it could hide — screen blending adds
+/* the fire effect, a visual effect (Fire.tsx): above the page, under nothing it could hide — screen blending adds
    light, black stays clear; never takes a click */
 /* behind the page: html has no background, so body's paints the viewport and this sits between it and the content */
 .cs-fire { position: fixed; left: 0; right: 0; bottom: 0; width: 100vw; height: 45vh; pointer-events: none; z-index: -1; }

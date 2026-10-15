@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// The processor's fire, across the whole page: flames along the bottom of the window whose height and colour follow
+// The fire effect (a visual effect: flames, sparks, electric arcs): flames along the bottom of the window whose height and colour follow
 // what the engine is doing (bankml/pulse.ts — the live writing speed against the best this visit, the prompt being
 // read or warmed, the download, a diagnostic running), embers drifting up over everything, the edges glowing when it
 // runs hot, and electrical surges — branching arcs with a flash — on the engine's own events: blue-white for the GPU's
@@ -13,14 +13,18 @@
 import { useEffect, useRef } from 'react';
 import { activity, follow, onPulse, recentSurges, surgeColor, targetHeat, type Surge } from '../bankml/pulse';
 import { getLimits, onLimits } from './limits';
+import { isHandheld } from '../bankml/gpu';
+import { onBattery, onMonitor } from './monitor';
 
-const CELL = 6;            // screen pixels per fire cell
-const ROWS = 56;           // the automaton's height in cells (the flames reach up to ROWS · CELL at full heat)
-const FRAME = 1000 / 30;
+// a handheld draws less: coarser cells, fewer rows, a shorter strip, fewer frames (its GPU and battery are small)
+const HANDHELD = isHandheld();
+const CELL = HANDHELD ? 9 : 6;   // screen pixels per fire cell
+const ROWS = HANDHELD ? 30 : 56;  // the automaton's height in cells (the flames reach up to ROWS · CELL at full heat)
+const FRAME = 1000 / (HANDHELD ? 20 : 30);
 // while the engine computes (reading, writing, warming, verifying), the CPU is its: 10 frames a second (15 → 10 took
 // Brave from 26–27% to 20–21% of a core in headless Brave, the flames hot without arcs, 0.7.6)
-const FRAME_BUSY = 1000 / 10;
-const STRIP = 0.45;        // the flames' canvas: this share of the window's height, from the bottom (its cost follows
+const FRAME_BUSY = 1000 / (HANDHELD ? 8 : 10);
+const STRIP = HANDHELD ? 0.35 : 0.45;        // the flames' canvas: this share of the window's height, from the bottom (its cost follows
                            // its area: 60% → 40% took Brave from 39–47% to 27% of a core, the flames hot, 0.6.15)
 
 /** black → red → orange → yellow → white, with opacity rising with the intensity (0–36). */
@@ -63,7 +67,9 @@ export function ProcessorFire() {
     resize();
     let heat = 0, flare = 0, raf = 0, last = performance.now(), lastFrame = 0;
     const embers: Ember[] = [], bolts: Bolt[] = [];
-    let enabled = getLimits().fire;
+    // on, unless switched off — or armed to rest on battery (unarmed by default) while the computer runs on it
+    const wanted = () => { const l = getLimits(); return l.fire && !(l.fireOnBattery && onBattery()); };
+    let enabled = wanted();
     stats.on = enabled;
 
     // an arc: from a point on the top edge or a side down toward the fire line, jagged by midpoint displacement, with
@@ -203,7 +209,8 @@ export function ProcessorFire() {
     };
     const wake = () => { if (reduced) { still(); return; } if (!raf && enabled && !document.hidden) { last = performance.now(); raf = requestAnimationFrame(frame); } };
     const offPulse = onPulse((s) => { if (s && enabled && !reduced && !document.hidden) strike(s); wake(); });
-    const offLimits = onLimits(() => { enabled = stats.on = getLimits().fire; if (!enabled) { cancelAnimationFrame(raf); raf = 0; ctx.clearRect(0, 0, W, SH); actx.clearRect(0, 0, W, H); arcsDrawn = false; } else wake(); });
+    const recheck = () => { const was = enabled; enabled = stats.on = wanted(); if (was === enabled) return; if (!enabled) { cancelAnimationFrame(raf); raf = 0; ctx.clearRect(0, 0, W, SH); actx.clearRect(0, 0, W, H); arcsDrawn = false; } else wake(); };
+    const offLimits = onLimits(recheck), offMonitor = onMonitor(recheck);  // the switch, or the battery's state
     const onVis = () => wake();
     const onResize = () => { resize(); wake(); };
     document.addEventListener('visibilitychange', onVis);
@@ -211,7 +218,7 @@ export function ProcessorFire() {
     // a surge that happened before the page drew (the model opened while loading) still shows
     recentSurges(300).forEach(strike);
     wake();
-    return () => { cancelAnimationFrame(raf); offPulse(); offLimits(); document.removeEventListener('visibilitychange', onVis); removeEventListener('resize', onResize); };
+    return () => { cancelAnimationFrame(raf); offPulse(); offLimits(); offMonitor(); document.removeEventListener('visibilitychange', onVis); removeEventListener('resize', onResize); };
   }, []);
   return <><canvas ref={ref} className="cs-fire" aria-hidden /><canvas ref={arcRef} className="cs-arcs" aria-hidden /></>;
 }

@@ -30,6 +30,7 @@ import { BrowseCard } from './BrowseCard';
 import { trackKeyboard } from '../core/keyboard';
 import { ControlPanel } from './ControlPanel';
 import { ProcessorFire } from './Fire';
+import { startMonitor } from './monitor';
 import { activePersona, applyPersona } from './Persona';
 import { measureCores } from './cores';
 import { Faq } from './Faq';
@@ -345,4 +346,5 @@ function Page() {
   );
 }
 
+if (!isOutputWindow()) startMonitor();  // battery, network, CPU, memory, GPU, engine: live from the first moment
 ReactDOM.createRoot(document.getElementById('root')!).render(isOutputWindow() ? <OutputWindow /> : <Page />);

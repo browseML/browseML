@@ -12,18 +12,19 @@
 //   keepCopy    — a model found in a folder is also kept in this browser (off: read from the folder each visit)
 //   diskCopy    — keep a copy of the model on this computer's disk too (HARD DRIVE: saved into a folder the visitor
 //                 chooses, or to Downloads where the browser cannot write folders); off by default
-//   fire        — the processor's fire across the page (flames, embers, electrical surges on the engine's events); on by
+//   fireOnBattery — rest the fire effect while the computer runs on battery (unarmed by default: the visitor arms it)
+//   fire        — the fire effect: a visual effect (flames, sparks, electric arcs on the engine's events); on by
 //                 default, asleep when the engine is idle
-export interface Limits { showReceipts: boolean; spareCore: boolean; lowMemory: boolean; askFirst: boolean; warm: boolean; gpuProbe: boolean; power: 'low-power' | 'high-performance'; rememberFolders: boolean; keepCopy: boolean; diskCopy: boolean; fire: boolean }
+export interface Limits { showReceipts: boolean; spareCore: boolean; lowMemory: boolean; askFirst: boolean; warm: boolean; gpuProbe: boolean; power: 'low-power' | 'high-performance'; rememberFolders: boolean; keepCopy: boolean; diskCopy: boolean; fire: boolean; fireOnBattery: boolean }
 
 const KEY = 'browseml:limits';
-export const DEFAULT_LIMITS = (): Limits => ({ showReceipts: true, spareCore: false, lowMemory: false, askFirst: false, warm: true, gpuProbe: true, power: 'high-performance', rememberFolders: false, keepCopy: true, diskCopy: false, fire: true });
+export const DEFAULT_LIMITS = (): Limits => ({ showReceipts: true, spareCore: false, lowMemory: false, askFirst: false, warm: true, gpuProbe: true, power: 'high-performance', rememberFolders: false, keepCopy: true, diskCopy: false, fire: true, fireOnBattery: false });
 
 export function parseLimits(raw: unknown): Limits {
   const d = DEFAULT_LIMITS(), o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const b = (k: keyof Limits) => (typeof o[k] === 'boolean' ? o[k] as boolean : d[k] as boolean);
   return { showReceipts: b('showReceipts'), spareCore: b('spareCore'), lowMemory: b('lowMemory'), askFirst: b('askFirst'), warm: b('warm'), gpuProbe: b('gpuProbe'),
-    rememberFolders: b('rememberFolders'), keepCopy: b('keepCopy'), diskCopy: b('diskCopy'), fire: b('fire'),
+    rememberFolders: b('rememberFolders'), keepCopy: b('keepCopy'), diskCopy: b('diskCopy'), fire: b('fire'), fireOnBattery: b('fireOnBattery'),
     power: o.power === 'low-power' ? 'low-power' : 'high-performance' };
 }
 
