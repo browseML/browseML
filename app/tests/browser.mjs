@@ -26,6 +26,13 @@ const server = spawn("npx", ["vite", "preview", "--port", String(PORT), "--stric
 for (let i = 0; i < 60; i++) { try { if ((await fetch(`${BASE}/app.html`)).ok) break; } catch {} await wait(500); }
 
 const tmp = mkdtempSync(join(tmpdir(), "browseml-browser-"));
+// a run that is stopped (timeout, Ctrl-C) still removes its profile and its copies of the model (each run's is
+// several hundred MB) and stops its server: the disk this runs on is small
+for (const sig of ["SIGTERM", "SIGINT", "SIGHUP"]) process.on(sig, () => {
+  try { process.kill(-server.pid); } catch {}
+  try { rmSync(tmp, { recursive: true, force: true }); } catch {}
+  process.exit(130);
+});
 const folder = join(tmp, "my-models");
 mkdirSync(folder);
 try { linkSync(join(MODELS, "Bonsai-1.7B-Q1_0.gguf"), join(folder, "Bonsai-1.7B-Q1_0.gguf")); } catch { copyFileSync(join(MODELS, "Bonsai-1.7B-Q1_0.gguf"), join(folder, "Bonsai-1.7B-Q1_0.gguf")); }
