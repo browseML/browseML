@@ -14,6 +14,24 @@ From here the third number rolls over after 9 (0.6.9 → 0.7.0). The releases pu
 | v0.6.14 | 0.7.4 |
 | v0.6.15 | 0.7.5 |
 
+## 0.8.5 — 2026-10-15 — the cache at three levels, with its accuracy; QUALITY from what succeeded
+
+- **The cache, at three levels** (HARD DRIVE, `app/src/bankml/storage.ts`, `CacheReport.tsx`): what browseML keeps
+  (counted entry by entry: the model, kept prompts, its other caches, its records and settings), the **total** this
+  site holds of the browser's quota, and what is **available** — red when the model could not be kept again, orange
+  under twice its size. VISUAL: one bar and the three numbers. ENHANCED: by kind, the rest of the site, persistence,
+  the prompt cache in memory, and accuracy. SCIENTIFIC: exact bytes in both units (kB/MB and KiB/MiB), every entry,
+  the browser's own breakdown where it gives one, and how and when it was read. The level is remembered here.
+- **Accuracy, stated**: browseML's bytes are counted exactly; the browser's estimate is set against the count (in
+  bytes and %, and never shown below it — it lags its own writes); each source's reads that succeeded this visit;
+  how much the count moved over repeated reads.
+- **In the terminal**: `client cache [visual|enhanced|scientific]` prints the same report (`client cache <MiB>`
+  still sets the prompt cache).
+- **QUALITY** (control panel, `app/src/bankml/quality.ts`): accuracy as the answers whose receipt checked, of those
+  delivered; the clarity and genius of the answers that succeeded, by mindX editor.agent's formulas ported to the
+  letter (equal to its Python on the reference texts to 1e-10): median, mean, and how many clear the 0.90 bars.
+- Tests: 151 (9 new). Record: `testing/results/v0.8.5.txt`.
+
 ## 0.8.4 — 2026-10-15 — a host's docs as an atlas (mindX on mindx.pythai.net), and its persona first
 
 - **A host can add to browseML** (`app/src/clientside/host.ts`): `browseml-host.json`, served beside the page and
