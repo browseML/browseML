@@ -5,10 +5,11 @@
 // from it with no download, even after the browser's storage is cleared.
 import { useEffect, useState } from 'react';
 import { Button, IndicatorLamp, ToggleSwitch } from 'dreamknob';
-import { askPersist, browseSettings, clearBrowseCache, downloadState, keptFiles, keptModel, onBrowseSettings, onDownload, persisted, setBrowseSettings, storageEstimate, type KeptFile } from '../bankml/free';
+import { askPersist, browseSettings, clearBrowseCache, downloadState, keptFiles, keptModel, onBrowseSettings, onDownload, persisted, setBrowseSettings, type KeptFile } from '../bankml/free';
 import { canPickFolders, keepFolder } from '../bankml/folders';
-import { MODEL_BYTES, mb } from '../bankml/caps';
+import { mb } from '../bankml/caps';
 import { getLimits, onLimits, setLimits } from './limits';
+import { CacheReport } from './CacheReport';
 
 const GREEN = '#0ECB81', ORANGE = '#F7931A', RED = '#F6465D';
 const SAVED = 'browseml:disk-copy';
@@ -65,14 +66,14 @@ export async function saveCopy(say: Say, forBankml = false): Promise<Saved | nul
 
 export function Disk({ say }: { say: Say }) {
   const [, tick] = useState(0);
-  const [est, setEst] = useState<{ usage: number; quota: number } | null>(null);
   const [kept, setKept] = useState<KeptFile[]>([]);
   const [keep, setKeep] = useState<boolean | null>(null);
   const [saved, setSaved] = useState<Saved | null>(readSaved);
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const limits = getLimits(), s = browseSettings(), dl = downloadState();
-  const refresh = () => { void storageEstimate().then(setEst); void keptFiles().then(setKept); void persisted().then(setKeep); };
+  const [stamp, setStamp] = useState(0);
+  const refresh = () => { void keptFiles().then(setKept); void persisted().then(setKeep); setStamp(n => n + 1); };
   useEffect(() => {
     refresh();
     const a = onLimits(() => tick(n => n + 1)), b = onBrowseSettings(() => tick(n => n + 1));
@@ -88,10 +89,6 @@ export function Disk({ say }: { say: Say }) {
   };
   const owed = limits.diskCopy && !saved && dl.phase === 'verified' && model > 0;
   const twice = !!saved && saved.how === 'folder' && limits.rememberFolders && model > 0;
-  // the browser's estimate can lag its own writes (Chromium reported 0 MB just after the model was stored): what is
-  // in use is at least the model this page knows it keeps
-  const used = est ? Math.max(est.usage, model ?? 0) : 0, lagging = !!est && !!model && est.usage < model;
-  const room = est ? est.quota - used : null;
   const freeBrowserCopy = async () => {
     const n = await clearBrowseCache();
     setLimits({ keepCopy: false });
@@ -101,9 +98,8 @@ export function Disk({ say }: { say: Say }) {
 
   return (
     <div className="cp-disk">
+      <CacheReport stamp={stamp} />
       <dl>
-        <div className="cp-row"><dt>browser</dt><dd>{est ? `${lagging ? 'at least ' : ''}${mb(used)} of ${mb(est.quota)}${lagging ? ' (its estimate lags; REFRESH)' : ''}` : 'not reported'}</dd></div>
-        {room !== null && <div className="cp-row"><dt>room</dt><dd className={room < MODEL_BYTES ? 'is-bad' : undefined}>{mb(Math.max(0, room))}{room < MODEL_BYTES ? ` · under ${mb(MODEL_BYTES)}: free space` : ''}</dd></div>}
         <div className="cp-row"><dt>kept</dt><dd className={keep ? 'is-ok' : undefined}>
           <IndicatorLamp on={!!keep} readOnly size={8} color={keep ? GREEN : ORANGE} aria-label="persisted" /> {keep === null ? 'not reported' : keep ? 'persistent' : 'may be evicted'}
         </dd></div>
