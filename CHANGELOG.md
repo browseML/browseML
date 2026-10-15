@@ -14,6 +14,30 @@ From here the third number rolls over after 9 (0.6.9 → 0.7.0). The releases pu
 | v0.6.14 | 0.7.4 |
 | v0.6.15 | 0.7.5 |
 
+## 0.8.4 — 2026-10-15 — a host's docs as an atlas (mindX on mindx.pythai.net), and its persona first
+
+- **A host can add to browseML** (`app/src/clientside/host.ts`): `browseml-host.json`, served beside the page and
+  absent on browseML's own hosts, names the persona a first visit starts with (a built-in; the visitor's own choice
+  still wins) and docks the host's docs atlas. Only what is well formed is kept: an atlas whose paths are not
+  same-origin is dropped, so the host's sign-in token can never be sent anywhere else. Unit-tested.
+- **The atlas** (`app/src/clientside/Atlas.tsx`): the rage atlas of rage.pythai.net carried to a host's docs, docked in
+  the page with no chooser — branch → path → document, the trail of what was opened, the branches and paths
+  collected, and from a document: read, kindred (its meaning searched), its thread (its neighbours on its path),
+  CONVERGE (what best answers everything collected). On top, the **ragebar**: the host's store searched by words at
+  once and by words and meaning fused when the host's embedder answers (two requests; the fused answer replaces the
+  first), stale requests aborted, a meter red when nothing is found, and a line saying what answered and why not.
+- **mindX's memories, off by default**: a toggle beside the ragebar also searches the host's memories (mindX: by
+  meaning over every embedded memory, by words over the non-telemetry ones); it is off on every visit.
+- **Passages with a question**: a passage pinned with ＋ goes to the model in this browser with the next questions,
+  named by its document (about 1,500 characters at most), until it is unpinned; the record keeps the question as
+  typed. Unit-tested.
+- **On mindx.pythai.net** (`/bankml/`): mindX is the first persona and the atlas is mindX/docs — NAV.md's tree, for
+  signed-in participants (the realm token mindX's own sign-in keeps), served by mindX's `/atlas/docs` and
+  `/atlas/docs/search` (Postgres full-text search fused with pgvectorscale by reciprocal rank; mindX `01215b7e4`).
+- **mindx.persona** knows mindX/docs (595 of 600 tokens) and says what leaves the computer: a question asked here
+  stays; on mindx.pythai.net the ragebar's search words go to mindX.
+- Record: `testing/results/v0.8.4.txt`.
+
 ## 0.8.3 — 2026-10-14 — receipts banked in the browser; network speed exact
 
 - **Receipts banked** (`app/src/bankml/ledger.ts`, bankML's `ledger.rs` in the browser): every verified answer's
