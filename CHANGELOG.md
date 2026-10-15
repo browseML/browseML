@@ -36,7 +36,8 @@ From here the third number rolls over after 9 (0.6.9 → 0.7.0). The releases pu
   `/atlas/docs/search` (Postgres full-text search fused with pgvectorscale by reciprocal rank; mindX `01215b7e4`).
 - **mindx.persona** knows mindX/docs (595 of 600 tokens) and says what leaves the computer: a question asked here
   stays; on mindx.pythai.net the ragebar's search words go to mindX.
-- Record: `testing/results/v0.8.4.txt`.
+- The gate: every step passed (both oracles 9 of 9, the prompt cache, the kernels under SIMD and relaxed SIMD), and
+  65 of 65 browser checks (headless Brave 152); the engines report `browseml 0.8.4`. Record: `testing/results/v0.8.4.txt`.
 
 ## 0.8.3 — 2026-10-14 — receipts banked in the browser; network speed exact
 
