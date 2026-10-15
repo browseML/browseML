@@ -88,6 +88,20 @@ a blockchain by default, the chain an extensible module (iNFT and THOT), and the
 | **handheld GPUs** (Adreno, Mali, Apple) | the engine's workgroup per vendor on handhelds (subgroups of 16–128), the page's layout at phone width, measured on a phone | the kernel's bits per vendor; the oracle |
 | **CPU and GPU speed** | carry on: discrete AMD and NVIDIA measured, subgroups, f16 and attention on the card; each A/B with the GPU share held fixed | answers identical |
 
+## Brave — diagnostics, IPFS delivery, contribution (a plan; asked 2026-10-14)
+
+browseML is tested in Brave and most of its visitors on Linux run it; Brave has an IPFS heritage, a Rust ad and privacy
+engine, and its own wallet. The plan, in order, each step measured before the next:
+
+| step | what | checked by |
+|---|---|---|
+| **brave.diagnostic toolkit** (a module of the control panel) | Brave recognised (`navigator.brave.isBrave()`), its version, Shields' effect on the page (blocked requests, fingerprinting protections that round timers, coarsen `hardwareConcurrency` — the 0.6.5 finding that Brave reports fewer cores — and hide the GPU's name), the file-system-access flag, WebGPU's state; each with what it changes for browseML and the setting that restores it | unit tests on recorded Brave values; a headless Brave check |
+| **IPFS delivery** | the model by its content address (CIDv1 recorded in the pin beside the sha256): from public gateways and, where the visitor runs one, a local IPFS node (Brave's former built-in node is gone; IPFS Desktop / Kubo on localhost:8080 serves the same CIDs) — then the pin, as for every source; peers in the same room via WebRTC (each piece's hash in the pin) | the CID recomputed in the page, then bankML's sha256 |
+| **peer sharing, monitored** | how many pieces came from peers vs servers, the bytes each way, the speed per source (b/s … Tb/s, exact to 18 decimals), in the monitor | the counts against the pieces received |
+| **contribution, proven** | a visitor's CPU and GPU answering node-issued challenges bit-exact (as decided for SHAMBA LUV: proven work only, operator-settled), each result a receipt in the ledger | the challenge's exact answer; the ledger's chain |
+| **BANK PAI** | the proven work recorded as amounts to 18 decimals in the ledger, ready to anchor (the `Anchor` module); a BANK PAI mint against an anchored ledger head, by the owner's signature only — bankML never signs or sends; a contract designed and audited first, on a testnet before any mainnet, with the operator's go-ahead and terms | the contract's tests and audit; the ledger's head on chain |
+| **"skin" Brave** | a browseML theme and new-tab page for Brave (an extension: the control panel, the monitor and the ledger one click away), not a fork of Brave | a load in Brave; the browser checks |
+
 ## The fire effect — energy in use (a visual effect; after the work above)
 
 | module | what | checked by |
