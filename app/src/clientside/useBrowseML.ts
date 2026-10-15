@@ -13,6 +13,7 @@ import { getLimits } from './limits';
 import { personaName } from '../core/context';
 import { rememberedModel } from './Folders';
 import { deliver, type DeliveryHooks, type Outcome } from '../bankml/deliver';
+import { withPassages } from './Atlas';
 
 /** Said in place of an answer while browseML is not ready; the card under it offers the import. */
 export const NOT_READY = 'Click to load the model in your browser.';
@@ -109,7 +110,7 @@ export function useBrowseML(uif: MutableRefObject<UIFContextValue | null>) {
       annotate({ engine: 'browseml', model: browseState()?.model ?? 'Bonsai-1.7B-Q1_0.gguf', receipt: v.receipt ?? null, verified: v.ok, ...(v.usage ? { usage: v.usage } : {}) });
       done(v);
     };
-    return deliver(done => askBrowse(context.system, turnsOf(outputId), text, settle(done), undefined, signal), hooks, {
+    return deliver(done => askBrowse(context.system, turnsOf(outputId), withPassages(text), settle(done), undefined, signal), hooks, {
       where: WHERE, receipts: true, signal,
       prepare: async progress => {
         if (browseState()) return null;

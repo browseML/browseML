@@ -35,6 +35,7 @@ import { exitBrowse } from '../bankml/free';
 import { activePersona, applyPersona } from './Persona';
 import { measureCores } from './cores';
 import { Faq } from './Faq';
+import { Atlas } from './Atlas';
 import { measureTab } from './memory';
 import '../styles/UltimateInputField.css';
 import './clientside.css';
@@ -314,6 +315,7 @@ function Page() {
         <h1 className="cs-mark"><img src="browseML-logo.png" alt="browseML" width="132" height="132" /></h1>
         <p className="cs-line">machine learning in your browser</p>
       </header>
+      <Atlas />
       <div className="cs-dock">
         <UltimateBar
           storageKey={KEY}

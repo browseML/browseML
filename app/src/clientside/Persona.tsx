@@ -10,6 +10,7 @@ import type { UIFContextValue } from '../components/UIFContext';
 import { parsePersona } from '../core/context';
 import { loadPersonaText } from '../bankml/engine';
 import { browseState, warmBrowse } from '../bankml/free';
+import { host, hostReady } from './host';
 
 type Say = (text: string, tone?: 'ok' | 'bad' | 'working') => void;
 export interface Persona { id: string; name: string; opening: string; system_prompt: string }
@@ -23,7 +24,10 @@ const tokens = (t: string) => Math.ceil(t.length / 4);
 
 const load = (): Persona[] => { try { const x = JSON.parse(localStorage.getItem(LIST) || '[]'); return Array.isArray(x) ? x : []; } catch { return []; } };
 const store = (l: Persona[]) => { try { localStorage.setItem(LIST, JSON.stringify(l)); } catch { /* storage off */ } };
-export const activeId = () => { try { return localStorage.getItem(ACTIVE) || BUILTIN; } catch { return BUILTIN; } };
+/** The persona a visit starts with: the visitor's own choice; else the host's (browseml-host.json, e.g. mindX on
+ *  mindx.pythai.net) when it is a built-in; else browseML's own. */
+const firstId = () => { const h = host().persona; return h && builtinFile(h) ? h : BUILTIN; };
+export const activeId = () => { try { return localStorage.getItem(ACTIVE) || firstId(); } catch { return firstId(); } };
 const setActive = (id: string) => { try { localStorage.setItem(ACTIVE, id); } catch { /* storage off */ } };
 
 /** A persona as a .persona file (bankML .persona v1, with its opening message). */
@@ -45,6 +49,7 @@ const savedFns = new Set<() => void>();
 
 /** The persona in use (built in: read from browseml.persona). */
 export async function activePersona(): Promise<Persona> {
+  await hostReady;
   const id = activeId();
   const file = builtinFile(id);
   if (file) { try { return fromFile(await loadPersonaText(file), id); } catch { /* fall back to browseML's own */ } }
