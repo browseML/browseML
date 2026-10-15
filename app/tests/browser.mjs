@@ -57,7 +57,7 @@ try {
   check("no panel at first, T in the field", (await page.locator(".uif-shelves.is-open").count()) === 0 && (await page.locator(".uif-tools-toggle").innerText()) === "T");
   await page.locator(".uif-tools-toggle").click(); await wait(400);
   const folds = (await page.locator(".cp-fold-head").allInnerTexts()).map((t) => t.replace(/[▾▸]/g, "").trim());
-  check("T opens the control panel with its sections", ["NOW", "TOOLS", "CPU · RAM · GPU · CACHE", "ENGINE LOG", "RECEIPTS", "MODELS ON THIS COMPUTER", "HARD DRIVE", "DIALS", "DIAGNOSTICS", "TOOL SUITE", "LIMITERS"].every((f) => folds.includes(f)), folds.join(", "));
+  check("T opens the control panel with its sections", ["NOW", "TOOLS", "CPU · RAM · GPU · CACHE", "ENGINE LOG", "RECEIPTS", "QUALITY", "MODELS ON THIS COMPUTER", "HARD DRIVE", "DIALS", "DIAGNOSTICS", "TOOL SUITE", "LIMITERS"].every((f) => folds.includes(f)), folds.join(", "));
   const pw = await page.evaluate(() => { const a = document.querySelector(".uif-shelves.is-open"); return a.scrollWidth <= a.clientWidth; });
   check("the panel's content fits its width", pw);
   // the fire effect (a visual effect): one canvas that never takes a click, and its switch in LIMITERS
@@ -120,7 +120,16 @@ try {
   const hd = page.locator(".cp-disk");
   await hd.getByRole("button", { name: "REFRESH" }).click(); await wait(1500);
   const rows = (await hd.locator(".cp-row").allInnerTexts()).map((t) => t.replace(/\s+/g, " "));
-  check("HARD DRIVE: the browser's storage and the model kept", rows.some((r) => /browser (at least )?[\d.]+ MB of [\d.]+ MB/.test(r)) && rows.some((r) => /model \d+ MB in browser/.test(r)), rows.join(" | "));
+  check("HARD DRIVE: the browser's storage and the model kept", rows.some((r) => /browseML [\d.]+ [kMG]B/.test(r)) && rows.some((r) => /total [\d.]+ [kMG]B of [\d.]+ [kMG]B/.test(r))
+    && rows.some((r) => /available [\d.]+ [kMG]?B/.test(r)) && rows.some((r) => /model \d+ MB in browser/.test(r)), rows.join(" | "));
+  // the cache report's three levels: ENHANCED adds accuracy, SCIENTIFIC every entry in exact bytes
+  await hd.getByRole("radio", { name: "enhanced" }).click(); await wait(300);
+  const enh = (await hd.locator(".cr-lines").innerText()).replace(/\s+/g, " ");
+  check("HARD DRIVE: ENHANCED — by kind, and the estimate's accuracy against the count", /the model: [\d.]+ MB/.test(enh) && /accuracy: browseML's bytes are counted exactly/.test(enh), enh.slice(0, 200));
+  await hd.getByRole("radio", { name: "scientific" }).click(); await wait(300);
+  const sci = (await hd.locator(".cr-lines").innerText()).replace(/\s+/g, " ");
+  check("HARD DRIVE: SCIENTIFIC — every entry in exact bytes, reads that succeeded", /browseml-models\/Bonsai-1\.7B-Q1_0\.gguf: 248302272 B/.test(sci) && /reads that succeeded/.test(sci), sci.slice(0, 200));
+  await hd.getByRole("radio", { name: "visual" }).click(); await wait(200);
   if (await page.evaluate(() => "showDirectoryPicker" in window)) {
     check("HARD DRIVE: a copy on the disk (this browser writes folders: the picker needs a person)", true, "skipped");
   } else {
