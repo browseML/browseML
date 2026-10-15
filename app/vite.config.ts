@@ -20,7 +20,9 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   server: { headers: isolated, open: '/app.html' },
-  preview: { headers: isolated },
+  // never open a browser tab from preview: the tests and measurements serve with it headless (it inherited server.open
+  // and opened app.html in the visitor's own browser on every run)
+  preview: { headers: isolated, open: false },
   build: {
     outDir: resolve(__dirname, 'dist'),
     emptyOutDir: true,
