@@ -36,6 +36,7 @@ import { activePersona, applyPersona } from './Persona';
 import { measureCores } from './cores';
 import { Faq } from './Faq';
 import { Atlas } from './Atlas';
+import { LEVELS, reportLines, storageReport, type Detail } from '../bankml/storage';
 import { measureTab } from './memory';
 import '../styles/UltimateInputField.css';
 import './clientside.css';
@@ -215,7 +216,7 @@ function Page() {
     },
     {
       id: 'client', label: 'Client', command: 'client', aliases: ['knobs'], icon: '🎛',
-      description: 'client [threads <n>|ram <ctx>|cache <MiB>|answer <tokens>|apply|unload|clear|measure] - what bankML may take of this computer; with nothing, the settings and the advice from what ran here',
+      description: 'client [threads <n>|ram <ctx>|cache <MiB>|cache [visual|enhanced|scientific]|answer <tokens>|apply|unload|clear|measure] - what bankML may take of this computer; cache with no number: what browseML keeps, the total, what is available; with nothing, the settings and the advice from what ran here',
       async run(ctx) {
         const [sub, arg] = ctx.args, n = Number(arg);
         const s = browseSettings();
@@ -239,6 +240,11 @@ function Page() {
             setBrowseSettings({ ctx: c }); return ctx.print(`context ${c}: at most ${mb(ramEstimate(c, s.cacheRam))} · client apply to reload`);
           }
           case 'cache': {
+            if (!arg || (LEVELS as readonly string[]).includes(arg)) {  // the report: what browseML keeps, the total, what is available
+              const r = await storageReport();
+              reportLines(r, (arg as Detail) || 'visual', s.cacheRam).forEach(l => ctx.print(l));
+              return;
+            }
             const c = pick(CACHE_CHOICES, n);
             if (c === null) return ctx.print(`client cache: one of ${CACHE_CHOICES.join(', ')} MiB`, 'err');
             setBrowseSettings({ cacheRam: c }); return ctx.print(`prompt cache ${c} MiB: client apply to reload`);
@@ -268,7 +274,7 @@ function Page() {
             const m = await measureTab();
             return ctx.print(m.bytes !== null ? `this tab holds ${mb(m.bytes)} (${m.how})` : m.how, m.bytes !== null ? 'out' : 'err');
           }
-          default: return ctx.print('client threads|ram|cache|answer <n> · apply · unload · clear yes · measure', 'err');
+          default: return ctx.print('client threads|ram|cache|answer <n> · cache [visual|enhanced|scientific] · apply · unload · clear yes · measure', 'err');
         }
       },
     },

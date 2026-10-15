@@ -485,3 +485,23 @@ details.cs-card.is-ready > p { margin: 0; padding: 0 12px 10px; color: #a7f3d0; 
 .atl-link.is-mem { cursor: default; color: #cbd5e1; font-weight: 500; }
 .atl-foot { margin: 10px 0 2px; color: #7d8ea1; font-size: 11px; }
 @media (max-width: 640px) { .atl { padding: 0 12px; } .atl-body { padding: 8px; } .atl-kids { padding-left: 10px; } }
+
+/* ── CACHE (CacheReport.tsx): what browseML keeps, the total, what is available — three levels of detail ── */
+.cr { margin: 0 0 10px; }
+.cr-levels { display: inline-flex; gap: 0; border: 1px solid #2a3542; border-radius: 10px; overflow: hidden; margin: 2px 0 8px; }
+.cr-level { all: unset; cursor: pointer; padding: 3px 10px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #aab8c6; }
+.cr-level + .cr-level { border-left: 1px solid #2a3542; }
+.cr-level.is-on { background: var(--candle-green, #0ECB81); color: #04140d; font-weight: 600; }
+.cr-level:focus-visible { outline: 2px solid var(--btc-orange, #F7931A); outline-offset: -2px; }
+.cr-bar { display: flex; height: 10px; border-radius: 5px; background: #16202b; overflow: hidden; margin: 0 0 6px; }
+.cr-seg { display: block; height: 100%; }
+.cr-nums { margin: 0; }
+.cr-nums small { color: #8ea0b4; }
+.cr-lines { list-style: none; margin: 6px 0 0; padding: 0; font-size: 12px; color: #b6c4d2; line-height: 1.45; overflow-wrap: anywhere; }
+.cr-lines li.is-sub { padding-left: 12px; color: #9fb0c2; }
+.cr-lines i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+/* ── QUALITY (Quality.tsx): accuracy, and clarity and genius of what succeeded ── */
+.qa-row { margin: 2px 0 6px; }
+.qa-meter { position: relative; height: 6px; border-radius: 3px; background: #16202b; margin: 2px 0 0; }
+.qa-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--btc-orange, #F7931A); }
+.qa-bar { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--candle-green, #0ECB81); }
