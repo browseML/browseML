@@ -14,6 +14,25 @@ From here the third number rolls over after 9 (0.6.9 → 0.7.0). The releases pu
 | v0.6.14 | 0.7.4 |
 | v0.6.15 | 0.7.5 |
 
+## 0.8.1 — 2026-10-14 — the monitor, and graphics cards recognised
+
+- **The monitor, live** (DIAGNOSTICS → Monitor): battery (level, charging, time left), network (online, type, speed,
+  round trip, changes this visit), the CPU (the system's pressure where the browser offers it, how late the page's main
+  thread runs, long tasks), memory (page heap, engine), the GPU (what the card did in the engine: share, busy against
+  its limit) and the engine's live speed, with short histories. Kept current for as long as the page is open: the
+  browser's own events, and one tick a second (none in a background tab).
+- **Graphics cards recognised**: vendor, model, and integrated · discrete · software · handheld, from WebGPU's adapter
+  and WebGL's renderer (ANGLE and Mesa strings), with what bankML does with such a card; a hidden model is "not named",
+  never guessed. Unit tests on real strings: Radeon Vega 3, GeForce RTX 3060, RX 6800 XT, Radeon 780M, UHD 620,
+  Arc A770, Apple M2 and Apple GPU, Adreno 740, Mali-G78, SwiftShader, llvmpipe.
+- **Handhelds**: recognised (the browser's mobile flag, or a coarse pointer on a small screen); the page draws less on
+  one; at phone width the panel's rows stack, with no sideways scroll (browser-checked at 390×844 with touch).
+- **"rest the fire effect on battery"** in LIMITERS — unarmed by default.
+- **The fire effect named for what it is**: a visual effect showing the energy in use (flames, sparks, electric arcs).
+- The GPU verdict's header comment no longer says browseML answers on the CPU only.
+- TODO: the receipts ledger (bankML first: 18-decimal amounts, a keccak256 chain, server and client, external
+  inference, chain-ready by module — THOT, iNFT), monitoring and handheld GPUs, the electric effect by CPU %.
+
 ## 0.8.0 — 2026-10-14 — the fire knows your record; two ideas measured before building
 
 - **The fire's reference is this browser's record**: at load, the best writing speed recorded here before (its own

@@ -25,7 +25,7 @@ State at **0.6.8** (2026-10-13), engine bankML `f618309` (branch `browseml`).
 | **server and client** | bankML's host registry (`host.rs`) names browseML a client host — the visitor's machine, nothing leaves it — and `bankml serve` a server host; engine work lands in bankML first and is pinned here |
 | **checked by** | `testing/release.sh` (engines, kernels under Node's WASI, the download, both oracles, the prompt cache, the app, the model's pin) and `testing/browser.sh` (headless Brave), recorded in `testing/results/v<version>.txt` |
 
-## Versions, from the first experiments to 0.8.0
+## Versions, from the first experiments to 0.8.1
 
 Before this repository, browseML lived in bankML (`browseML/`, from `9c63fa1`, 2026-10-08) and was shown on Hugging
 Face Spaces; [HISTORY.md](../HISTORY.md) maps each experiment to its code. The details of each release are in the
@@ -63,6 +63,7 @@ names); from 0.7.6 the tags follow the numbering.
 | 0.7.8 | 2026-10-14 | the explanation brought up to date (the GPU now, the fire) | `262a27a` |
 | 0.7.9 | 2026-10-14 | usage.md: the fire's cost under its switch | `262a27a` |
 | 0.8.0 | 2026-10-14 | the fire scaled to this browser's record; speculative decoding simulated (×1.04) and not built | `262a27a` |
+| 0.8.1 | 2026-10-14 | the monitor (battery, network, CPU, memory, GPU, engine), graphics cards recognised, handhelds | `2bb8056` |
 
 ## The pieces
 
@@ -269,7 +270,7 @@ Nothing is a silent wait. In the browseML app:
 
 ## Limitations
 
-What browseML does not do, or does only under conditions, at 0.8.0.
+What browseML does not do, or does only under conditions, at 0.8.1.
 
 **Where it runs**
 - **Threads need cross-origin isolation** (COOP `same-origin`, COEP `credentialless` or `require-corp`). Without it,
