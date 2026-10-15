@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// The fire effect (a visual effect: flames, sparks, electric arcs): flames along the bottom of the window whose height and colour follow
+// The fire effect — a visual effect showing the energy in use (flames, sparks, electric arcs): flames along the bottom of the window whose height and colour follow
 // what the engine is doing (bankml/pulse.ts — the live writing speed against the best this visit, the prompt being
 // read or warmed, the download, a diagnostic running), embers drifting up over everything, the edges glowing when it
 // runs hot, and electrical surges — branching arcs with a flash — on the engine's own events: blue-white for the GPU's

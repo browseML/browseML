@@ -323,7 +323,7 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
           <ToggleSwitch on={limits.askFirst} color={ORANGE} label="ask before downloading the model" onChange={on => setLimits({ askFirst: on })} />
           <ToggleSwitch on={limits.warm} color={ORANGE} label="warm the prompt in the background" onChange={on => setLimits({ warm: on })} />
           <ToggleSwitch on={limits.gpuProbe} color={ORANGE} label="allow the GPU probe" onChange={on => setLimits({ gpuProbe: on })} />
-          <ToggleSwitch on={limits.fire} color={ORANGE} label="the fire effect (flames, sparks, electric arcs)" onChange={on => setLimits({ fire: on })} />
+          <ToggleSwitch on={limits.fire} color={ORANGE} label="the fire effect: energy in use (flames, sparks, electric arcs)" onChange={on => setLimits({ fire: on })} />
           <ToggleSwitch on={limits.fireOnBattery} color={ORANGE} label="rest the fire effect on battery" onChange={on => setLimits({ fireOnBattery: on })} />
         </div>
         <FireCost />

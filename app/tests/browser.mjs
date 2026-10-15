@@ -55,7 +55,7 @@ try {
   check("the panel's content fits its width", pw);
   // the fire effect (a visual effect): one canvas that never takes a click, and its switch in LIMITERS
   const fire = await page.evaluate(() => { const c = document.querySelector("canvas.cs-fire"); return c ? getComputedStyle(c).pointerEvents + " · " + getComputedStyle(c).position : ""; });
-  check("the fire effect: a canvas that takes no clicks, switched in LIMITERS", fire === "none · fixed" && (await page.getByText("the fire effect (flames, sparks, electric arcs)").count()) === 1, fire);
+  check("the fire effect: a canvas that takes no clicks, switched in LIMITERS", fire === "none · fixed" && (await page.getByText("the fire effect: energy in use (flames, sparks, electric arcs)").count()) === 1, fire);
   // the monitor, live; the card recognised; the battery limiter unarmed
   await page.waitForFunction(() => [...document.querySelectorAll(".cp-monitor .cp-row")].some((r) => /main thread \d+ ms late/.test(r.textContent)), null, { timeout: 10000 }).catch(() => {});
   const mon = (await page.locator(".cp-monitor").first().innerText().catch(() => "")).replace(/\s+/g, " ");

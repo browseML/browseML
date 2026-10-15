@@ -88,6 +88,13 @@ a blockchain by default, the chain an extensible module (iNFT and THOT), and the
 | **handheld GPUs** (Adreno, Mali, Apple) | the engine's workgroup per vendor on handhelds (subgroups of 16–128), the page's layout at phone width, measured on a phone | the kernel's bits per vendor; the oracle |
 | **CPU and GPU speed** | carry on: discrete AMD and NVIDIA measured, subgroups, f16 and attention on the card; each A/B with the GPU share held fixed | answers identical |
 
+## The fire effect — energy in use (a visual effect; after the work above)
+
+| module | what | checked by |
+|---|---|---|
+| **energy in use** | the flames show the energy the engine is using (its work now against its best) | the pulse's unit tests |
+| **electric effect by CPU %** | sparks and arcs that grow with the CPU's use, **raging at 100%** (from the monitor's CPU readings and the threads claimed) | unit tests on the mapping; a look on the page |
+
 ## The organisation's repositories
 
 | repository | what it holds | first step |
