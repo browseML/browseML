@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // The load, said as it happens — after PYTHAI/browseML's Space (its status line, bar and environment line), with more:
-//   downloading — the bar, MB of MB, MB/s, time left, elapsed, the source it comes from, pieces asked for again
+//   downloading — the bar, MB of MB, the speed (b/s … Tb/s), time left, elapsed, the source it comes from, pieces asked for again
 //   in this browser — no download
 //   verifying   — bankML's guard and the sha256 of the whole model against its pin, with a clock
 //   ready       — what bankML verified, its threads and build, and how long the start took (from the usage records)
@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import { browseDiag, browseState, cancelDownload, download, pauseDownload } from '../bankml/free';
 import { useDownload } from '../bankml/ui/browse';
 import { mb, readCaps } from '../bankml/caps';
+import { fmtRate } from '../bankml/netrate';
 import { summarize, type Usage } from '../bankml/usage';
 
 const secs = (s: number | null | undefined) => (s === null || s === undefined || !isFinite(s) ? '?' : s < 60 ? `${s.toFixed(1)} s` : `${Math.floor(s / 60)} min ${Math.round(s % 60)} s`);
@@ -49,7 +50,7 @@ export function Status({ usage, gpu }: { usage: Usage; gpu: string }) {
     bar = pct; tone = 'working';
     const elapsed = s.started ? (performance.now() - s.started) / 1000 : null;
     line = `downloading the model: ${mb(s.got)} of ${mb(s.total)} (${pct.toFixed(0)}%)`
-      + (s.rate ? ` · ${(s.rate / 1e6).toFixed(1)} MB/s` : '') + (s.eta !== null ? ` · about ${secs(s.eta)} left` : '')
+      + (s.rate ? ` · ${fmtRate(s.rate)}` : '') + (s.eta !== null ? ` · about ${secs(s.eta)} left` : '')
       + (elapsed !== null ? ` · ${secs(elapsed)} so far` : '') + (s.source ? ` · from ${s.source}` : '')
       + (s.retries ? ` · ${s.retries} piece${s.retries === 1 ? '' : 's'} asked for again` : '')
       + (s.phase === 'paused' ? ' · paused: resumes from the exact byte' : ' · once; it stays in this browser');
@@ -69,14 +70,14 @@ export function Status({ usage, gpu }: { usage: Usage; gpu: string }) {
   const env = [
     `${caps.cores ?? '?'} CPU threads reported`,
     caps.memoryGB ? `${caps.memoryGB >= 8 ? '≥ 8' : caps.memoryGB} GB RAM reported` : 'RAM not reported',
-    gpu ? `GPU ${gpu} (not in the forward pass yet: the engine runs on the CPU)` : 'GPU not reported',
+    gpu ? `GPU ${gpu} (bankML gives it the rows it checked and measured faster)` : 'GPU not reported',
     caps.isolated ? `cross-origin isolated: bankML may take up to 8 threads` : 'not cross-origin isolated: one thread',
   ].join(' · ');
 
   return (
     <div className="cp-status" aria-live="polite">
       {bar !== null && (
-        <div className="bk-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(bar)} aria-label="Download progress"><span style={{ width: `${bar}%` }} /></div>
+        <div className={`bk-bar ${bar >= 100 || s.phase === 'verified' ? 'is-done' : ''}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(bar)} aria-label="Download progress"><span style={{ width: `${bar}%` }} /></div>
       )}
       <p className={`cp-status-line ${tone ? `is-${tone}` : ''}`}>{line}</p>
       {(s.phase === 'downloading' || s.phase === 'paused' || s.phase === 'failed') && (

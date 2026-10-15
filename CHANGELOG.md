@@ -14,6 +14,26 @@ From here the third number rolls over after 9 (0.6.9 → 0.7.0). The releases pu
 | v0.6.14 | 0.7.4 |
 | v0.6.15 | 0.7.5 |
 
+## 0.8.3 — 2026-10-14 — receipts banked in the browser; network speed exact
+
+- **Receipts banked** (`app/src/bankml/ledger.ts`, bankML's `ledger.rs` in the browser): every verified answer's
+  receipt is banked in this browser's ledger — its tokens exact to 18 decimal places (BigInt of 10⁻¹⁸, never a float),
+  each entry hash-chained by keccak256 (the EVM's), the head committing to every entry. The same canonical bytes as
+  bankML: the browser reproduces bankML's shared vector byte for byte (head `7b6663da…0a65`), and a ledger written here
+  passes `bankml ledger verify`. RECEIPTS shows the entries, the exact token total and the head, with VERIFY and EXPORT
+  (JSON lines). Unit-tested (keccak256 against Solidity's selector and sAGI's vectors; 0.1 + 0.2 = 0.3; a changed entry
+  found); browser-checked.
+- **bankML `bc013cf`** (pinned): `ledger.rs` — receipts banked by `bankml serve --ledger FILE`, `bankml ledger
+  verify|totals`, the chain as an extensible module (none by default; THOT and iNFT next; bankML never signs or sends).
+- **Network speed as networks count it**: bits per second in the unit that fits — b/s, kb/s, Mb/s, Gb/s, Tb/s — in the
+  download's progress, DIAGNOSTICS, the records and the SPEED tool; and for the record, exact to 18 decimals (bits ×
+  10¹⁸ ÷ elapsed microseconds, integer arithmetic), in the engine log and the SPEED tool. The 18 decimals are exact for
+  what was measured; the browser's clock is coarser (tens of microseconds).
+- **The cache first, said so**: before downloading, browseML checks this browser for the model and says what it found
+  (already here: no download; or not yet: downloaded once and kept).
+- **A finished download in terminal green** (#33FF66) on the progress bar.
+- The status line no longer says the GPU is not in the forward pass.
+
 ## 0.8.2 — 2026-10-14 — RESET and a clean exit; the monitor charted; mindX as a persona; embeddings assessed
 
 - **CLEAR .memory, CLEAR .history and RESET** (TOOLS, under ON · OFF · CLEAR): each asks twice (no browser dialogs);

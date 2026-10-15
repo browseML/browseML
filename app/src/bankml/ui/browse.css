@@ -13,6 +13,8 @@
 .bk-dl { margin: 6px 0; }
 .bk-bar { height: 8px; border-radius: 999px; background: #1f2933; overflow: hidden; }
 .bk-bar > span { display: block; height: 100%; background: var(--btc-orange); transition: width .15s linear; }
+/* done: terminal green (#33FF66), the download complete and the model kept */
+.bk-bar.is-done > span { background: #33FF66; box-shadow: 0 0 8px rgba(51, 255, 102, .55); }
 .bk-dl-line { margin: 6px 0; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; color: #cbd5e1; overflow-wrap: anywhere; }
 .bk-dl-line.is-working { color: var(--btc-orange); }
 .bk-dl-line.is-ok { color: var(--candle-green); }

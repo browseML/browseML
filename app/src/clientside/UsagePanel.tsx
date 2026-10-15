@@ -8,6 +8,7 @@ import { advise, clearUsage, summarize, type Usage } from '../bankml/usage';
 import { useBrowseSettings } from '../bankml/ui/browse';
 import { browseMaxThreads } from '../bankml/free';
 import { mb, readCaps } from '../bankml/caps';
+import { fmtRate } from '../bankml/netrate';
 
 const s1 = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 
@@ -53,7 +54,7 @@ export function UsagePanel({ usage }: { usage: Usage }) {
             <Row k="last load">{new Date(l.at).toLocaleString()} · {l.build || 'browseml.wasm'} · {l.threads} thread{l.threads === 1 ? '' : 's'} · context {l.ctx}{l.cacheRam ? ` · cache ${l.cacheRam} MiB` : ''}</Row>
             <Row k="the model">{l.source === 'cache'
               ? `from this browser's cache in ${s1(l.modelMs)}`
-              : `downloaded ${mb(l.fetched)} in ${s1(l.modelMs)} (${(l.fetched / 1e6 / Math.max(0.001, l.modelMs / 1000)).toFixed(1)} MB/s)${l.retries ? ` · ${l.retries} piece${l.retries === 1 ? '' : 's'} retried` : ''}`}</Row>
+              : `downloaded ${mb(l.fetched)} in ${s1(l.modelMs)} (${fmtRate(l.fetched / Math.max(0.001, l.modelMs / 1000))})${l.retries ? ` · ${l.retries} piece${l.retries === 1 ? '' : 's'} retried` : ''}`}</Row>
             <Row k="verified">the guard, the sha256 pin and the weights in {s1(l.openMs)}</Row>
             <Row k="engine memory" tone={caps.memoryGB && l.memory > caps.memoryGB * 1e9 * 0.5 ? 'bad' : undefined}>{mb(l.memory)} once open</Row>
           </>

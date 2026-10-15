@@ -7,6 +7,8 @@ import type { Turn, Verdict } from './engine';
 import { sha256hex } from './engine';
 import { ctxCapFor, mb } from './caps';
 import { recordAnswer, recordLoad, recordWarm, usageLog } from './usage';
+import { bankReceipt } from './ledger';
+import { exactRate, fmtRate } from './netrate';
 import { activity, noteRate, seedBest, setActivity, setReady, surge, token } from './pulse';
 import { getLimits } from '../clientside/limits';
 
@@ -281,7 +283,7 @@ export function onDownload(f: (s: DownloadState) => void) { dlFns.add(f); return
 
 let abort: AbortController | null = null;
 /** The last finished import, for the next load's usage record. */
-let lastDownload: { fetched: number; retries: number; ms: number } | null = null;
+let lastDownload: { fetched: number; retries: number; ms: number; bitsPerSec?: string } | null = null;
 /** The bytes so far, kept in this tab's memory only while paused or after a dropped connection (resumed with an HTTP
  *  Range request); a reload loses them. */
 let partial: Uint8Array<ArrayBuffer> | null = null;
@@ -325,7 +327,10 @@ export async function download(): Promise<Browsed | null> {
   if (dl.phase === 'downloading' || dl.phase === 'saving' || dl.phase === 'verifying') return null;
   const b = await mod();
   const M = b.MODEL;
-  if (await b.isCached()) return verifyKept();
+  // the cache first: a model already in this browser is never downloaded again
+  engineLog('step', 'checking this browser for the model before downloading…');
+  if (await b.isCached()) { engineLog('ok', 'the model is already in this browser: no download'); return verifyKept(); }
+  engineLog('step', 'not in this browser yet: it will be downloaded once and kept here');
   // room for it first: a full disk (the browser's quota for this site) found before 248 MB are pulled, not after
   const room = await storageEstimate();
   if (room && room.quota - room.usage < M.bytes - (partial ? dl.got : 0) + (16 << 20)) {
@@ -403,8 +408,9 @@ export async function download(): Promise<Browsed | null> {
       throw new Error(`the model could not be kept in this browser (${String((e as Error).message || e)}): free some storage and retry`);
     }
     partial = null;
-    lastDownload = { fetched: M.bytes - from, retries, ms: Math.round(performance.now() - started) };
-    engineLog('ok', `downloaded ${MBs(M.bytes - from)} in ${(lastDownload.ms / 1000).toFixed(1)} s (${((M.bytes - from) / 1e6 / Math.max(0.001, lastDownload.ms / 1000)).toFixed(1)} MB/s)${retries ? `, ${retries} piece(s) asked for again` : ''}${dl.source ? ` · from ${dl.source}` : ''}`);
+    const elapsed = performance.now() - started;
+    lastDownload = { fetched: M.bytes - from, retries, ms: Math.round(elapsed), bitsPerSec: exactRate(M.bytes - from, elapsed) };
+    engineLog('ok', `downloaded ${MBs(M.bytes - from)} in ${(elapsed / 1000).toFixed(1)} s (${fmtRate((M.bytes - from) / Math.max(0.001, elapsed / 1000))}; exactly ${lastDownload.bitsPerSec} b/s as measured)${retries ? `, ${retries} piece(s) asked for again` : ''}${dl.source ? ` · from ${dl.source}` : ''}`);
     return verifyKept();
   } catch (e) {
     // paused or cancelled: pause() and cancel() set the state; a pause resumes from the exact byte
@@ -705,6 +711,12 @@ export async function* askBrowse(composed: string, turns: Turn[], message: strin
     promptMs: Number(tm.prompt_ms) || 0, genMs: Number(tm.predicted_ms) || 0, memory: Number(b.memoryBytes) || 0,
   });
   const ok = !!receipt && (await sha256hex(text)) === receipt.response_sha256;
+  // banked (ledger.ts): a verified receipt only, its tokens exact to 18 decimals, hash-chained as bankML banks them
+  if (ok) {
+    const bk = bankReceipt({ model: receipt.model_sha256 ?? v.sha256, request_sha256: String(receipt.request_sha256 ?? ''), response_sha256: String(receipt.response_sha256),
+      prompt_tokens: Number(u.prompt_tokens) || 0, completion_tokens: Number(u.completion_tokens) || 0 });
+    if (bk) engineLog('ok', `banked: entry ${bk.entry.seq} · head 0x${bk.hash.slice(0, 12)}…`);
+  }
   surge(ok ? 'receipt' : 'error', ok ? 0.5 : 0.9);
   engineLog(ok ? 'ok' : 'error', `${ok ? 'receipt ✓' : receipt ? 'receipt ✗ (the text does not match its sha256)' : 'no receipt'} · ${u.prompt_tokens ?? '?'} prompt (${tm.cache_n ?? 0} reused) + ${u.completion_tokens ?? '?'} tokens · reading ${Number(tm.prompt_per_second || 0).toFixed(2)}, writing ${Number(tm.predicted_per_second || 0).toFixed(2)} tok/s`);
   done({

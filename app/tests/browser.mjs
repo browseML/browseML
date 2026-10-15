@@ -159,6 +159,14 @@ try {
   }));
   check("the receipt kept in .history", stored.history.length >= 1, `${stored.history.length} exchange(s) with a receipt`);
   check("the receipt kept in .memory as a delivery record", stored.memory.length >= 1, `${stored.memory.length} delivery record(s)`);
+  // banked: the verified receipt in this browser's ledger (bankML's format: 18 decimals, keccak256 chain), VERIFY passes
+  const led = await page.evaluate(() => (localStorage.getItem("browseml:ledger") || "").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)));
+  check("the receipt banked in the ledger (tokens to 18 decimals, hash-chained)", led.length >= 1 && /^\d+\.\d{18}$/.test(led[0].tokens) && /^[0-9a-f]{64}$/.test(led[0].hash) && led[0].prev === "0".repeat(64), led[0] ? `${led.length} entr${led.length === 1 ? "y" : "ies"} · tokens ${led[0].tokens} · hash ${led[0].hash.slice(0, 12)}…` : "none");
+  await page.locator(".cp-fold-head", { hasText: "RECEIPTS" }).click(); await wait(300);
+  await page.locator(".cp-ledger").getByRole("button", { name: "VERIFY" }).click(); await wait(300);
+  const ver = await page.locator(".cp-said").innerText().catch(() => "");
+  check("RECEIPTS · VERIFY: the ledger's chain holds", /ledger verified: \d+ entr/.test(ver), ver.slice(0, 100));
+  await page.locator(".cp-fold-head", { hasText: "RECEIPTS" }).click(); await wait(300);  // folded again, as it was
   // the response window: no reply field unless chosen in its ⋯ menu
   const win = page.locator(".uif-output").first();
   check("a response window has no reply field unless chosen", (await win.locator(".uif-output-reply").count()) === 0);
@@ -171,6 +179,7 @@ try {
   check("NOW: the answer in the speed chart", (await page.locator(".cp-chart svg rect").count()) >= 1, (await page.locator(".cp-chart figcaption").innerText().catch(() => "")).replace(/\s+/g, " "));
   // arranging: HARD DRIVE dragged by its grip to the top, then hidden, shown, and the layout reset
   const order = () => page.locator(".cp-arrange > [data-arrange]").evaluateAll((els) => els.map((e) => e.getAttribute("data-arrange")));
+  await page.locator(".cp-arrange > [data-arrange]").first().scrollIntoViewIfNeeded(); await wait(200);  // the panel at its top
   const grip = await page.locator('[data-arrange="disk"] .cp-grip').boundingBox(), top = await page.locator(".cp-arrange > [data-arrange]").first().boundingBox();
   await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2); await page.mouse.down();
   await page.mouse.move(grip.x + 4, top.y + 6, { steps: 12 }); await page.mouse.up(); await wait(300);

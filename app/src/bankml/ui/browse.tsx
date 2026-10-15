@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 // browseML's download in the page: its state as a hook, the visitor's settings as a hook, and the download's feedback
-// (MB done of total, MB/s, time left, "checking sha256…", "verified ✓" or the failure with a retry; pause and cancel).
+// (MB done of total, the speed in b/s … Tb/s, time left, "checking sha256…", "verified ✓" or the failure with a retry; pause and cancel).
 import { useEffect, useState } from 'react';
 import { browseSettings, cancelDownload, downloadState, onBrowseSettings, onDownload, pauseDownload, type DownloadState } from '../free';
 import { mb } from '../caps';
 import './browse.css';
+import { fmtRate } from '../netrate';
 
 export function useDownload(): DownloadState {
   const [s, set] = useState(downloadState);
@@ -31,7 +32,7 @@ export function DownloadProgress({ s, onRetry }: { s: DownloadState; onRetry(): 
           </div>
           <p className={`bk-dl-line ${s.phase === 'downloading' ? 'is-working' : ''}`}>
             {mb(s.got)} of {mb(s.total)}
-            {s.phase === 'downloading' && s.rate ? ` · ${(s.rate / 1e6).toFixed(1)} MB/s` : ''}
+            {s.phase === 'downloading' && s.rate ? ` · ${fmtRate(s.rate)}` : ''}
             {s.phase === 'downloading' && s.eta !== null ? ` · ${secs(s.eta)} left` : ''}
             {s.phase === 'paused' ? ' · paused (kept in this tab\'s memory only; resumes where it stopped)' : ''}
           </p>

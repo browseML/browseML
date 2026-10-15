@@ -39,12 +39,14 @@ import { SamplingDials } from './Sampling';
 import { Builder } from './Builder';
 import { Arrange, useArrange } from './Arrange';
 import { MonitorChart, SpeedChart, Trace } from './Charts';
+import { formatAmount, myLedger, onLedger } from '../bankml/ledger';
 import { ReceiptsSection } from './Receipt';
 import { gpuVerdict, probeGpu, readGpu, recogniseGpu, isHandheld, KEY_FEATURES, type GpuExact, type GpuProbe, type GpuReport } from '../bankml/gpu';
 import { monitor, onMonitor } from './monitor';
 import { ClientRack, useTick, useUsage } from './ClientRack';
 import { cpu, memory, ping, sensors, speed, storage, type Sensors } from './tools';
 import { getLimits, onLimits, setLimits, type Limits } from './limits';
+import { exactRate, fmtRate } from '../bankml/netrate';
 
 const GREEN = '#0ECB81', ORANGE = '#F7931A', RED = '#F6465D';
 /** The monitor, live: battery, network, CPU (pressure, the main thread's lag, long tasks), memory, the GPU (what the
@@ -91,6 +93,28 @@ function GpuLiveRows({ g, on }: { g: GpuLive | null; on: boolean }) {
     <Row k="products">{g.products_on_card} on the card{all ? ` (${p(g.products_on_card / all)})` : ''} · {g.products_on_cpu_resting} on the CPU while it rested{g.products_on_cpu_memory ? ` · ${g.products_on_cpu_memory} over its memory limit` : ''}</Row>
     <Row k="shapes">{g.shapes_on_card} decided for the card · {g.shapes_on_cpu} for the CPU (measured faster there){g.shapes_tuning ? ` · ${g.shapes_tuning} being measured` : ''}</Row>
   </>);
+}
+
+/** The ledger (ledger.ts): every verified receipt banked here, exact to 18 decimals, hash-chained as bankML's;
+ *  VERIFY recomputes every hash, EXPORT saves it as JSON lines (`bankml ledger verify FILE` checks the same file). */
+function LedgerRows({ say }: { say: (t: string, tone?: 'ok' | 'bad' | 'working') => void }) {
+  const [, tick] = useState(0);
+  useEffect(() => onLedger(() => tick(n => n + 1)), []);
+  const l = myLedger(), t = l.totals()['*'];
+  const verify = () => { const e = l.verify(); say(e ? `ledger: ${e}` : `ledger verified: ${l.entries.length} entries, head 0x${l.head().slice(0, 16)}…`, e ? 'bad' : 'ok'); };
+  const exportIt = () => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([l.toJSONL()], { type: 'application/jsonl' })); a.download = 'browseml-ledger.jsonl'; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+  return (
+    <div className="cp-ledger">
+      <dl>
+        <Row k="ledger">{l.entries.length ? `${l.entries.length} receipt${l.entries.length === 1 ? '' : 's'} banked · ${formatAmount(t.tokens)} tokens · head 0x${l.head().slice(0, 12)}…` : 'no receipts banked yet: each verified answer is banked here'}</Row>
+      </dl>
+      <div className="cp-buttons"><Button onClick={verify} disabled={!l.entries.length}>VERIFY</Button><Button onClick={exportIt} disabled={!l.entries.length}>EXPORT</Button></div>
+    </div>
+  );
 }
 
 /** The fire's own cost, measured on itself (Fire.tsx), refreshed each second while DIAGNOSTICS is open. */
@@ -190,7 +214,7 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
     { id: 'ping', name: 'PING', knob: <SteppedKnob size={56} positions={['3', '5', '10', '20']} value={[3, 5, 10, 20].indexOf(p.ping)} color={ORANGE} label="COUNT" onChange={i => setP({ ...p, ping: [3, 5, 10, 20][Math.round(i)] })} />,
       run: async () => { const r = await ping(p.ping); return `${r.ok}/${r.sent} · min ${r.min.toFixed(0)} · median ${r.median.toFixed(0)} · max ${r.max.toFixed(0)} ms · jitter ${r.jitter.toFixed(0)} ms`; } },
     { id: 'speed', name: 'SPEED', knob: <SteppedKnob size={56} positions={['4', '16', '32', '64']} value={[4, 16, 32, 64].indexOf(p.speed)} color={ORANGE} label="MB" onChange={i => setP({ ...p, speed: [4, 16, 32, 64][Math.round(i)] })} />,
-      run: async () => { const r = await speed(p.speed); return `${r.mbps.toFixed(1)} MB/s (${mb(r.bytes)} in ${(r.ms / 1000).toFixed(1)} s)`; } },
+      run: async () => { const r = await speed(p.speed); return `${fmtRate(r.bytes / Math.max(0.001, r.ms / 1000))} (${mb(r.bytes)} in ${(r.ms / 1000).toFixed(1)} s; exactly ${exactRate(r.bytes, r.ms)} b/s)`; } },
     { id: 'cpu', name: 'CPU', knob: <SteppedKnob size={56} positions={['1', '2', '4', '8']} value={Math.max(0, [1, 2, 4, 8].indexOf(p.workers))} color={ORANGE} label="WORKERS" onChange={i => setP({ ...p, workers: [1, 2, 4, 8][Math.round(i)] })} />,
       run: async () => { const r = await cpu(p.workers); return `${r.single.toFixed(0)} Mops/s on one · ${r.total.toFixed(0)} on ${r.workers} (×${r.scaling.toFixed(2)})`; } },
     { id: 'memory', name: 'MEMORY', knob: <SteppedKnob size={56} positions={['16', '64', '128', '256']} value={[16, 64, 128, 256].indexOf(p.mem)} color={ORANGE} label="MB" onChange={i => setP({ ...p, mem: [16, 64, 128, 256][Math.round(i)] })} />,
@@ -264,7 +288,7 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
 
       <Fold id="log" title="ENGINE LOG" open={false}><EngineLog /></Fold>
 
-      <Fold id="receipts" title="RECEIPTS" open={false}><ReceiptsSection uif={uif} /></Fold>
+      <Fold id="receipts" title="RECEIPTS" open={false}><LedgerRows say={say} /><ReceiptsSection uif={uif} /></Fold>
 
       <Fold id="folders" title="MODELS ON THIS COMPUTER" open={false}><Folders onReady={onModelReady} say={say} /></Fold>
 
@@ -278,7 +302,7 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
         <h4>Network</h4>
         <dl>
           <Row k="connection">{sens ? `${sens.online ? 'online' : 'offline'}${sens.connection?.effectiveType ? ` · ${sens.connection.effectiveType}` : ''}${sens.connection?.downlink ? ` · ~${sens.connection.downlink} Mb/s` : ''}${sens.connection?.rtt ? ` · rtt ~${sens.connection.rtt} ms` : ''}${sens.connection?.saveData ? ' · data saver' : ''}` : '…'}</Row>
-          <Row k="model download" tone={dl.phase === 'failed' ? 'bad' : undefined}>{dl.phase === 'downloading' ? `${mb(dl.got)} of ${mb(dl.total)}${dl.rate ? ` · ${(dl.rate / 1e6).toFixed(1)} MB/s` : ''}${dl.retries ? ` · ${dl.retries} pieces retried` : ''}` : lastLoad ? (lastLoad.source === 'cache' ? 'from this browser (no download)' : `${mb(lastLoad.fetched)} at ${(lastLoad.fetched / 1e6 / Math.max(.001, lastLoad.modelMs / 1000)).toFixed(1)} MB/s${lastLoad.retries ? `, ${lastLoad.retries} retried` : ''}`) : 'none yet'}</Row>
+          <Row k="model download" tone={dl.phase === 'failed' ? 'bad' : undefined}>{dl.phase === 'downloading' ? `${mb(dl.got)} of ${mb(dl.total)}${dl.rate ? ` · ${fmtRate(dl.rate)}` : ''}${dl.retries ? ` · ${dl.retries} pieces retried` : ''}` : lastLoad ? (lastLoad.source === 'cache' ? 'from this browser (no download)' : `${mb(lastLoad.fetched)} at ${fmtRate(lastLoad.fetched / Math.max(.001, lastLoad.modelMs / 1000))}${lastLoad.retries ? `, ${lastLoad.retries} retried` : ''}`) : 'none yet'}</Row>
           {res.ping && <Row k="ping">{res.ping}</Row>}
           {res.speed && <Row k="speed">{res.speed}</Row>}
         </dl>
