@@ -159,14 +159,6 @@ try {
   }));
   check("the receipt kept in .history", stored.history.length >= 1, `${stored.history.length} exchange(s) with a receipt`);
   check("the receipt kept in .memory as a delivery record", stored.memory.length >= 1, `${stored.memory.length} delivery record(s)`);
-  // banked: the verified receipt in this browser's ledger (bankML's format: 18 decimals, keccak256 chain), VERIFY passes
-  const led = await page.evaluate(() => (localStorage.getItem("browseml:ledger") || "").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)));
-  check("the receipt banked in the ledger (tokens to 18 decimals, hash-chained)", led.length >= 1 && /^\d+\.\d{18}$/.test(led[0].tokens) && /^[0-9a-f]{64}$/.test(led[0].hash) && led[0].prev === "0".repeat(64), led[0] ? `${led.length} entr${led.length === 1 ? "y" : "ies"} · tokens ${led[0].tokens} · hash ${led[0].hash.slice(0, 12)}…` : "none");
-  await page.locator(".cp-fold-head", { hasText: "RECEIPTS" }).click(); await wait(300);
-  await page.locator(".cp-ledger").getByRole("button", { name: "VERIFY" }).click(); await wait(300);
-  const ver = await page.locator(".cp-said").innerText().catch(() => "");
-  check("RECEIPTS · VERIFY: the ledger's chain holds", /ledger verified: \d+ entr/.test(ver), ver.slice(0, 100));
-  await page.locator(".cp-fold-head", { hasText: "RECEIPTS" }).click(); await wait(300);  // folded again, as it was
   // the response window: no reply field unless chosen in its ⋯ menu
   const win = page.locator(".uif-output").first();
   check("a response window has no reply field unless chosen", (await win.locator(".uif-output-reply").count()) === 0);
@@ -190,6 +182,14 @@ try {
   check("a section hidden with –, brought back with SHOW", hidden && (await order()).includes("disk"));
   await page.getByRole("button", { name: "RESET LAYOUT" }).click(); await wait(200);
   check("RESET LAYOUT puts NOW first again", (await order())[0] === "now");
+  // banked: the verified receipt in this browser's ledger (bankML's format: 18 decimals, keccak256 chain), VERIFY passes
+  const led = await page.evaluate(() => (localStorage.getItem("browseml:ledger") || "").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)));
+  check("the receipt banked in the ledger (tokens to 18 decimals, hash-chained)", led.length >= 1 && /^\d+\.\d{18}$/.test(led[0].tokens) && /^[0-9a-f]{64}$/.test(led[0].hash) && led[0].prev === "0".repeat(64), led[0] ? `${led.length} entr${led.length === 1 ? "y" : "ies"} · tokens ${led[0].tokens} · hash ${led[0].hash.slice(0, 12)}…` : "none");
+  await page.locator(".cp-fold-head", { hasText: "RECEIPTS" }).click(); await wait(300);
+  await page.locator(".cp-ledger").getByRole("button", { name: "VERIFY" }).click(); await wait(300);
+  const ver = await page.locator(".cp-said").innerText().catch(() => "");
+  check("RECEIPTS · VERIFY: the ledger's chain holds", /ledger verified: \d+ entr/.test(ver), ver.slice(0, 100));
+  await page.locator(".cp-fold-head", { hasText: "RECEIPTS" }).click(); await wait(300);  // folded again, as it was
   await page.locator(".cp-fold-head", { hasText: "RECEIPTS" }).click(); await wait(2500);
   check("the panel's RECEIPTS lists it", (await page.locator(".cp-receipts details.cs-receipt").count()) >= 1);
   await page.locator(".cp-receipts").getByText("view receipts under answers").click(); await wait(400);
