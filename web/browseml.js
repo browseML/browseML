@@ -126,6 +126,15 @@ export function unload() {
   if (worker) worker.terminate();
   worker = null; ready = null; memoryBytes = 0; gpuStatus = null;
 }
+/** Exit cleanly (the page going away, or RESET): an answer being written is stopped and its caller told so, the engine
+ *  worker is terminated — and with it its thread workers and its GPU worker, which release their memory and the card —
+ *  whatever it was doing. Unlike `unload`, it never refuses. The model stays in this browser. */
+export function exit() {
+  if (stopFlag) { try { Atomics.store(stopFlag, 0, 1); } catch {} }
+  if (ending) { try { ending(); } catch {} }
+  if (worker) { try { worker.terminate(); } catch {} }
+  worker = null; ready = null; busy = null; loading = null; memoryBytes = 0; gpuStatus = null;
+}
 /** The model's bytes in this browser's cache, or 0. */
 export async function cachedBytes() { try { const r = await (await caches.open(CACHE)).match(MODEL.url); return r ? +(r.headers.get("Content-Length") || MODEL.bytes) : 0; } catch { return 0; } }
 export async function isCached() { try { return !!(await (await caches.open(CACHE)).match(MODEL.url)); } catch { return false; } }

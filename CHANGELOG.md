@@ -14,6 +14,29 @@ From here the third number rolls over after 9 (0.6.9 → 0.7.0). The releases pu
 | v0.6.14 | 0.7.4 |
 | v0.6.15 | 0.7.5 |
 
+## 0.8.2 — 2026-10-14 — RESET and a clean exit; the monitor charted; mindX as a persona; embeddings assessed
+
+- **CLEAR .memory, CLEAR .history and RESET** (TOOLS, under ON · OFF · CLEAR): each asks twice (no browser dialogs);
+  a clear leaves nothing behind — the state emptied and its stored key removed, not an empty list kept; RESET ends the
+  engine cleanly and clears both (the model stays here; ON starts again). Browser-checked.
+- **A clean exit**: when the page goes away (`pagehide`), the engine is ended at once — an answer being written is
+  stopped, the engine worker terminated and with it its thread workers and GPU worker, which release their memory and
+  the card; nothing is left running. (`exit()` in the runtime: unlike `unload`, it never refuses.)
+- **The monitor, charted**: CPU (how late the main thread runs), GPU busy and the live writing speed on one time axis
+  over the last minute — smooth monotone curves, a legend with the values now, the values under the pointer. Drawn in
+  SVG here with d3's idioms (scales, a monotone curve, a shared axis): Chart.js (~200 KB) or d3 were not added — no
+  library to download, for the same picture.
+- **mindX as a built-in persona** (`web/mindx.persona`, 447 tokens, from mindX's README and docs): PERSONA lists it
+  beside browseML; built-ins are read from their files each visit, copied (not edited in place), never deleted.
+- **Embeddings, assessed** ([embeddings.md](docs/embeddings.md)): mindX's RAGE (bge-m3, 1024 dimensions, pgvectorscale
+  StreamingDiskANN) explored; as a *speed* feature embeddings are the wrong tool and are not built — retrieval adds
+  prompt to read and defeats the prompt cache. Measured: 1024-dimension search is cheap (1,000 vectors 1.3 ms, 10,000
+  14 ms, brute force, plain JS); bge-m3 itself is not browser-sized (1.2 GB; natively 0.7–1.1 s per question, 31 s per
+  512-word chunk on this 2-core CPU). For `.memory` and `.history` the default is BM25 (58 KiB); what would be built,
+  when asked, is listed there (BM25 search, server vectors fused by RRF, a small opt-in model indexed only when idle with
+  its ready state in the field, answer reuse).
+- mindX's docs gain `docs/BROWSEML.md` (browseML and bankML as mindX should know them).
+
 ## 0.8.1 — 2026-10-14 — the monitor, and graphics cards recognised
 
 - **The monitor, live** (DIAGNOSTICS → Monitor): battery (level, charging, time left), network (online, type, speed,

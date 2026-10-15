@@ -22,7 +22,7 @@ import { surge, toolRunning } from '../bankml/pulse';
 import { useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
 import { Button, Gauge, IndicatorLamp, SegmentSwitch, SteppedKnob, ToggleSwitch } from 'dreamknob';
 import type { UIFContextValue } from '../components/UIFContext';
-import { browseDiag, browseMaxThreads, browseSettings, browseState, browseWarm, downloadState, onBrowseWarm, setBrowseSettings, stopBrowse, unloadBrowse } from '../bankml/free';
+import { exitBrowse, browseDiag, browseMaxThreads, browseSettings, browseState, browseWarm, downloadState, onBrowseWarm, setBrowseSettings, stopBrowse, unloadBrowse } from '../bankml/free';
 import { mb, readCaps } from '../bankml/caps';
 import { summarize } from '../bankml/usage';
 import { UsagePanel } from './UsagePanel';
@@ -30,6 +30,7 @@ import { Folders } from './Folders';
 import { Disk } from './Disk';
 import { Status } from './Status';
 import { Sliders } from './Sliders';
+import { ConfirmButton } from '../components/ContextWindows';
 import type { GpuLive } from '../bankml/free';
 import { fireStats } from './Fire';
 import { EngineLog } from './EngineLog';
@@ -37,7 +38,7 @@ import { PersonaSection } from './Persona';
 import { SamplingDials } from './Sampling';
 import { Builder } from './Builder';
 import { Arrange, useArrange } from './Arrange';
-import { SpeedChart, Trace } from './Charts';
+import { MonitorChart, SpeedChart, Trace } from './Charts';
 import { ReceiptsSection } from './Receipt';
 import { gpuVerdict, probeGpu, readGpu, recogniseGpu, isHandheld, KEY_FEATURES, type GpuExact, type GpuProbe, type GpuReport } from '../bankml/gpu';
 import { monitor, onMonitor } from './monitor';
@@ -55,6 +56,12 @@ function MonitorRows() {
   const b = m.battery, n = m.network, g = m.gpu;
   const spark = (xs: number[], max: number) => xs.slice(-30).map(x => ' ▁▂▃▄▅▆▇█'[Math.min(8, Math.round((x / Math.max(max, 1e-9)) * 8))]).join('');
   return (
+    <>
+    <MonitorChart series={[
+      { label: 'CPU: main thread late', color: '#F6465D', values: m.history.lag, unit: 'ms', fmt: v => v.toFixed(0) },
+      { label: 'GPU busy', color: '#cfe8ff', values: m.history.gpuBusy.map(b => b * 100), unit: '%', max: 100, fmt: v => v.toFixed(0) },
+      { label: 'writing', color: '#0ECB81', values: m.history.tok, unit: 'tok/s', fmt: v => v.toFixed(2) },
+    ]} />
     <dl className="cp-monitor">
       <Row k="battery" tone={b && !b.charging && b.level < 0.2 ? 'warn' : undefined}>{b ? `${p(b.level)} · ${b.charging ? `charging${isFinite(b.chargingTime) && b.chargingTime > 0 ? `, full in ${Math.round(b.chargingTime / 60)} min` : ''}` : `on battery${isFinite(b.dischargingTime) ? `, ~${Math.round(b.dischargingTime / 60)} min left` : ''}`}` : 'not reported by this browser'}</Row>
       <Row k="network" tone={n.online ? undefined : 'bad'}>{n.online ? 'online' : 'offline'}{n.effectiveType ? ` · ${n.effectiveType}` : ''}{n.downlink ? ` · ~${n.downlink} Mb/s` : ''}{n.rtt ? ` · rtt ~${n.rtt} ms` : ''}{n.saveData ? ' · data saver' : ''}{n.changes ? ` · ${n.changes} change${n.changes === 1 ? '' : 's'} this visit` : ''}</Row>
@@ -64,6 +71,7 @@ function MonitorRows() {
       <Row k="engine">{m.engine.activity}{m.engine.tokPerSec ? ` · ${m.engine.tokPerSec.toFixed(2)} tok/s now` : ''} <span className="cp-spark">{spark(m.history.tok, Math.max(...m.history.tok, 1))}</span></Row>
       <Row k="device">{isHandheld() ? 'handheld (the page draws less)' : 'desktop or laptop'}</Row>
     </dl>
+    </>
   );
 }
 
@@ -236,6 +244,11 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
           <Button onClick={() => void onStart?.(say)} color={GREEN} disabled={!!v || starting}>{starting ? 'ON…' : 'ON'}</Button>
           <Button onClick={() => void off()} color={RED} disabled={!v && !starting}>OFF</Button>
           <Button onClick={clear}>CLEAR</Button>
+        </div>
+        <div className="cp-buttons cp-reset">
+          <ConfirmButton label="CLEAR .memory" onConfirm={() => { uif.current?.context.clearMemory(); say('.memory cleared: nothing kept', 'ok'); }} />
+          <ConfirmButton label="CLEAR .history" onConfirm={() => { uif.current?.context.clearHistory(); say('.history cleared: nothing kept', 'ok'); }} />
+          <ConfirmButton label="RESET" onConfirm={() => { exitBrowse(); uif.current?.context.clearMemory(); uif.current?.context.clearHistory(); say('RESET: the engine ended cleanly, .memory and .history cleared — the model stays here (ON starts again)', 'ok'); }} />
         </div>
         {said && <p className={`cp-said ${said.tone ? `is-${said.tone}` : ''}`} role="status">{said.text}</p>}
         <Status usage={usage} gpu={gpuName} />

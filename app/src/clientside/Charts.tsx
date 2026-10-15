@@ -56,3 +56,53 @@ export function Trace({ values, label, unit, color = ORANGE, h = 40, fmt = (v: n
     </figure>
   );
 }
+
+/** Several live series on one time axis (the monitor's last minute): each scaled to its own maximum (labelled), drawn
+ *  as a smooth monotone curve with a faint fill, a legend with the value now, and the values under the pointer.
+ *  d3's idioms (scales, a monotone curve, a shared x axis), re-made in a few lines of SVG: no library to download. */
+export interface Series { label: string; color: string; values: number[]; unit: string; max?: number; fmt?(v: number): string }
+export function MonitorChart({ series, h = 96, seconds = 60 }: { series: Series[]; h?: number; seconds?: number }) {
+  const W = 300, pad = { l: 4, r: 4, t: 6, b: 14 }, iw = W - pad.l - pad.r, ih = h - pad.t - pad.b;
+  const n = Math.max(2, ...series.map(s => s.values.length));
+  const x = (i: number, len: number) => pad.l + iw - ((len - 1 - i) / (seconds - 1)) * iw;
+  // a monotone cubic (Fritsch–Carlson, as d3.curveMonotoneX): no overshoot between samples
+  const path = (pts: [number, number][]) => {
+    if (pts.length < 2) return '';
+    const m = pts.map((p, i) => {
+      const a = pts[i - 1], b = pts[i + 1];
+      const d0 = a ? (p[1] - a[1]) / (p[0] - a[0]) : NaN, d1 = b ? (b[1] - p[1]) / (b[0] - p[0]) : NaN;
+      if (!a) return d1; if (!b) return d0;
+      return d0 * d1 <= 0 ? 0 : (3 * (d0 + d1)) / ((2 * d1 + d0) / d0 + (d1 + 2 * d0) / d1);
+    });
+    let d = `M${pts[0][0]},${pts[0][1]}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], dx = (x1 - x0) / 3;
+      d += `C${x0 + dx},${y0 + dx * m[i]} ${x1 - dx},${y1 - dx * m[i + 1]} ${x1},${y1}`;
+    }
+    return d;
+  };
+  const drawn = series.map(s => {
+    const v = s.values.slice(-seconds), max = s.max ?? Math.max(1e-9, ...v) * 1.15;
+    const pts = v.map((y, i) => [x(i, v.length), pad.t + ih - Math.min(1, y / max) * ih] as [number, number]);
+    return { s, v, max, pts, d: path(pts) };
+  });
+  return (
+    <figure className="cp-chart cp-monitor-chart">
+      <svg viewBox={`0 0 ${W} ${h}`} preserveAspectRatio="none" role="img" aria-label={series.map(s => `${s.label} ${(s.fmt ?? ((v: number) => v.toFixed(1)))(s.values[s.values.length - 1] ?? 0)} ${s.unit}`).join(', ')}>
+        {[0.25, 0.5, 0.75, 1].map(f => <line key={f} x1={pad.l} x2={W - pad.r} y1={pad.t + ih * (1 - f)} y2={pad.t + ih * (1 - f)} stroke={GRID} />)}
+        {[0, 15, 30, 45].map(t => <text key={t} x={pad.l + iw - (t / (seconds - 1)) * iw} y={h - 3} fill={TEXT} fontSize="8" textAnchor={t ? 'middle' : 'end'}>{t ? `−${t}s` : 'now'}</text>)}
+        {drawn.map(({ s, d, pts }) => d && <g key={s.label}>
+          <path d={`${d}L${pts[pts.length - 1][0]},${pad.t + ih}L${pts[0][0]},${pad.t + ih}Z`} fill={s.color} opacity=".10" />
+          <path d={d} fill="none" stroke={s.color} strokeWidth="1.6" />
+        </g>)}
+        {Array.from({ length: Math.min(n, seconds) }, (_, i) => {
+          const len = Math.min(n, seconds), xi = x(i, len), w = iw / (seconds - 1);
+          return <rect key={i} x={xi - w / 2} y={pad.t} width={w} height={ih} fill="transparent">
+            <title>{`${len - 1 - i} s ago\n${drawn.map(({ s, v }) => { const val = v[i - (len - v.length)]; return `${s.label}: ${val === undefined ? '—' : (s.fmt ?? ((q: number) => q.toFixed(1)))(val)} ${s.unit}`; }).join('\n')}`}</title>
+          </rect>;
+        })}
+      </svg>
+      <figcaption>{drawn.map(({ s, v, max }) => <span key={s.label} style={{ color: s.color }}>— {s.label} {(s.fmt ?? ((q: number) => q.toFixed(1)))(v[v.length - 1] ?? 0)} {s.unit} <small>(scale {(s.fmt ?? ((q: number) => q.toFixed(1)))(max)})</small></span>)}</figcaption>
+    </figure>
+  );
+}

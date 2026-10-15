@@ -186,6 +186,14 @@ try {
   await page.locator(".cp-receipts").getByText("view receipts under answers").click(); await wait(400);
   check("view receipts off: hidden under answers", (await page.locator(".uif-output details.cs-receipt").count()) === 0);
   await page.locator(".cp-receipts").getByText("view receipts under answers").click(); await wait(400);
+  // CLEAR .history, then RESET: each asks twice (no dialogs); a clear leaves no stored key behind; RESET ends the engine
+  const keyOf = (n) => page.evaluate((k) => localStorage.getItem(`uif:ultimate-clientside:${k}`), n);
+  const twice = async (label) => { const b = page.locator(".cp-reset button", { hasText: label }); await b.click(); await wait(150); await b.click(); await wait(400); };
+  await twice("CLEAR .history");
+  check("CLEAR .history: cleared, its stored key removed", (await keyOf("history")) === null && (await keyOf("memory")) !== null);
+  await twice("RESET");
+  const afterReset = await page.locator(".cp-said").innerText().catch(() => "");
+  check("RESET: .memory and .history cleared, the engine ended cleanly", (await keyOf("memory")) === null && (await keyOf("history")) === null && /RESET/.test(afterReset), afterReset.slice(0, 120));
   await ctx.close();
 
   // ── visit 2: the prompt cache restored ────────────────────────────────────────────────────────────────────────
@@ -210,6 +218,7 @@ try {
   const kept = () => page.locator(".cp-kept li").allInnerTexts();
   check("CACHE lists the kept prompt, named", (await kept()).some((t) => /browseML/.test(t) && /\d+ tok/.test(t)), (await kept()).join(" | ").replace(/\s+/g, " "));
   await page.locator(".cp-fold-head", { hasText: "PERSONA" }).click(); await wait(300);
+  check("PERSONA: mindX built in beside browseML", (await page.locator(".cp-persona-list").getByRole("radio", { name: "mindX" }).count()) === 1 && (await page.locator(".cp-persona-list").getByRole("radio", { name: "browseML" }).count()) === 1);
   await page.locator(".cp-persona").getByRole("button", { name: "NEW" }).click();
   const edit = page.locator(".cp-persona-edit");
   await edit.locator("input").fill("Tester");

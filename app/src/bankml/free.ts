@@ -231,6 +231,13 @@ export async function loadBrowse(progress: (line: string, phase?: string) => voi
   return browsed!;
 }
 /** Stop the engine (the model stays kept): the next load applies new threads or context. */
+/** Exit cleanly, now (the page going away, or RESET): any answer stopped, the engine and its threads and GPU worker
+ *  terminated, nothing pending left; the model stays in this browser. Synchronous where the runtime is loaded. */
+export function exitBrowse() {
+  try { browseml?.exit?.(); } catch { /* already gone */ }
+  browsed = null; warmedFor = ''; setReady(false); setActivity('idle');
+}
+
 export async function unloadBrowse(): Promise<void> {
   const b = await mod();
   b.unload();

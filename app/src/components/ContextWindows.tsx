@@ -154,7 +154,7 @@ function Commitment({ file, lines }: { file: string; lines: string[] }) {
 }
 
 /** A button that asks once more before doing something it cannot undo (no browser dialogs). */
-function ConfirmButton({ label, onConfirm }: { label: string; onConfirm(): void }) {
+export function ConfirmButton({ label, onConfirm }: { label: string; onConfirm(): void }) {
   const [armed, setArmed] = useState(false);
   useEffect(() => {
     if (!armed) return;

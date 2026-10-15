@@ -15,6 +15,9 @@ type Say = (text: string, tone?: 'ok' | 'bad' | 'working') => void;
 export interface Persona { id: string; name: string; opening: string; system_prompt: string }
 const LIST = 'browseml:personas', ACTIVE = 'browseml:persona-active';
 export const BUILTIN = 'browseml';
+/** The personas that come with browseML, each read from its file every visit (so its facts stay current). */
+export const BUILTINS: { id: string; file: string }[] = [{ id: BUILTIN, file: 'browseml.persona' }, { id: 'mindx', file: 'mindx.persona' }];
+const builtinFile = (id: string) => BUILTINS.find(b => b.id === id)?.file;
 const BUDGET = 600;  // tokens: the persona repo's budget (a long prompt is slow to read on a CPU)
 const tokens = (t: string) => Math.ceil(t.length / 4);
 
@@ -43,7 +46,9 @@ const savedFns = new Set<() => void>();
 /** The persona in use (built in: read from browseml.persona). */
 export async function activePersona(): Promise<Persona> {
   const id = activeId();
-  if (id !== BUILTIN) { const p = load().find(x => x.id === id); if (p) return p; }
+  const file = builtinFile(id);
+  if (file) { try { return fromFile(await loadPersonaText(file), id); } catch { /* fall back to browseML's own */ } }
+  else { const p = load().find(x => x.id === id); if (p) return p; }
   return fromFile(await loadPersonaText('browseml.persona'), BUILTIN);
 }
 
@@ -63,12 +68,16 @@ export async function applyPersona(live: () => UIFContextValue | null, p: Person
 export function PersonaSection({ uif, say }: { uif: MutableRefObject<UIFContextValue | null>; say: Say }) {
   const [list, setList] = useState<Persona[]>(load);
   const [active, setAct] = useState(activeId);
-  const [builtin, setBuiltin] = useState<Persona | null>(null);
+  const [builtins, setBuiltins] = useState<Persona[]>([]);
   const [draft, setDraft] = useState<Persona | null>(null);
   const file = useRef<HTMLInputElement>(null);
-  useEffect(() => { void loadPersonaText('browseml.persona').then(t => setBuiltin(fromFile(t, BUILTIN))).catch(() => {}); }, []);
+  useEffect(() => {
+    void Promise.all(BUILTINS.map(b => loadPersonaText(b.file).then(t => fromFile(t, b.id)).catch(() => null)))
+      .then(ps => setBuiltins(ps.filter((p): p is Persona => !!p)));
+  }, []);
   useEffect(() => { const f = () => { setList(load()); setAct(activeId()); }; savedFns.add(f); return () => { savedFns.delete(f); }; }, []);
-  const all = [...(builtin ? [builtin] : []), ...list];
+  const all = [...builtins, ...list.filter(p => !builtinFile(p.id))];
+  const builtin = builtins.find(p => p.id === BUILTIN) ?? null;
   const current = all.find(p => p.id === active) ?? builtin;
 
   const use = async (p: Persona) => {
@@ -129,8 +138,8 @@ export function PersonaSection({ uif, say }: { uif: MutableRefObject<UIFContextV
       ) : (
         <div className="cp-buttons">
           <Button onClick={() => setDraft({ id: `p-${Date.now()}`, name: '', opening: '', system_prompt: '' })}>NEW</Button>
-          {current && <Button onClick={() => setDraft(current.id === BUILTIN ? { ...current, id: `p-${Date.now()}`, name: `${current.name} (copy)` } : current)}>{current.id === BUILTIN ? 'COPY' : 'EDIT'}</Button>}
-          {current && current.id !== BUILTIN && <Button onClick={() => remove(current)}>DELETE</Button>}
+          {current && <Button onClick={() => setDraft(builtinFile(current.id) ? { ...current, id: `p-${Date.now()}`, name: `${current.name} (copy)` } : current)}>{current.id === BUILTIN ? 'COPY' : 'EDIT'}</Button>}
+          {current && !builtinFile(current.id) && <Button onClick={() => remove(current)}>DELETE</Button>}
           {current && <Button onClick={() => exportIt(current)}>EXPORT</Button>}
           <Button onClick={() => file.current?.click()}>IMPORT</Button>
           <input ref={file} type="file" accept=".persona,application/json" hidden onChange={e => { void importIt(e.target.files?.[0]); e.target.value = ''; }} />

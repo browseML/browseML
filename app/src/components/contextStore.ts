@@ -121,8 +121,6 @@ export function useContextStore(storageKey: string): ContextApi {
   }, [modelText]);
 
   return useMemo<ContextApi>(() => {
-    const saveHistory = persist<string[]>('history', setHistoryLines);
-    const saveMemory = persist<string[]>('memory', setMemoryLines);
     const setPrompt = persist<string>('prompt', setPromptState);
     const setPromptSource = persist<PromptSource>('promptSource', setPromptSourceState);
     const savePersona = persist<string>('persona', setPersonaTextState);
@@ -145,7 +143,8 @@ export function useContextStore(storageKey: string): ContextApi {
       history,
       historyLines,
       appendHistory: record => addHistory([JSON.stringify(record)]),
-      clearHistory: () => saveHistory([]),
+      // a clear leaves nothing behind: the state emptied and the stored key removed (not an empty list kept)
+      clearHistory: () => { setHistoryLines([]); try { localStorage.removeItem(k('history')); } catch { /* storage off */ } },
 
       memory,
       memoryLines,
@@ -159,7 +158,7 @@ export function useContextStore(storageKey: string): ContextApi {
       async keep(record, text) {
         addMemory([await deliveryLine(record, text)]);
       },
-      clearMemory: () => saveMemory([]),
+      clearMemory: () => { setMemoryLines([]); try { localStorage.removeItem(k('memory')); } catch { /* storage off */ } },
       forget(index) {
         setMemoryLines(prev => {
           const next = prev.filter((_, i) => i !== index);

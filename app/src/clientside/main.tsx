@@ -31,6 +31,7 @@ import { trackKeyboard } from '../core/keyboard';
 import { ControlPanel } from './ControlPanel';
 import { ProcessorFire } from './Fire';
 import { startMonitor } from './monitor';
+import { exitBrowse } from '../bankml/free';
 import { activePersona, applyPersona } from './Persona';
 import { measureCores } from './cores';
 import { Faq } from './Faq';
@@ -346,5 +347,9 @@ function Page() {
   );
 }
 
-if (!isOutputWindow()) startMonitor();  // battery, network, CPU, memory, GPU, engine: live from the first moment
+if (!isOutputWindow()) {
+  startMonitor();
+  // a clean exit: when the page goes away the engine, its threads and its GPU worker end with it (nothing left running)
+  addEventListener('pagehide', () => exitBrowse());
+}  // battery, network, CPU, memory, GPU, engine: live from the first moment
 ReactDOM.createRoot(document.getElementById('root')!).render(isOutputWindow() ? <OutputWindow /> : <Page />);
