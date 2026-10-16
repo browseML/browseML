@@ -14,6 +14,27 @@ From here the third number rolls over after 9 (0.6.9 → 0.7.0). The releases pu
 | v0.6.14 | 0.7.4 |
 | v0.6.15 | 0.7.5 |
 
+## 0.8.7 — 2026-10-16 — modules on a pure core: ✵ rage, the ▤ menu's top choice, and sparks
+
+- **Modules** (`app/src/clientside/modules/`): what extends browseML's core — the field, the engine, the control panel —
+  is a module the core does not depend on, and MODULES (control panel) turns each off, on the next load. The one change
+  to the core: a module may ask to come first (`core/modules.ts`, `first`), so its windows head the ▤ menu.
+- **The rage module**: **✵ rage is the top choice of the field's ▤ menu**, and it opens the rage atlas of
+  rage.pythai.net — the live v1 — in a window: the ragebar's sparks in its head, the **complexity** meter (nodes opened,
+  tags collected; amber past 0.8), the trail in ›, the collected tags with ◎ converge, **travel by a word** (an instant
+  path from the atlas itself, then "… and in the full text" from the source), kindred, its thread, ＋ with my question;
+  Esc or × closes. On a host with an atlas (mindx.pythai.net: mindX's docs, words then meaning, memories off by
+  default) it travels the host's; everywhere else it travels **this browser's own** — .memory by kind, .history by day,
+  the control panel's sections, searched by BM25 here — so it is never empty. The docked atlas of 0.8.4 is gone.
+- **The sparks module**: the field's buttons, subtle yet alive — a small burst of sparks on a press, a slow ember while
+  an answer streams, one candle-green ring when its receipt checks, one red flicker when it does not. One canvas, one
+  animation loop that stops when idle; nothing under reduced motion, or with the fire limiter off. The page announces
+  `browseml:working` and `browseml:outcome`; the module listens.
+- **gitmind**: an empty .memory before the first note is no longer committed (0.8.6 began a history with
+  "clear browseml.memory").
+- Tests: 163 (5 new: the local atlas, BM25, the instant path, complexity, module switches); browser checks for ✵ rage,
+  the atlas window, travel by a word, Esc, MODULES and the spark canvas. Record: `testing/results/v0.8.7.txt`.
+
 ## 0.8.6 — 2026-10-16 — gitmind-compatible .memory: every change a git commit, the history a git bundle
 
 - **.memory as git** (`app/src/bankml/gitmind.ts`): every change of .memory — a note added, forgotten, cleared,
