@@ -189,12 +189,15 @@ try {
   const order = () => page.locator(".cp-arrange > [data-arrange]").evaluateAll((els) => els.map((e) => e.getAttribute("data-arrange")));
   // the panel is taller than the window by now: for the drag, a window tall enough to show both ends (restored after)
   const vp = page.viewportSize();
-  await page.setViewportSize({ width: vp.width, height: 3600 }); await wait(300);
+  // (sized from the panel itself: it grows as sections are added — 3600 px stopped being enough at 0.8.5)
+  const tall = await page.locator(".cp-arrange").evaluate((e) => Math.ceil(e.scrollHeight) + 600);
+  await page.setViewportSize({ width: vp.width, height: Math.max(3600, tall) }); await wait(300);
   await page.locator(".cp-arrange > [data-arrange]").first().scrollIntoViewIfNeeded(); await wait(200);
   const grip = await page.locator('[data-arrange="disk"] .cp-grip').boundingBox(), top = await page.locator(".cp-arrange > [data-arrange]").first().boundingBox();
   await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2); await page.mouse.down();
   await page.mouse.move(grip.x + 4, top.y + 6, { steps: 12 }); await page.mouse.up(); await wait(300);
-  check("a panel section dragged by its grip to the top", (await order())[0] === "disk", (await order()).slice(0, 3).join(" · "));
+  check("a panel section dragged by its grip to the top", (await order())[0] === "disk",
+    `${(await order()).slice(0, 3).join(" · ")} · grip y ${Math.round(grip.y)}, top y ${Math.round(top.y)}, window ${page.viewportSize().height}`);
   await page.setViewportSize(vp); await wait(300);
   await page.locator('[data-arrange="disk"] .cp-hide').click(); await wait(200);
   const hidden = !(await order()).includes("disk");
