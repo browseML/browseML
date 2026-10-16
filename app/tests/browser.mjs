@@ -6,7 +6,7 @@
 // question asked with no model going straight to loading it.
 //   node tests/browser.mjs [--browser /usr/bin/brave-browser] [--models DIR]   (after `npm run build`)
 import { chromium } from "playwright-core";
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, linkSync, writeFileSync, rmSync, copyFileSync, createReadStream, statSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -57,7 +57,7 @@ try {
   check("no panel at first, T in the field", (await page.locator(".uif-shelves.is-open").count()) === 0 && (await page.locator(".uif-tools-toggle").innerText()) === "T");
   await page.locator(".uif-tools-toggle").click(); await wait(400);
   const folds = (await page.locator(".cp-fold-head").allInnerTexts()).map((t) => t.replace(/[▾▸]/g, "").trim());
-  check("T opens the control panel with its sections", ["NOW", "TOOLS", "CPU · RAM · GPU · CACHE", "ENGINE LOG", "RECEIPTS", "QUALITY", "MODELS ON THIS COMPUTER", "HARD DRIVE", "DIALS", "DIAGNOSTICS", "TOOL SUITE", "LIMITERS"].every((f) => folds.includes(f)), folds.join(", "));
+  check("T opens the control panel with its sections", ["NOW", "TOOLS", "CPU · RAM · GPU · CACHE", "ENGINE LOG", "RECEIPTS", "QUALITY", "GITMIND", "MODELS ON THIS COMPUTER", "HARD DRIVE", "DIALS", "DIAGNOSTICS", "TOOL SUITE", "LIMITERS"].every((f) => folds.includes(f)), folds.join(", "));
   const pw = await page.evaluate(() => { const a = document.querySelector(".uif-shelves.is-open"); return a.scrollWidth <= a.clientWidth; });
   check("the panel's content fits its width", pw);
   // the fire effect (a visual effect): one canvas that never takes a click, and its switch in LIMITERS
@@ -185,6 +185,22 @@ try {
   check("the control panel opened with the response window", (await page.locator(".uif-shelves.is-open").count()) === 1);
   if (!(await page.locator(".uif-shelves.is-open").count())) { await page.locator(".uif-tools-toggle").click(); await wait(300); }
   check("NOW: the answer in the speed chart", (await page.locator(".cp-chart svg rect").count()) >= 1, (await page.locator(".cp-chart figcaption").innerText().catch(() => "")).replace(/\s+/g, " "));
+  // GITMIND: the answer's delivery record changed .memory, so it is a commit; the bundle is one git clones and logs
+  await page.locator(".cp-fold-head", { hasText: "GITMIND" }).click(); await wait(500);
+  const gm = page.locator(".gm");
+  const gmHead = (await gm.locator(".cp-row").first().innerText()).replace(/\s+/g, " ");
+  check("GITMIND: .memory's change is a commit", /head [0-9a-f]{7}/.test(gmHead), gmHead);
+  const [gb] = await Promise.all([page.waitForEvent("download", { timeout: 30000 }), gm.getByRole("button", { name: "EXPORT BUNDLE" }).click()]);
+  const gbf = join(tmp, "browseml-memory.bundle"), gmc = join(tmp, "gm-clone"); await gb.saveAs(gbf);
+  let gmLog = "", gmMem = "";
+  try {
+    execFileSync("git", ["clone", "-q", gbf, gmc]);
+    gmLog = execFileSync("git", ["-C", gmc, "log", "--format=%h %s"], { encoding: "utf8" }).trim();
+    gmMem = readFileSync(join(gmc, "browseml.memory"), "utf8");
+  } catch (e) { gmLog = String(e.message || e).slice(0, 160); }
+  check("GITMIND: EXPORT BUNDLE — git clones it, logs .memory's history, the file is the delivery record",
+    /^[0-9a-f]{7} add \d+ notes?/m.test(gmLog) && gmHead.includes(gmLog.slice(0, 7)) && /"delivery"/.test(gmMem), gmLog.split("\n").slice(0, 2).join(" | "));
+  await page.locator(".cp-fold-head", { hasText: "GITMIND" }).click(); await wait(200);
   // arranging: HARD DRIVE dragged by its grip to the top, then hidden, shown, and the layout reset
   const order = () => page.locator(".cp-arrange > [data-arrange]").evaluateAll((els) => els.map((e) => e.getAttribute("data-arrange")));
   // the panel is taller than the window by now: for the drag, a window tall enough to show both ends (restored after)

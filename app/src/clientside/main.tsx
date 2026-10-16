@@ -36,6 +36,7 @@ import { activePersona, applyPersona } from './Persona';
 import { measureCores } from './cores';
 import { Faq } from './Faq';
 import { Atlas } from './Atlas';
+import { track } from './gitmindStore';
 import { LEVELS, reportLines, storageReport, type Detail } from '../bankml/storage';
 import { measureTab } from './memory';
 import '../styles/UltimateInputField.css';
@@ -78,6 +79,9 @@ function Bridge({ into, onReady }: { into: { current: UIFContextValue | null }; 
   const first = !into.current;
   into.current = uif;
   const windows = uif.outputs.list().length, seen = useRef(windows);
+  // gitmind: every change of .memory becomes a commit (gitmindStore.track keeps them in order)
+  const memoryText = uif.context.fileText('memory');
+  useEffect(() => { void track(memoryText); }, [memoryText]);
   useEffect(() => {
     if (windows > seen.current) openWithWindow();
     seen.current = windows;

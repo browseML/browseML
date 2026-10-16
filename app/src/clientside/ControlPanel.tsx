@@ -29,6 +29,7 @@ import { UsagePanel } from './UsagePanel';
 import { Folders } from './Folders';
 import { Disk } from './Disk';
 import { QualitySection } from './Quality';
+import { GitMindSection } from './GitMind';
 import { Status } from './Status';
 import { Sliders } from './Sliders';
 import { ConfirmButton } from '../components/ContextWindows';
@@ -291,6 +292,7 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
 
       <Fold id="receipts" title="RECEIPTS" open={false}><LedgerRows say={say} /><ReceiptsSection uif={uif} /></Fold>
       <Fold id="quality" title="QUALITY" open={false}><QualitySection uif={uif} /></Fold>
+      <Fold id="gitmind" title="GITMIND" open={false}><GitMindSection uif={uif} say={say} /></Fold>
 
       <Fold id="folders" title="MODELS ON THIS COMPUTER" open={false}><Folders onReady={onModelReady} say={say} /></Fold>
 

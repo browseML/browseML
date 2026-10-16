@@ -505,3 +505,12 @@ details.cs-card.is-ready > p { margin: 0; padding: 0 12px 10px; color: #a7f3d0; 
 .qa-meter { position: relative; height: 6px; border-radius: 3px; background: #16202b; margin: 2px 0 0; }
 .qa-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--btc-orange, #F7931A); }
 .qa-bar { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--candle-green, #0ECB81); }
+
+/* ── GITMIND (GitMind.tsx): .memory's versions as git commits ── */
+.gm-list { list-style: none; margin: 6px 0 8px; padding: 0; font-size: 12px; color: #b6c4d2; }
+.gm-list li { padding: 3px 0; border-top: 1px solid #16202b; overflow-wrap: anywhere; }
+.gm-list li:first-child { border-top: 0; }
+.gm-list code { color: var(--candle-green, #0ECB81); }
+.gm-when { color: #7d8ea1; font-size: 11px; }
+.gm-act { all: unset; cursor: pointer; margin-left: 6px; font-size: 11px; padding: 1px 8px; border: 1px solid #2a3542; border-radius: 10px; color: #cfe9db; }
+.gm-act:hover, .gm-act:focus-visible { border-color: var(--btc-orange, #F7931A); color: var(--btc-orange, #F7931A); outline: none; }
