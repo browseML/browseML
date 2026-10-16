@@ -14,6 +14,23 @@ From here the third number rolls over after 9 (0.6.9 → 0.7.0). The releases pu
 | v0.6.14 | 0.7.4 |
 | v0.6.15 | 0.7.5 |
 
+## 0.8.6 — 2026-10-16 — gitmind-compatible .memory: every change a git commit, the history a git bundle
+
+- **.memory as git** (`app/src/bankml/gitmind.ts`): every change of .memory — a note added, forgotten, cleared,
+  imported, restored — is a commit built in this browser from git's own objects and ids (SHA-1 over
+  `<type> <size>\0<body>`), laid out as bankML's memgit keeps a .memory: `browseml.memory`, `.gitignore`
+  (`.gitmind/`), `SOURCE`. Each change is a gitmind ledger event (`snapshot`, `advance` or `reset`). A restore is a new
+  commit on top, as memgit restores; history is never rewritten.
+- **GITMIND** (control panel): the head, the versions, RESTORE, a switch (on by default), FORGET; **EXPORT BUNDLE** —
+  a git bundle (v2: a packfile of zlib-deflated objects, made with the browser's own CompressionStream) that
+  `git clone browseml-memory.bundle` reads, giving a repository gitmind and bankML's memgit read as their own;
+  **EXPORT LEDGER** — gitmind's `.gitmind/ledger.jsonl`. Versions live in IndexedDB (`browseml-gitmind`) and leave the
+  browser only as a file the visitor saves.
+- **Checked against the real tools**: ids equal `git hash-object`; `git bundle verify`, `git clone`, `git log` and
+  `git fsck --strict` on the bundle; gitmind (bankML's vendored copy) snapshots the clone and its ledger names the
+  head. In the browser: the first answer's delivery record is a commit, and the downloaded bundle is cloned and
+  logged by git. Record: `testing/results/v0.8.6.txt`.
+
 ## 0.8.5 — 2026-10-15 — the cache at three levels, with its accuracy; QUALITY from what succeeded
 
 - **The cache, at three levels** (HARD DRIVE, `app/src/bankml/storage.ts`, `CacheReport.tsx`): what browseML keeps
