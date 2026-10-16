@@ -205,6 +205,7 @@ try {
   await page.locator(".uif-windows-toggle").first().click(); await wait(200);
   const firstItem = (await page.locator(".uif-windows-item").first().innerText()).replace(/\s+/g, " ").trim();
   check("RAGE: ✵ rage is the top choice of the ▤ menu", /^✵ ✵ rage|^✵\s*✵ rage|✵ rage/.test(firstItem) && (await page.locator(".uif-windows-item").first().locator(".uif-windows-file").innerText()) === "✵ rage", firstItem);
+  check("MODULES: a host's own module is absent without its host file (no ⇪ in the ▤ menu)", (await page.locator(".uif-windows-item", { hasText: "⇪" }).count()) === 0);
   await page.locator(".uif-windows-item").first().click(); await wait(600);
   const rage = page.locator(".uif-window-rage");
   const rageHead = (await rage.locator(".atl-title").innerText().catch(() => "")).replace(/\s+/g, " ");

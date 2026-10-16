@@ -9,7 +9,9 @@
 // only to the host's own paths: they must be same-origin paths, so it can never be sent anywhere else.
 
 export interface AtlasHost { label: string; api: string; search: string; doc: string; token: string; signin?: string }
-export interface Host { persona?: string; atlas?: AtlasHost }
+/** Where a host keeps memories, for its edition's memory push (mindX: /gitmind/ingest, /gitmind/ingested). */
+export interface MemoryHost { label: string; push: string; ingested: string; token: string; signin?: string }
+export interface Host { persona?: string; atlas?: AtlasHost; memory?: MemoryHost }
 
 const local = (u: unknown): u is string => typeof u === 'string' && u.startsWith('/') && !u.startsWith('//');
 
@@ -22,6 +24,11 @@ export function parseHost(x: unknown): Host {
   if (a && local(a.api) && local(a.search) && local(a.doc) && typeof a.token === 'string' && a.token) {
     h.atlas = { label: typeof a.label === 'string' && a.label ? a.label : 'docs', api: a.api, search: a.search, doc: a.doc, token: a.token,
       ...(local(a.signin) ? { signin: a.signin } : {}) };
+  }
+  const m = o.memory as Record<string, unknown> | undefined;
+  if (m && local(m.push) && local(m.ingested) && typeof m.token === 'string' && m.token) {
+    h.memory = { label: typeof m.label === 'string' && m.label ? m.label : 'host', push: m.push, ingested: m.ingested, token: m.token,
+      ...(local(m.signin) ? { signin: m.signin } : {}) };
   }
   return h;
 }

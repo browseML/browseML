@@ -11,7 +11,7 @@ export function ModulesSection() {
   const changed = off.length !== loaded.length || off.some(x => !loaded.includes(x));
   return (
     <div className="cp-modules">
-      {MODULES.map(m => (
+      {MODULES.filter(m => !m.when || m.when()).map(m => (
         <div key={m.id} className="cp-module">
           <ToggleSwitch on={!off.includes(m.id)} color="#0ECB81" label={m.label}
             onChange={on => { setModuleOn(m.id, on); setOff(modulesOff()); }} />

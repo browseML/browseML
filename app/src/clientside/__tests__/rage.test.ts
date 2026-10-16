@@ -45,3 +45,18 @@ describe('modules', () => {
     expect(activeModules([m('a'), m('b')]).map(x => x.id)).toEqual(['a', 'b']);
   });
 });
+
+describe('the memory push (mindX edition)', async () => {
+  const { payload } = await import('../modules/memoryPush');
+  const { parseHost } = await import('../host');
+  it('a host names where it keeps memories; same-origin paths only', () => {
+    const m = { label: 'mindX', push: '/gitmind/ingest', ingested: '/gitmind/ingested', token: 'mindx_realm_token' };
+    expect(parseHost({ memory: m }).memory).toEqual(m);
+    expect(parseHost({ memory: { ...m, push: 'https://elsewhere.example/x' } }).memory).toBeUndefined();
+  });
+  it('a version sends its head and its notes, never a delivery record', () => {
+    const text = '{"text":"keep me","at":"2026-10-16T00:00:00Z","source":{"kind":"typed"}}\n{"text":"how delivered","source":{"kind":"delivery"}}\nnot json\n{"text":"  "}\n';
+    const p = payload({ n: 2, at: 0, text, subject: '', commit: 'c'.repeat(40), tree: '', blob: '', parent: null });
+    expect(p).toEqual({ source: 'browseml', head: 'c'.repeat(40), notes: [{ text: 'keep me', at: '2026-10-16T00:00:00Z', kind: 'typed' }] });
+  });
+});
