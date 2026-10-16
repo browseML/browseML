@@ -38,6 +38,7 @@ import { Faq } from './Faq';
 import { activeModules } from './modules';
 import { MODULES } from './modules/list';
 import { hostReady } from './host';
+import { ModuleWidget } from './widgets';
 import { track } from './gitmindStore';
 import { LEVELS, reportLines, storageReport, type Detail } from '../bankml/storage';
 import { measureTab } from './memory';
@@ -320,7 +321,7 @@ function Page() {
   // what the page is doing, as events any module may listen to (the sparks module does): working, and each outcome
   useEffect(() => { dispatchEvent(new CustomEvent('browseml:working', { detail: a.live !== null })); }, [a.live !== null]);  // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (own?.how === 'delivered') dispatchEvent(new CustomEvent('browseml:outcome', { detail: { ok: own.ok } })); }, [own]);
-  const widgets = { [WIDGET]: () => <BrowseCard onReady={() => void A.current.ready()} />, [RECEIPT]: ({ message }: { message: { data?: Record<string, unknown> } }) => <ReceiptAccordion data={message.data} /> };
+  const widgets = { module: ModuleWidget, [WIDGET]: () => <BrowseCard onReady={() => void A.current.ready()} />, [RECEIPT]: ({ message }: { message: { data?: Record<string, unknown> } }) => <ReceiptAccordion data={message.data} /> };
   const mine = a.live !== null ? null
     : !own ? { text: 'receipt —', tone: '' }
     : own.how === 'delivered' ? (own.ok ? { text: '✓ receipt', tone: 'ok' } : { text: '✗ receipt', tone: 'bad' })

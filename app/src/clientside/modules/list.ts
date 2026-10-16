@@ -3,6 +3,8 @@
 import { rageModule } from './rage';
 import { sparksModule } from './sparks';
 import { memoryPushModule } from './memoryPush';
+import { clientAwareModule } from './clientAware';
+import { presetsModule } from './presets';
 import type { ModuleInfo } from './index';
 
-export const MODULES: ModuleInfo[] = [rageModule, sparksModule, memoryPushModule];
+export const MODULES: ModuleInfo[] = [rageModule, sparksModule, clientAwareModule, presetsModule, memoryPushModule];

@@ -550,3 +550,14 @@ details.cs-card.is-ready > p { margin: 0; padding: 0 12px 10px; color: #a7f3d0; 
   .fx-ok, .fx-bad, .uif-windows-item .uif-windows-icon { animation: none; transition: none; }
 }
 .cp-module { margin: 4px 0 8px; }
+/* ── client-aware (modules/clientAware.tsx): proposed changes under an answer ── */
+.ca-props { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; font-size: 12px; }
+.ca-prop { display: inline-flex; gap: 6px; align-items: center; padding: 2px 4px 2px 10px; border: 1px dashed #2a3542; border-radius: 12px; color: #cfe9db; }
+.ca-done { color: var(--candle-green, #0ECB81); }
+.mp code { color: var(--candle-green, #0ECB81); }
+/* ── presets (modules/presets.tsx): .settings, .preset, .default ── */
+.ps-list { list-style: none; margin: 6px 0; padding: 0; }
+.ps-list li { padding: 4px 0; border-top: 1px solid #16202b; }
+.ps-def { display: grid; gap: 4px; margin: 8px 0; }
+.ps-row { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 12px; color: #cbd5e1; }
+.ps-row select { background: #0d131a; color: #f1f5f9; border: 1px solid #2a3542; border-radius: 6px; padding: 2px 4px; }
