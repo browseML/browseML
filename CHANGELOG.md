@@ -33,7 +33,8 @@ From here the third number rolls over after 9 (0.6.9 → 0.7.0). The releases pu
 - **gitmind**: an empty .memory before the first note is no longer committed (0.8.6 began a history with
   "clear browseml.memory").
 - Tests: 163 (5 new: the local atlas, BM25, the instant path, complexity, module switches); browser checks for ✵ rage,
-  the atlas window, travel by a word, Esc, MODULES and the spark canvas. Record: `testing/results/v0.8.7.txt`.
+  the atlas window, travel by a word, Esc, MODULES and the spark canvas. The gate: every step passed (both oracles 9 of
+  9), and 75 of 75 browser checks (headless Brave 152). Record: `testing/results/v0.8.7.txt`.
 
 ## 0.8.6 — 2026-10-16 — gitmind-compatible .memory: every change a git commit, the history a git bundle
 
