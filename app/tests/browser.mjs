@@ -218,10 +218,11 @@ try {
   await rage.locator(".atl-input").press("Escape"); await wait(300);
   check("RAGE: Esc closes the atlas", (await page.locator(".uif-window-rage").count()) === 0);
   // the sparks module: a press makes the spark canvas (motion allowed in this run)
-  await page.locator(".uif-windows-toggle").first().click(); await wait(150); await page.keyboard.press("Escape"); await wait(150);
+  await page.locator(".uif-windows-toggle").first().click(); await wait(150);
   check("SPARKS: a press on a field button sparks", (await page.locator("canvas.fx-sparks").count()) === 1);
+  if (await page.locator(".uif-windows-list").count()) { await page.locator(".uif-windows-toggle").first().click(); await wait(150); }  // the ▤ menu closed again
   // the presets module: ⚙ .settings in the ▤ menu, its presets, the .default per persona
-  await page.locator(".uif-windows-toggle").first().click(); await wait(200);
+  if (!(await page.locator(".uif-windows-list").count())) { await page.locator(".uif-windows-toggle").first().click(); await wait(200); }
   await page.locator(".uif-windows-item", { hasText: ".settings" }).click(); await wait(500);
   const ps = (await page.locator(".uif-window-settings").innerText().catch(() => "")).replace(/\s+/g, " ");
   check("PRESETS: ⚙ .settings opens with the built-in presets and a .default per persona", /light/.test(ps) && /long-answers/.test(ps) && /\.default/.test(ps) && /mindx/.test(ps), ps.slice(0, 160));
