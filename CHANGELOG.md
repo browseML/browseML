@@ -14,6 +14,32 @@ From here the third number rolls over after 9 (0.6.9 → 0.7.0). The releases pu
 | v0.6.14 | 0.7.4 |
 | v0.6.15 | 0.7.5 |
 
+## 0.8.8 — 2026-10-16 — client-aware answers, presets per persona, and the mindX edition's memory push
+
+- **client-aware** (a module; `app/src/bankml/clientdata.ts`): a question about this computer — its CPU, memory, GPU,
+  storage, battery, network, speed, engine or settings — goes to the model with the lines browseML measures here
+  ("THIS COMPUTER (measured here, now …)"), so it answers from them, not from guesses; any other question goes as it is.
+  A change the visitor asks for ("use 4 threads", "longer answers", "more context", "prompt cache 64", "GPU off", "save
+  my battery") is shown under the answer as an exact proposal — `threads 2 → 4 · next load` — checked by the settings'
+  own validators, and applied with one press, never without it. The 1-bit model is not asked to recognise requests;
+  the page does.
+- **presets** (a module): **.settings** (what this computer may take, exported and imported as a file), **.preset**
+  (light, balanced, fast, long-answers built in; the visitor's own imported beside them) and **.default** (the preset
+  each persona starts with: browseML balanced, mindX long-answers). Settings are kept **per persona**: leaving a
+  persona keeps its own, coming back restores them, and the first visit to one applies its preset. Settings made before
+  are adopted, never overwritten, and presets leave the context to what the device suits (a phone's included).
+- **The memory push** — the mindX edition's module, made only where `browseml-host.json` names a `memory` host: ⇪
+  mindX memory in the ▤ menu shows this browser's gitmind head and notes and what mindX holds, and PUSH TO mindX sends
+  the newest version's notes (never delivery records) with its head commit to `/gitmind/ingest`; mindX keeps each new
+  note once as the signed-in participant's memory, embeds it, and the rage atlas's memories search finds it for them
+  alone. "Push after each change" is off by default.
+- **The pure core gains two generic hooks**: augmenters (blocks a module puts before a question; the rage module's
+  pinned passages are now one) and module widgets (a message drawn by the module that registered its kind), and
+  announces `browseml:asked` and `browseml:persona`. The page reads the host file before it renders, so a host's
+  modules are known.
+- Tests: 174 (11 new); browser checks for .settings, MODULES, and a host's module absent without its host.
+  Record: `testing/results/v0.8.8.txt`.
+
 ## 0.8.7 — 2026-10-16 — modules on a pure core: ✵ rage, the ▤ menu's top choice, and sparks
 
 - **Modules** (`app/src/clientside/modules/`): what extends browseML's core — the field, the engine, the control panel —
