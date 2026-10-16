@@ -29,7 +29,8 @@ From here the third number rolls over after 9 (0.6.9 → 0.7.0). The releases pu
 - **Checked against the real tools**: ids equal `git hash-object`; `git bundle verify`, `git clone`, `git log` and
   `git fsck --strict` on the bundle; gitmind (bankML's vendored copy) snapshots the clone and its ledger names the
   head. In the browser: the first answer's delivery record is a commit, and the downloaded bundle is cloned and
-  logged by git. Record: `testing/results/v0.8.6.txt`.
+  logged by git. The gate: every step passed (both oracles 9 of 9), and 69 of 69 browser checks (headless Brave 152).
+  Record: `testing/results/v0.8.6.txt`.
 
 ## 0.8.5 — 2026-10-15 — the cache at three levels, with its accuracy; QUALITY from what succeeded
 
