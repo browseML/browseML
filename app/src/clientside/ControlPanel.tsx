@@ -30,6 +30,7 @@ import { Folders } from './Folders';
 import { Disk } from './Disk';
 import { QualitySection } from './Quality';
 import { GitMindSection } from './GitMind';
+import { ModulesSection } from './modules/ModulesSection';
 import { Status } from './Status';
 import { Sliders } from './Sliders';
 import { ConfirmButton } from '../components/ContextWindows';
@@ -357,6 +358,7 @@ export function ControlPanel({ uif, onModelReady = () => {}, onStart }: { uif: M
         <p className="cp-fine">The classics, as a page can do them: <a href="https://github.com/browseML/browseML/blob/main/docs/cpu-software.md">CPU and network</a> · <a href="https://github.com/browseML/browseML/blob/main/docs/gpu-software.md">graphics cards</a>.</p>
       </Fold>
 
+      <Fold id="modules" title="MODULES" open={false}><ModulesSection /></Fold>
       <Fold id="limits" title="LIMITERS">
         <div className="cp-limits">
           <ToggleSwitch on={limits.spareCore} color={ORANGE} label="leave a core free" onChange={on => { setLimits({ spareCore: on }); void browseMaxThreads().then(l => setBrowseSettings({ threads: on ? Math.max(1, l.max - 1) : null })); }} />

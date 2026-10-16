@@ -57,7 +57,7 @@ try {
   check("no panel at first, T in the field", (await page.locator(".uif-shelves.is-open").count()) === 0 && (await page.locator(".uif-tools-toggle").innerText()) === "T");
   await page.locator(".uif-tools-toggle").click(); await wait(400);
   const folds = (await page.locator(".cp-fold-head").allInnerTexts()).map((t) => t.replace(/[▾▸]/g, "").trim());
-  check("T opens the control panel with its sections", ["NOW", "TOOLS", "CPU · RAM · GPU · CACHE", "ENGINE LOG", "RECEIPTS", "QUALITY", "GITMIND", "MODELS ON THIS COMPUTER", "HARD DRIVE", "DIALS", "DIAGNOSTICS", "TOOL SUITE", "LIMITERS"].every((f) => folds.includes(f)), folds.join(", "));
+  check("T opens the control panel with its sections", ["NOW", "TOOLS", "CPU · RAM · GPU · CACHE", "ENGINE LOG", "RECEIPTS", "QUALITY", "GITMIND", "MODELS ON THIS COMPUTER", "MODULES", "HARD DRIVE", "DIALS", "DIAGNOSTICS", "TOOL SUITE", "LIMITERS"].every((f) => folds.includes(f)), folds.join(", "));
   const pw = await page.evaluate(() => { const a = document.querySelector(".uif-shelves.is-open"); return a.scrollWidth <= a.clientWidth; });
   check("the panel's content fits its width", pw);
   // the fire effect (a visual effect): one canvas that never takes a click, and its switch in LIMITERS
@@ -201,6 +201,24 @@ try {
   check("GITMIND: EXPORT BUNDLE — git clones it, logs .memory's history, the file is the delivery record",
     /^[0-9a-f]{7} add \d+ notes?/m.test(gmLog) && gmHead.includes(gmLog.slice(0, 7)) && /"delivery"/.test(gmMem), gmLog.split("\n").slice(0, 2).join(" | "));
   await page.locator(".cp-fold-head", { hasText: "GITMIND" }).click(); await wait(200);
+  // the rage module: ✵ rage is the ▤ menu's top choice; it opens this browser's own atlas (no host here), travel by a word
+  await page.locator(".uif-windows-toggle").first().click(); await wait(200);
+  const firstItem = (await page.locator(".uif-windows-item").first().innerText()).replace(/\s+/g, " ").trim();
+  check("RAGE: ✵ rage is the top choice of the ▤ menu", /^✵ ✵ rage|^✵\s*✵ rage|✵ rage/.test(firstItem) && (await page.locator(".uif-windows-item").first().locator(".uif-windows-file").innerText()) === "✵ rage", firstItem);
+  await page.locator(".uif-windows-item").first().click(); await wait(600);
+  const rage = page.locator(".uif-window-rage");
+  const rageHead = (await rage.locator(".atl-title").innerText().catch(() => "")).replace(/\s+/g, " ");
+  check("RAGE: the atlas opens in a window — this browser's own, with .history", /rage · atlas · this browser/.test(rageHead)
+    && (await rage.locator(".atl-sum", { hasText: ".history" }).count()) === 1, rageHead);
+  await rage.locator(".atl-input").fill("type"); await wait(900);
+  const travel = (await rage.locator(".atl-found").innerText().catch(() => "")).replace(/\s+/g, " ");
+  check("RAGE: travel by a word — the instant path, then the full text", /“type”/.test(travel) && /… and in the full text/.test(travel), travel.slice(0, 160));
+  check("RAGE: the complexity meter", (await rage.locator(".atl-cx").innerText()).includes("tags collected"));
+  await rage.locator(".atl-input").press("Escape"); await wait(300);
+  check("RAGE: Esc closes the atlas", (await page.locator(".uif-window-rage").count()) === 0);
+  // the sparks module: a press makes the spark canvas (motion allowed in this run)
+  await page.locator(".uif-windows-toggle").first().click(); await wait(150); await page.keyboard.press("Escape"); await wait(150);
+  check("SPARKS: a press on a field button sparks", (await page.locator("canvas.fx-sparks").count()) === 1);
   // arranging: HARD DRIVE dragged by its grip to the top, then hidden, shown, and the layout reset
   const order = () => page.locator(".cp-arrange > [data-arrange]").evaluateAll((els) => els.map((e) => e.getAttribute("data-arrange")));
   // the panel is taller than the window by now: for the drag, a window tall enough to show both ends (restored after)

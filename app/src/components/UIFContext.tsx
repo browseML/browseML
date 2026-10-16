@@ -151,7 +151,8 @@ export function UIFProvider({
   widgets,
 }: UIFProviderOptions & { children?: React.ReactNode; actions?: Action[] }) {
   // The context module (.history .memory .prompt .persona .model) first, then the host's. Read once, like actions.
-  const allModules = useMemo<UIFModule[]>(() => [contextModule, ...(modules ?? [])], []); // eslint-disable-line react-hooks/exhaustive-deps
+  // A module may ask to come first (its windows head the ▤ menu); the rest follow the context module, in order.
+  const allModules = useMemo<UIFModule[]>(() => [...(modules ?? []).filter(m => m.first), contextModule, ...(modules ?? []).filter(m => !m.first)], []); // eslint-disable-line react-hooks/exhaustive-deps
   const windowDefs = useMemo(() => collectWindows(allModules), [allModules]);
   const registry = useMemo(
     () =>

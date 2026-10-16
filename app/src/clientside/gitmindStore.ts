@@ -54,6 +54,7 @@ export function track(text: string): Promise<Version | null> {
   const run = async () => {
     if (!gitmindOn() || typeof indexedDB === 'undefined') return null;
     const all = await versions(), prev = all.length ? all[all.length - 1] : null;
+    if (!prev && !text.trim()) return null;  // an empty .memory before the first note is not a version
     const r = restoring && restoring.text === text ? restoring : null;
     restoring = null;
     const next = await nextVersion(prev, text, Date.now(), source(), r?.commit);

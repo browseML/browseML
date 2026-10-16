@@ -35,14 +35,17 @@ import { exitBrowse } from '../bankml/free';
 import { activePersona, applyPersona } from './Persona';
 import { measureCores } from './cores';
 import { Faq } from './Faq';
-import { Atlas } from './Atlas';
+import { activeModules } from './modules';
+import { MODULES } from './modules/list';
 import { track } from './gitmindStore';
 import { LEVELS, reportLines, storageReport, type Detail } from '../bankml/storage';
 import { measureTab } from './memory';
 import '../styles/UltimateInputField.css';
 import './clientside.css';
 
-const KEY = 'ultimate-clientside';  // the storage key kept, so visitors keep their settings and shelves
+const KEY = 'ultimate-clientside';
+/** The modules this edition includes, less those turned off in MODULES (read once per load). */
+const uifModules = activeModules(MODULES);  // the storage key kept, so visitors keep their settings and shelves
 const PHONE = '(max-width: 640px)';
 /** The bar: ⬇ load, ⧉ dock in the page / pop out, ❏ spawn. No T mode here: 🛠 (where T sits) holds this computer's
  *  controls and the diagnostics; the commands stay reachable as /client, /usage, /receipt. */
@@ -312,6 +315,9 @@ function Page() {
 
   const phone = window.matchMedia(PHONE).matches;
   const own = a.outcome;
+  // what the page is doing, as events any module may listen to (the sparks module does): working, and each outcome
+  useEffect(() => { dispatchEvent(new CustomEvent('browseml:working', { detail: a.live !== null })); }, [a.live !== null]);  // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (own?.how === 'delivered') dispatchEvent(new CustomEvent('browseml:outcome', { detail: { ok: own.ok } })); }, [own]);
   const widgets = { [WIDGET]: () => <BrowseCard onReady={() => void A.current.ready()} />, [RECEIPT]: ({ message }: { message: { data?: Record<string, unknown> } }) => <ReceiptAccordion data={message.data} /> };
   const mine = a.live !== null ? null
     : !own ? { text: 'receipt —', tone: '' }
@@ -325,10 +331,10 @@ function Page() {
         <h1 className="cs-mark"><img src="browseML-logo.png" alt="browseML" width="132" height="132" /></h1>
         <p className="cs-line">machine learning in your browser</p>
       </header>
-      <Atlas />
       <div className="cs-dock">
         <UltimateBar
           storageKey={KEY}
+          modules={uifModules}
           actions={actions}
           modeBar={RACK}
           onSend={onSend}

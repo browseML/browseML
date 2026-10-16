@@ -33,6 +33,8 @@ export interface ModuleWindow extends WindowInfo {
 export interface UIFModule {
   id: string;
   label: string;
+  /** Listed before the context module: its windows head the ▤ menu (the rage module's ✵ rage is its top choice). */
+  first?: boolean;
   windows?: ModuleWindow[];
   actions?: Action[];
 }
