@@ -38,6 +38,7 @@ From here the third number rolls over after 9 (0.6.9 → 0.7.0). The releases pu
   announces `browseml:asked` and `browseml:persona`. The page reads the host file before it renders, so a host's
   modules are known.
 - Tests: 174 (11 new); browser checks for .settings, MODULES, and a host's module absent without its host.
+  The gate: every step passed (both oracles 9 of 9), and 78 of 78 browser checks (headless Brave 152).
   Record: `testing/results/v0.8.8.txt`.
 
 ## 0.8.7 — 2026-10-16 — modules on a pure core: ✵ rage, the ▤ menu's top choice, and sparks
