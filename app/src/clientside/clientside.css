@@ -514,3 +514,39 @@ details.cs-card.is-ready > p { margin: 0; padding: 0 12px 10px; color: #a7f3d0; 
 .gm-when { color: #7d8ea1; font-size: 11px; }
 .gm-act { all: unset; cursor: pointer; margin-left: 6px; font-size: 11px; padding: 1px 8px; border: 1px solid #2a3542; border-radius: 10px; color: #cfe9db; }
 .gm-act:hover, .gm-act:focus-visible { border-color: var(--btc-orange, #F7931A); color: var(--btc-orange, #F7931A); outline: none; }
+
+/* ── the rage atlas as a window (Atlas.tsx · the rage module): v1's head — sparks, complexity, trail ── */
+.uif-window-rage .atl, .atl.is-open { max-width: none; margin: 0; padding: 0; }
+.atl-head { position: relative; display: block; padding: 8px 10px 6px; border-bottom: 1px solid #1e2935; overflow: hidden; }
+.atl-sparks { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.atl-row1 { position: relative; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.atl-title { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .12em; text-transform: lowercase; color: var(--candle-green, #0ECB81); font-weight: 700; }
+.atl-title small { color: #8ea0b4; letter-spacing: 0; text-transform: none; font-weight: 400; }
+.atl-head .atl-bar { position: relative; margin: 6px 0 4px; }
+.atl-cx { position: relative; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: #8ea0b4; font-size: 11px; }
+.atl-cx-bar { flex: 0 0 90px; height: 4px; border-radius: 2px; background: #16202b; overflow: hidden; }
+.atl-cx-bar i { display: block; height: 100%; background: var(--candle-green, #0ECB81); transition: width .4s ease, background .4s ease; }
+.atl-cx-bar i.is-hot { background: var(--btc-orange, #F7931A); }
+.atl-head .atl-trail, .atl-head .atl-collected { position: relative; margin-top: 6px; }
+.atl-sep { color: #4b5b6c; margin: 0 4px; }
+.atl-body { margin: 0; border: 0; border-radius: 0; padding: 8px 10px; background: transparent; }
+.atl-sub { margin: 8px 0 2px; color: #8ea0b4; font-size: 11px; font-style: italic; }
+.atl-foot { display: flex; flex-wrap: wrap; gap: 10px; padding: 6px 10px 8px; border-top: 1px solid #1e2935; }
+.atl-foot a { color: var(--btc-orange, #F7931A); }
+.atl-pins { padding: 6px 10px; max-width: none; margin: 0; }
+
+/* ── sparks (sparks.ts · the sparks module): subtle, yet alive ── */
+.fx-sparks { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 2147483000; }
+.fx-ember { animation: fx-ember 1.8s ease-in-out infinite; }
+@keyframes fx-ember { 0%, 100% { box-shadow: 0 0 0 0 rgba(247, 147, 26, 0); } 50% { box-shadow: 0 0 10px 2px rgba(247, 147, 26, .35); } }
+.fx-ok { animation: fx-ok .8s ease-out 1; }
+@keyframes fx-ok { from { box-shadow: 0 0 0 0 rgba(14, 203, 129, .55); } to { box-shadow: 0 0 0 10px rgba(14, 203, 129, 0); } }
+.fx-bad { animation: fx-bad .5s ease-in-out 1; }
+@keyframes fx-bad { 0%, 100% { box-shadow: none; } 30%, 70% { box-shadow: 0 0 0 2px rgba(246, 70, 93, .7); } 50% { box-shadow: none; } }
+.uif-windows-item .uif-windows-icon { transition: transform .25s ease; }
+.uif-windows-item.is-open .uif-windows-icon { transform: rotate(45deg); }
+@media (prefers-reduced-motion: reduce) {
+  .fx-ember { animation: none; box-shadow: 0 0 0 1px rgba(247, 147, 26, .6); }
+  .fx-ok, .fx-bad, .uif-windows-item .uif-windows-icon { animation: none; transition: none; }
+}
+.cp-module { margin: 4px 0 8px; }
