@@ -205,6 +205,7 @@ try {
   await page.locator(".uif-windows-toggle").first().click(); await wait(200);
   const firstItem = (await page.locator(".uif-windows-item").first().innerText()).replace(/\s+/g, " ").trim();
   check("RAGE: ✵ rage is the top choice of the ▤ menu", /^✵ ✵ rage|^✵\s*✵ rage|✵ rage/.test(firstItem) && (await page.locator(".uif-windows-item").first().locator(".uif-windows-file").innerText()) === "✵ rage", firstItem);
+  check("MODULES: a host's own module is absent without its host file (no ⇪ in the ▤ menu)", (await page.locator(".uif-windows-item", { hasText: "⇪" }).count()) === 0);
   await page.locator(".uif-windows-item").first().click(); await wait(600);
   const rage = page.locator(".uif-window-rage");
   const rageHead = (await rage.locator(".atl-title").innerText().catch(() => "")).replace(/\s+/g, " ");
@@ -219,6 +220,17 @@ try {
   // the sparks module: a press makes the spark canvas (motion allowed in this run)
   await page.locator(".uif-windows-toggle").first().click(); await wait(150); await page.keyboard.press("Escape"); await wait(150);
   check("SPARKS: a press on a field button sparks", (await page.locator("canvas.fx-sparks").count()) === 1);
+  // the presets module: ⚙ .settings in the ▤ menu, its presets, the .default per persona
+  await page.locator(".uif-windows-toggle").first().click(); await wait(200);
+  await page.locator(".uif-windows-item", { hasText: ".settings" }).click(); await wait(500);
+  const ps = (await page.locator(".uif-window-settings").innerText().catch(() => "")).replace(/\s+/g, " ");
+  check("PRESETS: ⚙ .settings opens with the built-in presets and a .default per persona", /light/.test(ps) && /long-answers/.test(ps) && /\.default/.test(ps) && /mindx/.test(ps), ps.slice(0, 160));
+  await page.keyboard.press("Escape"); await wait(200);
+  if (await page.locator(".uif-window-settings").count()) await page.locator(".uif-window-settings .uif-window-close, .uif-window-settings [aria-label^='Close']").first().click().catch(() => {});
+  await page.locator(".cp-fold-head", { hasText: "MODULES" }).click(); await wait(300);
+  const mods = (await page.locator(".cp-modules").innerText().catch(() => "")).replace(/\s+/g, " ");
+  check("MODULES: rage, sparks, client-aware and presets, each with its switch", ["rage", "sparks", "client-aware", "presets"].every((m) => mods.includes(m)) && !mods.includes("memory push"), mods.slice(0, 160));
+  await page.locator(".cp-fold-head", { hasText: "MODULES" }).click(); await wait(200);
   // arranging: HARD DRIVE dragged by its grip to the top, then hidden, shown, and the layout reset
   const order = () => page.locator(".cp-arrange > [data-arrange]").evaluateAll((els) => els.map((e) => e.getAttribute("data-arrange")));
   // the panel is taller than the window by now: for the drag, a window tall enough to show both ends (restored after)

@@ -59,10 +59,11 @@ export async function activePersona(): Promise<Persona> {
 
 /** Put a persona in the field's context (its .persona), and read its prompt once if browseML is running. */
 export async function applyPersona(live: () => UIFContextValue | null, p: Persona) {
-  const text = toFile(p);
+  const text = toFile(p), from = (() => { try { return localStorage.getItem(ACTIVE); } catch { return null; } })();
   live()?.context.setPersonaText(text);
   setActive(p.id);
   savedFns.forEach(f => f());
+  if (from !== p.id) dispatchEvent(new CustomEvent('browseml:persona', { detail: { from, to: p.id } }));  // modules may tailor to it
   // the prompt is built from the field's context as it is after the switch: wait for it to carry the new persona
   // (the context of the render before still has the old one, whose prompt is already kept)
   for (let i = 0; i < 40 && live()?.context.personaText !== text; i++) await new Promise(r => setTimeout(r, 25));

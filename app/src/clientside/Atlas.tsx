@@ -38,7 +38,12 @@ const keyOf = (h: Hit) => `${h.doc}#${h.chunk ?? 0}`;
 /** The question as the model reads it: the pinned passages first (cut to fit), then the question. The record of the
  *  exchange keeps the question as it was typed. */
 export function withPassages(text: string, list: Hit[] = pinned): string {
-  if (!list.length) return text;
+  const b = passagesBlock(list);
+  return b ? `${b}\n\nQuestion: ${text}` : text;
+}
+/** The pinned passages as a block (the rage module adds it to every question while any is pinned). */
+export function passagesBlock(list: Hit[] = pinned): string {
+  if (!list.length) return '';
   let room = PASSAGES_CHARS;
   const parts: string[] = [];
   for (const h of list) {
@@ -48,7 +53,7 @@ export function withPassages(text: string, list: Hit[] = pinned): string {
     parts.push(`[${h.doc}] ${cut}`);
     room -= cut.length + h.doc.length + 4;
   }
-  return `Passages from the documentation (context, not evidence; name the document you use):\n${parts.join('\n')}\n\nQuestion: ${text}`;
+  return `Passages from the documentation (context, not evidence; name the document you use):\n${parts.join('\n')}`;
 }
 
 // ---- the head's sparks (v1's own: they rise as the travel heats) ---------------------------------------------------

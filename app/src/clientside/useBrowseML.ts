@@ -13,7 +13,7 @@ import { getLimits } from './limits';
 import { personaName } from '../core/context';
 import { rememberedModel } from './Folders';
 import { deliver, type DeliveryHooks, type Outcome } from '../bankml/deliver';
-import { withPassages } from './Atlas';
+import { augment } from './augment';
 
 /** Said in place of an answer while browseML is not ready; the card under it offers the import. */
 export const NOT_READY = 'Click to load the model in your browser.';
@@ -110,7 +110,10 @@ export function useBrowseML(uif: MutableRefObject<UIFContextValue | null>) {
       annotate({ engine: 'browseml', model: browseState()?.model ?? 'Bonsai-1.7B-Q1_0.gguf', receipt: v.receipt ?? null, verified: v.ok, ...(v.usage ? { usage: v.usage } : {}) });
       done(v);
     };
-    return deliver(done => askBrowse(context.system, turnsOf(outputId), withPassages(text), settle(done), undefined, signal), hooks, {
+    // what modules add to the question (pinned passages, this computer's lines), and the question announced to them
+    dispatchEvent(new CustomEvent('browseml:asked', { detail: { text, outputId, append: (m: Parameters<NonNullable<typeof uif.current>['outputs']['append']>[1]) => uif.current?.outputs.append(outputId, m) } }));
+    const asked = augment(text);
+    return deliver(done => askBrowse(context.system, turnsOf(outputId), asked, settle(done), undefined, signal), hooks, {
       where: WHERE, receipts: true, signal,
       prepare: async progress => {
         if (browseState()) return null;

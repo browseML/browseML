@@ -37,15 +37,18 @@ import { measureCores } from './cores';
 import { Faq } from './Faq';
 import { activeModules } from './modules';
 import { MODULES } from './modules/list';
+import { hostReady } from './host';
+import { ModuleWidget } from './widgets';
 import { track } from './gitmindStore';
 import { LEVELS, reportLines, storageReport, type Detail } from '../bankml/storage';
 import { measureTab } from './memory';
 import '../styles/UltimateInputField.css';
 import './clientside.css';
 
-const KEY = 'ultimate-clientside';
-/** The modules this edition includes, less those turned off in MODULES (read once per load). */
-const uifModules = activeModules(MODULES);  // the storage key kept, so visitors keep their settings and shelves
+const KEY = 'ultimate-clientside';  // the storage key kept, so visitors keep their settings and shelves
+/** The modules this edition includes, less those turned off in MODULES — read once per load, after the host file (a
+ *  host's edition may add its own: the mindX edition's memory push). */
+let uifModules: ReturnType<typeof activeModules> = [];
 const PHONE = '(max-width: 640px)';
 /** The bar: ⬇ load, ⧉ dock in the page / pop out, ❏ spawn. No T mode here: 🛠 (where T sits) holds this computer's
  *  controls and the diagnostics; the commands stay reachable as /client, /usage, /receipt. */
@@ -318,7 +321,7 @@ function Page() {
   // what the page is doing, as events any module may listen to (the sparks module does): working, and each outcome
   useEffect(() => { dispatchEvent(new CustomEvent('browseml:working', { detail: a.live !== null })); }, [a.live !== null]);  // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (own?.how === 'delivered') dispatchEvent(new CustomEvent('browseml:outcome', { detail: { ok: own.ok } })); }, [own]);
-  const widgets = { [WIDGET]: () => <BrowseCard onReady={() => void A.current.ready()} />, [RECEIPT]: ({ message }: { message: { data?: Record<string, unknown> } }) => <ReceiptAccordion data={message.data} /> };
+  const widgets = { module: ModuleWidget, [WIDGET]: () => <BrowseCard onReady={() => void A.current.ready()} />, [RECEIPT]: ({ message }: { message: { data?: Record<string, unknown> } }) => <ReceiptAccordion data={message.data} /> };
   const mine = a.live !== null ? null
     : !own ? { text: 'receipt —', tone: '' }
     : own.how === 'delivered' ? (own.ok ? { text: '✓ receipt', tone: 'ok' } : { text: '✗ receipt', tone: 'bad' })
@@ -370,4 +373,8 @@ if (!isOutputWindow()) {
   // a clean exit: when the page goes away the engine, its threads and its GPU worker end with it (nothing left running)
   addEventListener('pagehide', () => exitBrowse());
 }  // battery, network, CPU, memory, GPU, engine: live from the first moment
-ReactDOM.createRoot(document.getElementById('root')!).render(isOutputWindow() ? <OutputWindow /> : <Page />);
+// the host file first (a small same-origin read; absent, it answers at once), so a host's modules are known
+void hostReady.then(() => {
+  uifModules = activeModules(MODULES.filter(m => !m.when || m.when()));
+  ReactDOM.createRoot(document.getElementById('root')!).render(isOutputWindow() ? <OutputWindow /> : <Page />);
+});

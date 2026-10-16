@@ -4,7 +4,7 @@
 // (MODULES in the control panel; it applies on the next load). A host's edition (browseml-host.json) adds its own.
 import type { UIFModule } from '../../core/modules';
 
-export interface ModuleInfo { id: string; label: string; note: string; make(): UIFModule }
+export interface ModuleInfo { id: string; label: string; note: string; make(): UIFModule; /** Only on some hosts (read after the host file). */ when?: () => boolean }
 const KEY = 'browseml:modules-off';
 export const modulesOff = (): string[] => { try { const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v.filter(x => typeof x === 'string') : []; } catch { return []; } };
 export const setModuleOn = (id: string, on: boolean) => {
