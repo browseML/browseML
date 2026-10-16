@@ -30,7 +30,9 @@ From here the third number rolls over after 9 (0.6.9 → 0.7.0). The releases pu
 - **QUALITY** (control panel, `app/src/bankml/quality.ts`): accuracy as the answers whose receipt checked, of those
   delivered; the clarity and genius of the answers that succeeded, by mindX editor.agent's formulas ported to the
   letter (equal to its Python on the reference texts to 1e-10): median, mean, and how many clear the 0.90 bars.
-- Tests: 151 (9 new). Record: `testing/results/v0.8.5.txt`.
+- Tests: 151 (9 new). The gate: every step passed (both oracles 9 of 9), and 67 of 67 browser checks (headless Brave
+  152), among them the cache report's three levels and QUALITY; the drag check now sizes its window from the panel,
+  which outgrew 3,600 px. Record: `testing/results/v0.8.5.txt`.
 
 ## 0.8.4 — 2026-10-15 — a host's docs as an atlas (mindX on mindx.pythai.net), and its persona first
 
