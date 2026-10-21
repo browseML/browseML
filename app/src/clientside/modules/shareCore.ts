@@ -149,3 +149,15 @@ export function measuredSpeeds(byThreads: { threads: number; answers: number; ge
   const ok = (v: number) => typeof v === 'number' && isFinite(v) && v > 0;
   return r ? { ...(ok(r.gen) ? { gen_tps: +r.gen.toFixed(3) } : {}), ...(ok(r.prompt) ? { prompt_tps: +r.prompt.toFixed(3) } : {}) } : {};
 }
+
+/** What computes here, for join (dmind 0.4.0 compares answers only between engines measured to give the same bytes,
+ *  and meters a GPU's share as gpu-seconds): the engine id, and the GPU only when bankML runs on one it verified. */
+export function engineCaps(b: { version?: string; gpu?: string; gpuTime?: number; gpuNote?: string } | null):
+  { engine: string; gpu?: { name: string; share: number } } {
+  const engine = `browseml/${b?.version || 'unknown'}`;
+  const t = Number(b?.gpuTime);
+  if (!b || !b.gpu || b.gpu === 'off' || !isFinite(t) || t <= 0) return { engine };
+  const share = Math.min(1, t > 1 ? t / 100 : t);
+  const name = (b.gpuNote || 'WebGPU').split(/[·—(]/)[0].trim().slice(0, 64) || 'WebGPU';
+  return { engine, gpu: { name, share: +share.toFixed(3) } };
+}

@@ -26,7 +26,7 @@ import { monitor } from '../monitor';
 import { browseCached, browseState, loadBrowse, shareBrowse } from '../../bankml/free';
 import { activity } from '../../bankml/pulse';
 import { summarize, usageLog } from '../../bankml/usage';
-import { addThought, addToDay, DAILY_CHOICES, isFinal, JOB_TOKEN_CHOICES, kindsTaken, measuredSpeeds, parseKinds, parsePool, parseShare, PAUSE_CHOICES,
+import { addThought, addToDay, DAILY_CHOICES, engineCaps, isFinal, JOB_TOKEN_CHOICES, kindsTaken, measuredSpeeds, parseKinds, parsePool, parseShare, PAUSE_CHOICES,
   pauseReason, PCT_MIN, restAfter, toggleKind, usedToday, type DayBudget, type KindInfo, type PoolView, type ShareSettings,
   type Thought } from './shareCore';
 
@@ -94,7 +94,7 @@ async function join(): Promise<void> {
   try { measured = measuredSpeeds(summarize(usageLog()).byThreads, v.threads); } catch { /* no records */ }
   const known = Object.keys(state.catalogue).length ? { kinds: kindsTaken(settings, state.catalogue) } : {};
   const j = await call('join', { model: v.model, model_sha256: v.sha256, threads: v.threads, share_pct: settings.pct,
-    max_job_tokens: settings.maxJobTokens, ...known, ...measured, ...(best ? { gen_tps: best } : {}) });
+    max_job_tokens: settings.maxJobTokens, ...known, ...measured, ...engineCaps(v), ...(best ? { gen_tps: best } : {}) });
   if (!j.ok) throw new Final(j.reason || 'the host refused');   // retrying a refused join only knocks again
   session = j.session;
   const catalogue = parseKinds(j.kinds);

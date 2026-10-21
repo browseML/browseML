@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 import { parseHost } from '../host';
-import { addThought, addToDay, DEFAULT_SHARE, isFinal, kindsTaken, measuredSpeeds, parseKinds, parsePool, parseShare, pauseReason, restAfter, THOUGHTS_KEPT, toggleKind,
+import { addThought, addToDay, DEFAULT_SHARE, engineCaps, isFinal, kindsTaken, measuredSpeeds, parseKinds, parsePool, parseShare, pauseReason, restAfter, THOUGHTS_KEPT, toggleKind,
   usedToday } from '../modules/shareCore';
 
 describe('the share host', () => {
@@ -124,5 +124,15 @@ describe('the speeds sent at join', () => {
     expect(measuredSpeeds(rows, 4)).toEqual({});
     expect(measuredSpeeds(rows, 8)).toEqual({});
     expect(measuredSpeeds([{ threads: 1, answers: 1, gen: NaN, prompt: 3 }], 1)).toEqual({ prompt_tps: 3 });
+  });
+});
+
+describe('what computes here', () => {
+  it('the engine id always; the GPU only when bankML runs on one', () => {
+    expect(engineCaps({ version: '0.8.9', gpu: 'off', gpuTime: 80 })).toEqual({ engine: 'browseml/0.8.9' });
+    expect(engineCaps({ version: '0.8.9', gpu: 'high-performance', gpuTime: 80, gpuNote: 'Apple M2 · WebGPU' }))
+      .toEqual({ engine: 'browseml/0.8.9', gpu: { name: 'Apple M2', share: 0.8 } });
+    expect(engineCaps({ version: '0.8.9', gpu: 'low-power', gpuTime: 0 })).toEqual({ engine: 'browseml/0.8.9' });
+    expect(engineCaps(null)).toEqual({ engine: 'browseml/unknown' });
   });
 });
