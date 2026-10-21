@@ -14,6 +14,26 @@ From here the third number rolls over after 9 (0.6.9 → 0.7.0). The releases pu
 | v0.6.14 | 0.7.4 |
 | v0.6.15 | 0.7.5 |
 
+## 0.8.9 — 2026-10-21 — ⇄ share: lend this browser's engine to the host, by kind of thought
+
+- **share** (a module of the host edition, only where `browseml-host.json` names a `share` host; mindX's is the first):
+  this browser lends its bankML to the host by the visitor's choice. **SHARE** and **STOP**, a **share slider** (5–100 %
+  of the engine's time, a duty cycle the browser keeps: after a job of t seconds it rests t·(100−p)/p), and when: only
+  while charging, pause at a CPU pressure, pause while the tab is hidden, the largest job, minutes per day. The
+  visitor's own question always goes first, each visit starts unshared, and leaving the page is a STOP.
+- **What the host is thinking.** Every job names its kind and a one-line purpose, shown while it runs, with the exact
+  messages under *what was sent*; a switch per kind in the host's catalogue says which kinds this browser takes.
+- **Checked, and trust earned.** Each answer goes back with the engine's receipt (checked here first, and again by the
+  host). Until the host's own re-run of the same pinned model has matched a wallet's answers a few times, it holds
+  them for that check; the panel says how many have matched, and when a failed check has barred the wallet.
+- **Polite.** A pause is reported to the host (not counted as capacity); a long job heartbeats; a job the host
+  withdraws stops at its next piece and nothing is sent; a refusal that retrying cannot fix stops sharing and says why.
+- **The distributed mind now** (with `share.insight`): browsers sharing and ready, thoughts waiting, core-seconds
+  given, your rank, who gives the most; and this visit's last 12 thoughts given (✓ used · ◷ held · ⊘ withdrawn · ✗ refused).
+- **What leaves this browser:** each answer, its receipt, the counts and speeds, the model's sha256, the kinds taken
+  and whether it is paused. Never .memory, .history or your own questions. The protocol is the host's
+  ([dmind](https://github.com/cryptoAGI/dmind) PROTOCOL.md); `shareBrowse` runs a job's messages exactly as sent.
+
 ## 0.8.8 — 2026-10-16 — client-aware answers, presets per persona, and the mindX edition's memory push
 
 - **client-aware** (a module; `app/src/bankml/clientdata.ts`): a question about this computer — its CPU, memory, GPU,

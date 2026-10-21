@@ -8,7 +8,7 @@ version = "0.4.2"
 
 [[package]]
 name = "browseml"
-version = "0.8.8"
+version = "0.8.9"
 dependencies = [
  "bankml",
 ]
