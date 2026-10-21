@@ -140,3 +140,12 @@ export function parsePool(raw: unknown): PoolView | null {
   return { contributors: n(o.contributors), available: n(o.available), queued: n(o.queued),
     coreSeconds: n((o.totals as Record<string, unknown> | undefined)?.core_seconds), top };
 }
+
+/** This browser's own measured speeds at the thread count it runs (browseML's usage log, the visitor's own answers),
+ *  for join: the host does not hand a job the browser cannot finish within its lease. Nothing measured → nothing sent. */
+export function measuredSpeeds(byThreads: { threads: number; answers: number; gen: number; prompt: number }[], threads: number):
+  { gen_tps?: number; prompt_tps?: number } {
+  const r = byThreads.find(x => x.threads === threads && x.answers > 0);
+  const ok = (v: number) => typeof v === 'number' && isFinite(v) && v > 0;
+  return r ? { ...(ok(r.gen) ? { gen_tps: +r.gen.toFixed(3) } : {}), ...(ok(r.prompt) ? { prompt_tps: +r.prompt.toFixed(3) } : {}) } : {};
+}

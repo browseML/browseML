@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 import { parseHost } from '../host';
-import { addThought, addToDay, DEFAULT_SHARE, isFinal, kindsTaken, parseKinds, parsePool, parseShare, pauseReason, restAfter, THOUGHTS_KEPT, toggleKind,
+import { addThought, addToDay, DEFAULT_SHARE, isFinal, kindsTaken, measuredSpeeds, parseKinds, parsePool, parseShare, pauseReason, restAfter, THOUGHTS_KEPT, toggleKind,
   usedToday } from '../modules/shareCore';
 
 describe('the share host', () => {
@@ -114,5 +114,15 @@ describe('the distributed mind now', () => {
       top: [{ rank: 1, wallet: '0x1111…1111', core_seconds: 30, jobs: 4, trusted: true }] });
     expect(parsePool({ nope: 1 })).toBeNull();
     expect(parsePool(null)).toBeNull();
+  });
+});
+
+describe('the speeds sent at join', () => {
+  it("this browser's measured speeds at its thread count, or nothing", () => {
+    const rows = [{ threads: 2, answers: 3, gen: 6.12345, prompt: 12.8 }, { threads: 4, answers: 0, gen: 0, prompt: 0 }];
+    expect(measuredSpeeds(rows, 2)).toEqual({ gen_tps: 6.123, prompt_tps: 12.8 });
+    expect(measuredSpeeds(rows, 4)).toEqual({});
+    expect(measuredSpeeds(rows, 8)).toEqual({});
+    expect(measuredSpeeds([{ threads: 1, answers: 1, gen: NaN, prompt: 3 }], 1)).toEqual({ prompt_tps: 3 });
   });
 });
