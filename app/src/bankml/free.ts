@@ -3,7 +3,7 @@
 // pulled from its pinned source only when the visitor imports it, in the background, with progress, pause and cancel
 // (download()); bankML checks its sha256 before it answers and puts a receipt on every answer, checked here. The
 // visitor's settings (threads, context, prompt cache, answer length) are kept in localStorage.
-import type { Turn, Verdict } from './engine';
+import type { Receipt, Turn, Verdict } from './engine';
 import { sha256hex } from './engine';
 import { ctxCapFor, mb } from './caps';
 import { recordAnswer, recordLoad, recordWarm, usageLog } from './usage';
@@ -725,4 +725,45 @@ export async function* askBrowse(composed: string, turns: Turn[], message: strin
     line: `${ok ? '✓ receipt' : receipt ? '✗ receipt: the answer does not match its sha256' : '✗ no receipt'} · bankML ${v.version} in this browser · ${v.model} · ` +
       `${u.prompt_tokens ?? '?'} + ${u.completion_tokens ?? '?'} tokens · ${Number(tm.predicted_per_second || 0).toFixed(2)} tok/s · free`,
   });
+}
+
+// ── SHARE: one job for a host that asked, run exactly as sent ────────────────────────────────────────────────────
+/** A shared job's answer: the text, the engine's own receipt (verified here by its sha256), its counts and timings. */
+export interface SharedAnswer {
+  text: string; ok: boolean; receipt: Receipt | null;
+  usage: { prompt_tokens?: number; completion_tokens?: number };
+  timings: { prompt_per_second?: number; predicted_per_second?: number; prompt_ms?: number; predicted_ms?: number; cache_n?: number };
+  finish?: string;
+}
+
+/** Run one job a host sent (SHARE, modules/share.tsx) on this browser's engine. The messages go in exactly as sent:
+ *  no persona and no "WHERE YOU ARE RUNNING" line (that line says nothing is sent anywhere, which is not so for a
+ *  shared job). It waits its turn behind the visitor's own question (the engine's lane), and STOP (`signal`) ends it at
+ *  its next piece. The visitor's answer stats (usage log) are not touched: this work is the host's. */
+export async function shareBrowse(messages: { role: string; content: string }[], maxTokens: number, temperature?: number,
+  signal?: AbortSignal): Promise<SharedAnswer> {
+  const b = await mod();
+  if (!b.isReady() || !browsed) throw new Error('bankML is not loaded');
+  const onAbort = () => { void stopBrowse(); };
+  signal?.addEventListener('abort', onAbort, { once: true });
+  const pieces: string[] = [];
+  engineLog('step', `share: a job for the host, ${maxTokens} tokens at most`);
+  setActivity('reading');
+  let result: any;
+  try {
+    result = await b.chat({ messages, max_tokens: maxTokens, ...(temperature != null ? { temperature } : {}) },
+      (p: string) => { pieces.push(p); token(); }, fromEngine);
+  } finally {
+    signal?.removeEventListener('abort', onAbort);
+    setActivity('idle');
+  }
+  const text = pieces.join('');
+  const receipt: Receipt | null = result?.bankml_receipt ?? null, u = result?.usage ?? {}, tm = result?.timings ?? {};
+  noteRate(Number(tm.predicted_per_second) || 0);
+  const ok = !!receipt && (await sha256hex(text)) === receipt.response_sha256;
+  engineLog(ok ? 'ok' : 'error', `share: ${ok ? 'receipt ✓' : 'receipt ✗'} · ${u.prompt_tokens ?? '?'} + ${u.completion_tokens ?? '?'} tokens · ` +
+    `reading ${Number(tm.prompt_per_second || 0).toFixed(2)}, writing ${Number(tm.predicted_per_second || 0).toFixed(2)} tok/s`);
+  return { text, ok, receipt, usage: { prompt_tokens: u.prompt_tokens, completion_tokens: u.completion_tokens },
+    timings: { prompt_per_second: tm.prompt_per_second, predicted_per_second: tm.predicted_per_second, prompt_ms: tm.prompt_ms,
+      predicted_ms: tm.predicted_ms, cache_n: tm.cache_n }, finish: result?.choices?.[0]?.finish_reason };
 }

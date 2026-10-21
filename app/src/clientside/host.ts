@@ -11,7 +11,10 @@
 export interface AtlasHost { label: string; api: string; search: string; doc: string; token: string; signin?: string }
 /** Where a host keeps memories, for its edition's memory push (mindX: /gitmind/ingest, /gitmind/ingested). */
 export interface MemoryHost { label: string; push: string; ingested: string; token: string; signin?: string }
-export interface Host { persona?: string; atlas?: AtlasHost; memory?: MemoryHost }
+/** Where a host takes shared CPU (SHARE, modules/share.tsx). mindX: /sharedcpu/{join,update,pull,result,leave,me}. */
+export interface ShareHost { label: string; join: string; update: string; pull: string; result: string; leave: string; me: string;
+  token: string; signin?: string }
+export interface Host { persona?: string; atlas?: AtlasHost; memory?: MemoryHost; share?: ShareHost }
 
 const local = (u: unknown): u is string => typeof u === 'string' && u.startsWith('/') && !u.startsWith('//');
 
@@ -29,6 +32,13 @@ export function parseHost(x: unknown): Host {
   if (m && local(m.push) && local(m.ingested) && typeof m.token === 'string' && m.token) {
     h.memory = { label: typeof m.label === 'string' && m.label ? m.label : 'host', push: m.push, ingested: m.ingested, token: m.token,
       ...(local(m.signin) ? { signin: m.signin } : {}) };
+  }
+  const sh = o.share as Record<string, unknown> | undefined;
+  const SHARE_PATHS = ['join', 'update', 'pull', 'result', 'leave', 'me'] as const;
+  if (sh && SHARE_PATHS.every(k => local(sh[k])) && typeof sh.token === 'string' && sh.token) {
+    const paths = Object.fromEntries(SHARE_PATHS.map(k => [k, sh[k] as string])) as Record<typeof SHARE_PATHS[number], string>;
+    h.share = { label: typeof sh.label === 'string' && sh.label ? sh.label : 'host', ...paths, token: sh.token,
+      ...(local(sh.signin) ? { signin: sh.signin } : {}) };
   }
   return h;
 }
