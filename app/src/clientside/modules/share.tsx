@@ -235,8 +235,8 @@ function ShareBody(_: ModuleWindowProps) {
   return (
     <div className="mp share">
       <div className="cp-row"><dt><IndicatorLamp on={st.phase !== 'off'} color={LAMP[st.phase]} size={12} /> state</dt><dd>{label}</dd></div>
-      {pool && <div className="cp-row"><dt>the distributed mind</dt><dd>{pool.contributors} browser{pool.contributors === 1 ? '' : 's'} sharing
-        ({pool.available} ready) · {pool.queued} thought{pool.queued === 1 ? '' : 's'} waiting · {Math.round(pool.coreSeconds)} core-seconds given
+      {pool && <div className="cp-row"><dt>the distributed mind</dt><dd>{pool.contributors} sharing
+        ({pool.available} ready{pool.machines ? ` · ${pool.machines} machine${pool.machines === 1 ? '' : 's'}` : ''}{pool.gpus ? ` · ${pool.gpus} GPU${pool.gpus === 1 ? '' : 's'}` : ''}) · {pool.queued} thought{pool.queued === 1 ? '' : 's'} waiting · {Math.round(pool.coreSeconds)} core-seconds given
         {mine?.rank ? ` · you are #${mine.rank.rank} of ${mine.rank.of}` : ''}
         {!!pool.top.length && <details><summary>who gives the most</summary>{pool.top.map(r =>
           <div key={r.rank} className="cp-fine">#{r.rank} {r.wallet} · {Math.round(r.core_seconds)} core-s · {r.jobs} job{r.jobs === 1 ? '' : 's'}{r.trusted ? ' · trusted' : ''}</div>)}</details>}</dd></div>}

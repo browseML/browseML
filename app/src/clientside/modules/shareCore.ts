@@ -128,7 +128,7 @@ export const THOUGHTS_KEPT = 12;
 export const addThought = (list: Thought[], t: Thought) => [t, ...list].slice(0, THOUGHTS_KEPT);
 
 /** The host's public pool view (dmind's /insight/sharedcpu), the fields the panel shows; anything malformed is dropped. */
-export interface PoolView { contributors: number; available: number; queued: number; coreSeconds: number;
+export interface PoolView { contributors: number; available: number; queued: number; coreSeconds: number; machines: number; gpus: number;
   top: { rank: number; wallet: string; core_seconds: number; jobs: number; trusted: boolean }[] }
 export function parsePool(raw: unknown): PoolView | null {
   const o = raw as Record<string, unknown> | null;
@@ -137,8 +137,11 @@ export function parsePool(raw: unknown): PoolView | null {
   const top = (Array.isArray(o.top) ? o.top : []).filter((r): r is Record<string, unknown> => !!r && typeof r === 'object')
     .slice(0, 5).map(r => ({ rank: n(r.rank), wallet: String(r.wallet ?? '').slice(0, 16), core_seconds: n(r.core_seconds), jobs: n(r.jobs),
       trusted: r.trusted === true }));
+  const cap = (o.capacity && typeof o.capacity === 'object' ? Object.values(o.capacity as Record<string, unknown>) : [])
+    .filter((c): c is Record<string, unknown> => !!c && typeof c === 'object');
   return { contributors: n(o.contributors), available: n(o.available), queued: n(o.queued),
-    coreSeconds: n((o.totals as Record<string, unknown> | undefined)?.core_seconds), top };
+    coreSeconds: n((o.totals as Record<string, unknown> | undefined)?.core_seconds), top,
+    machines: cap.reduce((s, c) => s + n(c.machines), 0), gpus: cap.reduce((s, c) => s + n(c.gpus), 0) };
 }
 
 /** This browser's own measured speeds at the thread count it runs (browseML's usage log, the visitor's own answers),

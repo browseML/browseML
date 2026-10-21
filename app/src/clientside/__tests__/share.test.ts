@@ -110,8 +110,10 @@ describe('the distributed mind now', () => {
   it('the pool view keeps what the panel shows and drops junk', () => {
     const v = parsePool({ contributors: 3, available: 2, queued: 1, totals: { core_seconds: 42.5 },
       top: [{ rank: 1, wallet: '0x1111…1111', core_seconds: 30, jobs: 4, trusted: true }, null, 'x'] });
-    expect(v).toEqual({ contributors: 3, available: 2, queued: 1, coreSeconds: 42.5,
+    expect(v).toEqual({ contributors: 3, available: 2, queued: 1, coreSeconds: 42.5, machines: 0, gpus: 0,
       top: [{ rank: 1, wallet: '0x1111…1111', core_seconds: 30, jobs: 4, trusted: true }] });
+    expect(parsePool({ contributors: 2, capacity: { 'bankml-q1': { machines: 1, gpus: 1 }, ungrouped: { machines: 1, gpus: 0 } } }))
+      .toMatchObject({ machines: 2, gpus: 1 });
     expect(parsePool({ nope: 1 })).toBeNull();
     expect(parsePool(null)).toBeNull();
   });
