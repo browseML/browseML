@@ -13,7 +13,7 @@ export interface AtlasHost { label: string; api: string; search: string; doc: st
 export interface MemoryHost { label: string; push: string; ingested: string; token: string; signin?: string }
 /** Where a host takes shared CPU (SHARE, modules/share.tsx). mindX: /sharedcpu/{join,update,pull,result,leave,me}. */
 export interface ShareHost { label: string; join: string; update: string; pull: string; result: string; leave: string; me: string;
-  token: string; signin?: string }
+  token: string; signin?: string; /** the public pool view (dmind), read without the token: /insight/sharedcpu */ insight?: string }
 export interface Host { persona?: string; atlas?: AtlasHost; memory?: MemoryHost; share?: ShareHost }
 
 const local = (u: unknown): u is string => typeof u === 'string' && u.startsWith('/') && !u.startsWith('//');
@@ -38,7 +38,7 @@ export function parseHost(x: unknown): Host {
   if (sh && SHARE_PATHS.every(k => local(sh[k])) && typeof sh.token === 'string' && sh.token) {
     const paths = Object.fromEntries(SHARE_PATHS.map(k => [k, sh[k] as string])) as Record<typeof SHARE_PATHS[number], string>;
     h.share = { label: typeof sh.label === 'string' && sh.label ? sh.label : 'host', ...paths, token: sh.token,
-      ...(local(sh.signin) ? { signin: sh.signin } : {}) };
+      ...(local(sh.signin) ? { signin: sh.signin } : {}), ...(local(sh.insight) ? { insight: sh.insight } : {}) };
   }
   return h;
 }

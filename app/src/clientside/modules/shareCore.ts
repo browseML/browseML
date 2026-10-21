@@ -123,6 +123,20 @@ export const usedToday = (b: DayBudget | null, day = today()) => (b && b.day ===
 export const isFinal = (r: { barred?: boolean } | null | undefined) => !!r?.barred;
 
 /** One thought this browser gave, for the panel's list (kept for this visit only, never sent anywhere). */
-export interface Thought { at: number; kind: string; purpose: string; tokens: number; ms: number; verdict: 'accepted' | 'held' | 'refused' }
+export interface Thought { at: number; kind: string; purpose: string; tokens: number; ms: number; verdict: 'accepted' | 'held' | 'refused' | 'cancelled' }
 export const THOUGHTS_KEPT = 12;
 export const addThought = (list: Thought[], t: Thought) => [t, ...list].slice(0, THOUGHTS_KEPT);
+
+/** The host's public pool view (dmind's /insight/sharedcpu), the fields the panel shows; anything malformed is dropped. */
+export interface PoolView { contributors: number; available: number; queued: number; coreSeconds: number;
+  top: { rank: number; wallet: string; core_seconds: number; jobs: number; trusted: boolean }[] }
+export function parsePool(raw: unknown): PoolView | null {
+  const o = raw as Record<string, unknown> | null;
+  if (!o || typeof o !== 'object' || typeof o.contributors !== 'number') return null;
+  const n = (v: unknown) => (typeof v === 'number' && isFinite(v) ? v : 0);
+  const top = (Array.isArray(o.top) ? o.top : []).filter((r): r is Record<string, unknown> => !!r && typeof r === 'object')
+    .slice(0, 5).map(r => ({ rank: n(r.rank), wallet: String(r.wallet ?? '').slice(0, 16), core_seconds: n(r.core_seconds), jobs: n(r.jobs),
+      trusted: r.trusted === true }));
+  return { contributors: n(o.contributors), available: n(o.available), queued: n(o.queued),
+    coreSeconds: n((o.totals as Record<string, unknown> | undefined)?.core_seconds), top };
+}

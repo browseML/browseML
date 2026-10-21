@@ -25,8 +25,9 @@ import { host, type ShareHost } from '../host';
 import { monitor } from '../monitor';
 import { browseCached, browseState, loadBrowse, shareBrowse } from '../../bankml/free';
 import { activity } from '../../bankml/pulse';
-import { addThought, addToDay, DAILY_CHOICES, isFinal, JOB_TOKEN_CHOICES, kindsTaken, parseKinds, parseShare, PAUSE_CHOICES, pauseReason,
-  PCT_MIN, restAfter, toggleKind, usedToday, type DayBudget, type KindInfo, type ShareSettings, type Thought } from './shareCore';
+import { addThought, addToDay, DAILY_CHOICES, isFinal, JOB_TOKEN_CHOICES, kindsTaken, parseKinds, parsePool, parseShare, PAUSE_CHOICES,
+  pauseReason, PCT_MIN, restAfter, toggleKind, usedToday, type DayBudget, type KindInfo, type PoolView, type ShareSettings,
+  type Thought } from './shareCore';
 
 const GREEN = '#0ECB81', ORANGE = '#F7931A', RED = '#F6465D';
 const KEY = 'browseml:share', DAY = 'browseml:share-day';
@@ -44,14 +45,14 @@ interface Visit { jobs: number; refused: number; tokens: number; engineMs: numbe
 interface Trust { passed: number; after: number; trusted: boolean; note: string }
 interface Current { kind: string; label: string; purpose: string; messages: { role: string; content: string }[]; maxTokens: number }
 interface State { phase: Phase; why: string; restUntil: number; visit: Visit; catalogue: Record<string, KindInfo>; current: Current | null;
-  thoughts: Thought[]; trust: Trust | null }
+  thoughts: Thought[]; trust: Trust | null; /** can the host re-run this browser's model to check its answers? */ sharedModel: boolean | null }
 /** A refusal retrying cannot fix: sharing stops and the panel says why. */
 class Final extends Error {}
 
 // ── the loop: one per page, kept while the window is closed ──────────────────────────────────────────────────────
 let settings: ShareSettings = load(KEY, parseShare);
 let state: State = { phase: 'off', why: '', restUntil: 0, visit: { jobs: 0, refused: 0, tokens: 0, engineMs: 0, lastGen: null, lastPrompt: null, lastOk: null },
-  catalogue: {}, current: null, thoughts: [], trust: null };
+  catalogue: {}, current: null, thoughts: [], trust: null, sharedModel: null };
 let ctl: AbortController | null = null, session = '', ownJob = false;
 const fns = new Set<() => void>();
 const set = (p: Partial<State>) => { state = { ...state, ...p }; fns.forEach(f => f()); };
@@ -94,7 +95,7 @@ async function join(): Promise<void> {
   if (!j.ok) throw new Final(j.reason || 'the host refused');   // retrying a refused join only knocks again
   session = j.session;
   const catalogue = parseKinds(j.kinds);
-  set({ catalogue, trust: asTrust(j.trust) ?? state.trust });
+  set({ catalogue, trust: asTrust(j.trust) ?? state.trust, sharedModel: typeof j.shared_model === 'boolean' ? j.shared_model : null });
   if (!known.kinds && Object.keys(catalogue).length && settings.kinds)   // the visitor's earlier choice, now that it can be named
     await call('update', { session, kinds: kindsTaken(settings, catalogue) });
 }
@@ -143,15 +144,29 @@ export async function startShare(): Promise<void> {
       ownJob = true;
       const t0 = performance.now();
       let a;
-      // a long job keeps the session alive: the host would otherwise take a silent browser for gone
-      const alive = setInterval(() => { void call('update', { session }).catch(() => { /* the next beat */ }); }, HEARTBEAT_MS);
+      // the job's own stop: STOP ends it, and so does the host withdrawing it (its caller gave up)
+      const jobCtl = new AbortController(), onStop = () => jobCtl.abort();
+      signal.addEventListener('abort', onStop, { once: true });
+      let withdrawn = false;
+      // a long job keeps the session alive (the host would otherwise take a silent browser for gone), and the
+      // heartbeat's reply says when the host no longer wants this answer, so the engine stops early
+      const alive = setInterval(() => {
+        void call('update', { session }).then(b => { if (b?.cancelled === job.job) { withdrawn = true; jobCtl.abort(); } })
+          .catch(() => { /* the next beat */ });
+      }, HEARTBEAT_MS);
       // exactly the job's own max_tokens: the host may re-run it to audit, and a smaller cap would change the bytes
       // (the host already sends only jobs within this browser's largest-job choice)
-      try { a = await shareBrowse(job.messages, job.max_tokens, job.temperature, signal); }
-      finally { ownJob = false; clearInterval(alive); beat = Date.now(); }
+      try { a = await shareBrowse(job.messages, job.max_tokens, job.temperature, jobCtl.signal); }
+      catch (e) { if (!withdrawn || signal.aborted) throw e; }
+      finally { ownJob = false; clearInterval(alive); signal.removeEventListener('abort', onStop); beat = Date.now(); }
       const engineMs = performance.now() - t0;
       save(DAY, addToDay(load(DAY, x => x as DayBudget | null), engineMs));
       if (signal.aborted) break;            // STOP mid-job: nothing sent; leave() returns the job to the queue
+      if (withdrawn || !a) {                 // the host withdrew it: nothing to send, and no rest owed
+        set({ current: null, thoughts: addThought(state.thoughts, { at: Date.now(), kind: state.current?.label ?? kind,
+          purpose: state.current?.purpose ?? '', tokens: 0, ms: engineMs, verdict: 'cancelled' }) });
+        continue;
+      }
       const r = await call('result', { session, job: job.job, text: a.text, receipt: a.receipt, usage: a.usage, timings: a.timings });
       const v = state.visit;
       const tokens = (Number(a.usage.prompt_tokens) || 0) + (Number(a.usage.completion_tokens) || 0);
@@ -190,7 +205,17 @@ function ShareBody(_: ModuleWindowProps) {
   const h = host().share!;
   const [, tick] = useState(0);
   const [mine, setMine] = useState<{ ledger?: { credits_earned?: number; cpu_seconds?: number; balance?: number } | null; live?: { audits_passed?: number }[];
-    trust?: unknown; barred_until?: number | null } | null>(null);
+    trust?: unknown; barred_until?: number | null; rank?: { rank: number; of: number } | null } | null>(null);
+  const [pool, setPool] = useState<PoolView | null>(null);
+  useEffect(() => {                         // the distributed mind now: public, read without the token
+    if (!h.insight) return;
+    let live = true;
+    const read = () => void fetch(h.insight!, { credentials: 'omit', headers: { Accept: 'application/json' } })
+      .then(r => (r.ok ? r.json() : null)).then(j => { if (live) setPool(parsePool(j)); }).catch(() => { if (live) setPool(null); });
+    read();
+    const t = setInterval(read, 30_000);
+    return () => { live = false; clearInterval(t); };
+  }, [h.insight]);
   useEffect(() => { const f = () => tick(n => n + 1); fns.add(f); const t = setInterval(f, 1000); return () => { fns.delete(f); clearInterval(t); }; }, []);
   const refresh = () => {
     const t = token(h);
@@ -207,6 +232,13 @@ function ShareBody(_: ModuleWindowProps) {
   return (
     <div className="mp share">
       <div className="cp-row"><dt><IndicatorLamp on={st.phase !== 'off'} color={LAMP[st.phase]} size={12} /> state</dt><dd>{label}</dd></div>
+      {pool && <div className="cp-row"><dt>the distributed mind</dt><dd>{pool.contributors} browser{pool.contributors === 1 ? '' : 's'} sharing
+        ({pool.available} ready) · {pool.queued} thought{pool.queued === 1 ? '' : 's'} waiting · {Math.round(pool.coreSeconds)} core-seconds given
+        {mine?.rank ? ` · you are #${mine.rank.rank} of ${mine.rank.of}` : ''}
+        {!!pool.top.length && <details><summary>who gives the most</summary>{pool.top.map(r =>
+          <div key={r.rank} className="cp-fine">#{r.rank} {r.wallet} · {Math.round(r.core_seconds)} core-s · {r.jobs} job{r.jobs === 1 ? '' : 's'}{r.trusted ? ' · trusted' : ''}</div>)}</details>}</dd></div>}
+      {st.sharedModel === false && <div className="cp-row"><dt>note</dt><dd>{h.label} cannot re-run this browser's model, so it cannot check these
+        answers: only kinds that accept unchecked answers come here, and trust is not earned with this model.</dd></div>}
       {st.current && <div className="cp-row"><dt>{h.label} is thinking</dt><dd><b>{st.current.label}</b>{st.current.purpose ? ` — ${st.current.purpose}` : ''}
         <details><summary>what was sent ({st.current.messages.length} message{st.current.messages.length === 1 ? '' : 's'}, up to {st.current.maxTokens} tokens back)</summary>
           {st.current.messages.map((m, i) => <pre key={i} className="cp-fine">{m.role}: {m.content}</pre>)}</details></dd></div>}
@@ -251,7 +283,8 @@ function ShareBody(_: ModuleWindowProps) {
         {mine?.barred_until ? <div className="cp-row"><dt>refused</dt><dd>an answer did not match; {h.label} refuses this wallet until {new Date(mine.barred_until * 1000).toLocaleString()}</dd></div> : null}
         {!!st.thoughts.length && <div className="cp-row"><dt>thoughts given</dt><dd>{st.thoughts.map(t =>
           <div key={t.at} className="cp-fine">{new Date(t.at).toLocaleTimeString()} · {t.kind}{t.purpose ? ` — ${t.purpose}` : ''} · {t.tokens} tokens · {secs(t.ms)} · {
-            t.verdict === 'accepted' ? '✓ used' : t.verdict === 'held' ? '◷ held for audit' : '✗ refused'}</div>)}</dd></div>}
+            t.verdict === 'accepted' ? '✓ used' : t.verdict === 'held' ? '◷ held for audit' : t.verdict === 'cancelled'
+              ? '⊘ withdrawn by the host (stopped early)' : '✗ refused'}</div>)}</dd></div>}
         <div className="cp-row"><dt>credited by {h.label}</dt><dd>{mine?.ledger ? `${mine.ledger.credits_earned ?? 0} credits · ${mine.ledger.cpu_seconds ?? 0} core-seconds` : token(h) ? 'nothing yet' : 'sign in to see'}</dd></div>
       </dl>
       <p className="cp-fine">SHARE lends this browser's bankML to {h.label}: it runs {h.label}'s jobs here and sends back each answer with its receipt

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 import { parseHost } from '../host';
-import { addThought, addToDay, DEFAULT_SHARE, isFinal, kindsTaken, parseKinds, parseShare, pauseReason, restAfter, THOUGHTS_KEPT, toggleKind,
+import { addThought, addToDay, DEFAULT_SHARE, isFinal, kindsTaken, parseKinds, parsePool, parseShare, pauseReason, restAfter, THOUGHTS_KEPT, toggleKind,
   usedToday } from '../modules/shareCore';
 
 describe('the share host', () => {
@@ -9,6 +9,10 @@ describe('the share host', () => {
     leave: '/sharedcpu/leave', me: '/sharedcpu/me', token: 'mindx_realm_token', signin: '/activity' };
   it('a share host on same-origin paths is kept', () => {
     expect(parseHost({ share }).share).toEqual(share);
+  });
+  it('the public pool view is kept only on the same origin', () => {
+    expect(parseHost({ share: { ...share, insight: '/insight/sharedcpu' } }).share?.insight).toBe('/insight/sharedcpu');
+    expect(parseHost({ share: { ...share, insight: 'https://evil.example/i' } }).share?.insight).toBeUndefined();
   });
   it('one path anywhere else drops it, so the token can never leave the origin', () => {
     expect(parseHost({ share: { ...share, result: 'https://evil.example/r' } }).share).toBeUndefined();
@@ -99,5 +103,16 @@ describe('distributed.mind: the kinds of thought', () => {
     for (let i = 0; i < THOUGHTS_KEPT + 3; i++) l = addThought(l, { at: i, kind: 'answer', purpose: '', tokens: 1, ms: 1, verdict: 'accepted' });
     expect(l.length).toBe(THOUGHTS_KEPT);
     expect(l[0].at).toBe(THOUGHTS_KEPT + 2);
+  });
+});
+
+describe('the distributed mind now', () => {
+  it('the pool view keeps what the panel shows and drops junk', () => {
+    const v = parsePool({ contributors: 3, available: 2, queued: 1, totals: { core_seconds: 42.5 },
+      top: [{ rank: 1, wallet: '0x1111…1111', core_seconds: 30, jobs: 4, trusted: true }, null, 'x'] });
+    expect(v).toEqual({ contributors: 3, available: 2, queued: 1, coreSeconds: 42.5,
+      top: [{ rank: 1, wallet: '0x1111…1111', core_seconds: 30, jobs: 4, trusted: true }] });
+    expect(parsePool({ nope: 1 })).toBeNull();
+    expect(parsePool(null)).toBeNull();
   });
 });
